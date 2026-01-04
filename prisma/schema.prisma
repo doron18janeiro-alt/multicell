@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Customer {
+  id            String         @id @default(uuid())
+  name          String
+  phone         String
+  document      String?        @unique
+  createdAt     DateTime       @default(now())
+  serviceOrders ServiceOrder[]
+}
+
+model ServiceOrder {
+  id              Int      @id @default(autoincrement())
+  status          String   @default("ABERTO") // ABERTO, ANALISE, APROVADO, AGUARDANDO_PECA, PRONTO, ENTREGUE
+  brand           String
+  model           String
+  imei            String?
+  passcode        String?
+  description     String
+  technicalReport String?
+  checklist       String?  // Armazenado como JSON string
+  price           Float?
+  entryDate       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  name          String
+  price         Float
+  costPrice     Float      @default(0)
+  category      String     @default("PECA")
+  stockQuantity Int
+  createdAt     DateTime   @default(now())
+  saleItems     SaleItem[]
+  supplierId    String?
+  supplier      Supplier?  @relation(fields: [supplierId], references: [id])
+}
+
+model Supplier {
+  id         String    @id @default(uuid())
+  name       String
+  contact    String?
+  whatsapp   String?
+  catalogUrl String?
+  products   Product[]
+}
+
+model Sale {
+  id            Int        @id @default(autoincrement())
+  total         Float
+  paymentMethod String
+  createdAt     DateTime   @default(now())
+  items         SaleItem[]
+}
+
+model SaleItem {
+  id        Int     @id @default(autoincrement())
+  saleId    Int
+  sale      Sale    @relation(fields: [saleId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+}

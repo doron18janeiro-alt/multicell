@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 11, 17, 32; /* Deep Navy */
+  --background-end-rgb: 15, 23, 42;
+  --gold-accent: #ffd700;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+}
+
+/* Efeito de Circuito (Opcional para background) */
+.circuit-pattern {
+  background-image: radial-gradient(#334155 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.1;
+}
+
+.input-tech {
+  @apply bg-slate-900 border border-slate-700 text-slate-100 rounded-md px-4 py-2 focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-all duration-300;
+}
+
+.label-tech {
+  @apply block text-xs font-bold text-[#FFD700] uppercase tracking-wider mb-1;
+}
+
+.card-tech {
+  @apply bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-6 shadow-xl;
+}
