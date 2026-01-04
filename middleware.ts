@@ -1,41 +1,22 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
+  const token = request.cookies.get('auth_token');
+  const isLoginPage = request.nextUrl.pathname === '/login';
+  const isPublicApi = request.nextUrl.pathname.startsWith('/api/auth');
 
-  // Public paths that don't require authentication
-  const isPublicPath =
-    path === "/login" ||
-    path === "/consulta" ||
-    path.startsWith("/api/os/status") ||
-    path.startsWith("/api/auth/login");
-
-  const token = request.cookies.get("auth_token")?.value || "";
-
-  if (isPublicPath && token) {
-    // If user is already logged in and tries to access login, redirect to dashboard
-    if (path === "/login") {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
+  if (!token && !isLoginPage && !isPublicApi && !request.nextUrl.pathname.startsWith('/consulta')) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  if (!isPublicPath && !token) {
-    // If user is not logged in and tries to access protected route, redirect to login
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (token && isLoginPage) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    "/",
-    "/vendas/:path*",
-    "/estoque/:path*",
-    "/os/:path*",
-    "/clientes/:path*",
-    "/relatorios/:path*",
-    "/api/:path*",
-    "/login",
-    "/consulta",
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|public|manifest.json).*)'],
 };
