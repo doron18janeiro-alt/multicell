@@ -3,15 +3,15 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const body = await request.json();
     const { status, technicalReport, price } = body;
 
     const updatedOrder = await prisma.serviceOrder.update({
-      where: { id },
+      where: { id: parseInt(id) },
       data: {
         status,
         technicalReport,
