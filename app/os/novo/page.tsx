@@ -47,7 +47,7 @@ export default function NewServiceOrder() {
   });
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
   });
 
   const handleInputChange = (
