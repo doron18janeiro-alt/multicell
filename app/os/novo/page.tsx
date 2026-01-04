@@ -418,6 +418,11 @@ export default function NewServiceOrder() {
                           />
                         </svg>
                       </div>
+                      <span className="text-sm text-slate-300">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
           </section>
 
           
