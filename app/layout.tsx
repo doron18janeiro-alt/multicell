@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import ClientLayout from "@/components/ClientLayout";
 import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -22,14 +22,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.className} min-h-screen bg-[#0A192F]`}>
+      <body className={`${inter.className} min-h-screen bg-[#050c1a]`}>
         <KeyboardShortcuts />
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen bg-[#0A192F]">
-            {children}
-          </main>
-        </div>
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   );
