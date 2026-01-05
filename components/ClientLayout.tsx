@@ -25,7 +25,9 @@ export default function ClientLayout({
         </div>
       ) : (
         /* TELA DE LOGIN CHEIA SEM SIDEBAR */
-        <main className="w-full h-screen">{children}</main>
+        <main className="w-full h-screen flex items-center justify-center">
+          {children}
+        </main>
       )}
     </div>
   );
