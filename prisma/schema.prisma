@@ -14,47 +14,74 @@ model Customer {
   phone         String
   document      String?        @unique
   createdAt     DateTime       @default(now())
+  // Relação corrigida:
   serviceOrders ServiceOrder[]
 }
 
-model ServiceOrder {
-  id              Int      @id @default(autoincrement())
-  status          String   @default("ABERTO") // ABERTO, ANALISE, APROVADO, AGUARDANDO_PECA, PRONTO, ENTREGUE
-  brand           String
-  model           String
-  imei            String?
-  passcode        String?
-  description     String
-  technicalReport String?
-  checklist       String?  // Armazenado como JSON string
-  price           Float?
-  entryDate       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  customerId String
-  customer   Customer @relation(fields: [customerId], references: [id])
+enum OSStatus {
+  ABERTO
+  EM_REPARO
+  AGUARDANDO_PECA
+  PRONTO
+  FINALIZADO
+  CANCELADO
 }
 
 model Product {
-  id            String     @id @default(uuid())
-  name          String
-  price         Float
-  costPrice     Float      @default(0)
-  category      String     @default("PECA")
-  stockQuantity Int
-  createdAt     DateTime   @default(now())
-  saleItems     SaleItem[]
-  supplierId    String?
-  supplier      Supplier?  @relation(fields: [supplierId], references: [id])
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  stock       Int      @default(0)
+  minStock    Int      @default(5)
+  costPrice   Float    @default(0) // Preço de custo para o lucro
+  salePrice   Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos necessários:
+  supplierId  String?
+  supplier    Supplier?  @relation(fields: [supplierId], references: [id])
+  sales       SaleItem[]
+}
+
+model ServiceOrder {
+  id             String   @id @default(cuid())
+  osNumber       Int      @unique @default(autoincrement())
+  clientName     String
+  clientPhone    String
+  clientCpf      String?
+  deviceBrand    String   // Ex: Samsung, Dell, HP
+  deviceModel    String   // Ex: S23, Latitude 3420
+  deviceColor    String?
+  serialNumber   String?
+  devicePassword String?
+  problem        String
+  observations   String?
+  checklist      Json?    
+  status         OSStatus @default(ABERTO)
+  
+  // Financeiro da O.S. (Garantindo lucro livre)
+  costPrice      Float    @default(0) // Valor gasto em peças
+  servicePrice   Float    @default(0) // Valor da mão de obra
+  totalPrice     Float    @default(0) // Valor total cobrado
+  paymentMethod  String?  
+
+  // Relação com Customer (Obrigatório para o Prisma):
+  customerId     String?
+  customer       Customer? @relation(fields: [customerId], references: [id])
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Supplier {
-  id         String    @id @default(uuid())
-  name       String
-  contact    String?
-  whatsapp   String?
-  catalogUrl String?
-  products   Product[]
+  id          String    @id @default(uuid())
+  name        String
+  contact     String?
+  whatsapp    String?
+  catalogUrl  String?
+  products    Product[]
 }
 
 model Sale {

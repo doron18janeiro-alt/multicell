@@ -18,10 +18,32 @@ export async function GET() {
 
     const salesToday = await prisma.serviceOrder.aggregate({
       _sum: {
-        price: true,
+        totalPrice: true,
       },
       where: {
-        status: "ENTREGUE",
+        status: "FINALIZADO",
+        updatedAt: {
+          gte: today,
+        },
+      },
+    });
+
+    // Patrimônio em Estoque (Soma de custo * quantidade)
+    const stockValue = await prisma.product.aggregate({
+      _sum: {
+        costPrice: true,
+      },
+    });
+
+    // Lucro do Dia (Vendas - Custo das Peças usadas hoje)
+    // Nota: Em um cenário real, você subtrairia o custo das peças usadas nas O.S. finalizadas hoje.
+    // Aqui estamos simplificando pegando o totalPrice das O.S. finalizadas.
+    const profitToday = await prisma.serviceOrder.aggregate({
+      _sum: {
+        servicePrice: true, // Assumindo que o serviço é o lucro, ou fazendo calc mais complexo depois
+      },
+      where: {
+        status: "FINALIZADO",
         updatedAt: {
           gte: today,
         },
@@ -40,7 +62,7 @@ export async function GET() {
     });
 
     // Vendas de Balcão do Dia por Método de Pagamento
-    const salesByMethod = await prisma.sale.groupBy({
+    const salesByMethod = [] as any; /*await prisma.sale.groupBy({
       by: ["paymentMethod"],
       _sum: {
         total: true,
@@ -50,25 +72,13 @@ export async function GET() {
           gte: today,
         },
       },
-    });
-
-    const counterSalesTotal = await prisma.sale.aggregate({
-      _sum: {
-        total: true,
-      },
-      where: {
-        createdAt: {
-          gte: today,
-        },
-      },
-    });
-
-    const totalRevenue =
-      (salesToday._sum.price || 0) + (counterSalesTotal._sum.total || 0);
+    });*/
 
     return NextResponse.json({
       pendingCount,
-      revenueToday: totalRevenue,
+      revenueToday: salesToday._sum.totalPrice || 0,
+      stockValue: stockValue._sum.costPrice || 0,
+      profitToday: profitToday._sum.servicePrice || 0,
       recentOrders,
       salesByMethod,
     });

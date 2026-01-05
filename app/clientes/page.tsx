@@ -14,7 +14,10 @@ interface Customer {
   };
 }
 
+import { useRouter } from "next/navigation";
+
 export default function Clientes() {
+  const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -52,7 +55,16 @@ export default function Clientes() {
       });
 
       if (res.ok) {
+        const result = await res.json();
         alert("Cliente cadastrado com sucesso!");
+        const confirmar = window.confirm(
+          "✅ Cliente cadastrado! Deseja abrir uma Ordem de Serviço para ele agora?"
+        );
+
+        if (confirmar) {
+          router.push(`/os/novo?clientId=${result.id}&name=${result.name}`);
+        }
+
         setShowForm(false);
         setFormData({ name: "", phone: "", document: "" });
         fetchCustomers();

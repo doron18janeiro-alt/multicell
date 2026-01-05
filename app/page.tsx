@@ -15,6 +15,8 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     pendingCount: 0,
     revenueToday: 0,
+    stockValue: 0,
+    profitToday: 0,
     recentOrders: [] as any[],
     salesByMethod: [] as any[],
   });
@@ -97,34 +99,46 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Card 3: Lucro Mensal (Mockado por enquanto) */}
+        {/* Card 3: Lucro do Dia */}
         <div className="card-dashboard">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 rounded bg-[#112240] border border-[#233554] text-green-500">
               <TrendingUp size={24} />
             </div>
             <span className="flex items-center text-green-400 text-xs font-bold bg-green-400/10 px-2 py-1 rounded">
-              +8.2% <ArrowUpRight size={14} className="ml-1" />
+              Hoje <ArrowUpRight size={14} className="ml-1" />
             </span>
           </div>
           <h3 className="text-slate-400 text-sm font-medium">
-            Lucro Líquido (Mês)
+            Lucro Líquido (Hoje)
           </h3>
-          <p className="text-2xl font-bold text-white mt-1">R$ 18.240,00</p>
+          <p className="text-2xl font-bold text-white mt-1">
+            {new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            }).format(stats.profitToday)}
+          </p>
         </div>
 
-        {/* Card 4: Alertas de Estoque */}
-        <div className="card-dashboard border-red-900/30">
+        {/* Card 4: Patrimônio em Estoque */}
+        <div className="card-dashboard border-blue-900/30">
           <div className="flex justify-between items-start mb-4">
-            <div className="p-3 rounded bg-[#112240] border border-[#233554] text-red-400">
-              <AlertTriangle size={24} />
+            <div className="p-3 rounded bg-[#112240] border border-[#233554] text-blue-400">
+              <DollarSign size={24} />
             </div>
-            <span className="flex items-center text-red-400 text-xs font-bold bg-red-400/10 px-2 py-1 rounded">
-              Atenção
+            <span className="flex items-center text-blue-400 text-xs font-bold bg-blue-400/10 px-2 py-1 rounded">
+              Total
             </span>
           </div>
-          <h3 className="text-slate-400 text-sm font-medium">Estoque Baixo</h3>
-          <p className="text-2xl font-bold text-white mt-1">5 Itens</p>
+          <h3 className="text-slate-400 text-sm font-medium">
+            Patrimônio (Custo)
+          </h3>
+          <p className="text-2xl font-bold text-white mt-1">
+            {new Intl.NumberFormat("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            }).format(stats.stockValue)}
+          </p>
         </div>
       </div>
 

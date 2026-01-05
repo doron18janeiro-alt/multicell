@@ -11,15 +11,17 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 
 export default function NewServiceOrder() {
+  const searchParams = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
-    clientName: "",
+    clientName: searchParams.get("name") || "",
     clientPhone: "",
     clientDocument: "",
     deviceModel: "",
@@ -27,6 +29,7 @@ export default function NewServiceOrder() {
     imei: "",
     passcode: "",
     clientReport: "",
+    totalPrice: "",
     checklist: {
       physical: {
         riscos: false,
@@ -203,26 +206,38 @@ export default function NewServiceOrder() {
                 Dados do Aparelho
               </h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-[#D4AF37] uppercase mb-2">
-                  Marca
-                </label>
-                <select
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-yellow-500 uppercase">Marca do Aparelho</label>
+                <input
+                  list="marcas-list"
                   name="deviceBrand"
                   value={formData.deviceBrand}
                   onChange={handleInputChange}
-                  className="input-field"
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Apple">Apple</option>
-                  <option value="Samsung">Samsung</option>
-                  <option value="Xiaomi">Xiaomi</option>
-                  <option value="Motorola">Motorola</option>
-                  <option value="Dell">Dell</option>
-                  <option value="Outro">Outro</option>
-                </select>
+                  placeholder="Digite ou selecione (ex: Dell, Samsung)"
+                  className="w-full bg-[#0a1529] border border-gray-700 rounded-md p-3 text-white placeholder-gray-500 focus:border-yellow-500 outline-none transition-all"
+                  required
+                />
+                <datalist id="marcas-list">
+                  <option value="Samsung" /><option value="Apple" /><option value="Motorola" />
+                  <option value="Xiaomi" /><option value="Dell" /><option value="HP" />
+                  <option value="Lenovo" /><option value="Acer" /><option value="Asus" />
+                </datalist>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-yellow-500 uppercase">Valor do Serviço (R$)</label>
+                <input
+                  type="number"
+                  name="totalPrice"
+                  step="0.01"
+                  value={formData.totalPrice}
+                  onChange={handleInputChange}
+                  placeholder="0,00"
+                  className="w-full bg-[#0a1529] border border-gray-700 rounded-md p-3 text-white placeholder-gray-500 focus:border-yellow-500 outline-none"
+                />
+              </div>
+            </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-[#D4AF37] uppercase mb-2">
                   Modelo
