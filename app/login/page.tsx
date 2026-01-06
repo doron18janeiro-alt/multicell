@@ -24,7 +24,7 @@ export default function Login() {
       if (res.ok) {
         // Cookie is set by the server
         localStorage.setItem("multicell_auth", "true"); // Keep for client-side checks if any
-        router.push("/");
+        router.push("/dashboard");
       } else {
         const data = await res.json();
         setError(data.error || "Credenciais inválidas");
