@@ -29,7 +29,7 @@ export default function ServiceOrders() {
   const filteredOrders = orders.filter(
     (os) =>
       os.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      os.osNumber?.toString().includes(searchTerm) ||
+      os.id?.toString().includes(searchTerm) ||
       os.deviceModel?.toLowerCase().includes(searchTerm)
   );
 
@@ -122,9 +122,7 @@ export default function ServiceOrders() {
                     key={os.id}
                     className="hover:bg-[#1e293b] transition-colors"
                   >
-                    <td className="p-4 font-bold text-[#FFD700]">
-                      #{os.osNumber}
-                    </td>
+                    <td className="p-4 font-bold text-[#FFD700]">#{os.id}</td>
                     <td className="p-4">
                       <div className="font-medium text-white">
                         {os.clientName}
@@ -136,7 +134,7 @@ export default function ServiceOrders() {
                     <td className="p-4 text-slate-300">
                       {os.deviceBrand} {os.deviceModel}
                     </td>
-                    <td className="p-4 text-slate-400 max-w-[200px] truncate">
+                    <td className="p-4 text-slate-400 max-w-50 truncate">
                       {os.problem}
                     </td>
                     <td className="p-4">

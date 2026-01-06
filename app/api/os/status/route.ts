@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   try {
     const order = await prisma.serviceOrder.findFirst({
       where: {
-        osNumber: parseInt(id),
+        id: parseInt(id),
         customer: {
           document: document,
         },

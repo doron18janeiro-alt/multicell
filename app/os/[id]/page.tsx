@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRef } from "react";
+import { useReactToPrint } from "react-to-print";
+import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -16,6 +19,11 @@ import {
 
 export default function OrderDetails() {
   const params = useParams();
+  const componentRef = useRef<HTMLDivElement>(null);
+  const handlePrint = useReactToPrint({
+    content: () => componentRef.current,
+  });
+
   const router = useRouter();
   const id = params?.id as string;
 
@@ -95,7 +103,7 @@ export default function OrderDetails() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              Ordem de Serviço #{os.osNumber}
+              Ordem de Serviço #{os.id}
             </h1>
             <p className="text-slate-400 text-sm">
               Criada em {new Date(os.createdAt).toLocaleDateString()}
@@ -113,7 +121,10 @@ export default function OrderDetails() {
               Finalizar e Lançar
             </button>
           )}
-          <button className="btn-outline flex items-center gap-2">
+          <button
+            onClick={() => handlePrint()}
+            className="btn-outline flex items-center gap-2"
+          >
             <Printer size={18} /> Imprimir
           </button>
         </div>
@@ -278,6 +289,9 @@ export default function OrderDetails() {
             </div>
           </div>
         </div>
+      </div>
+      <div style={{ display: "none" }}>
+        <ServiceOrderPrint ref={componentRef} data={os} />
       </div>
     </div>
   );
