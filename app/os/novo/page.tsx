@@ -207,7 +207,15 @@ function OrderServiceForm() {
 
       {/* Componente Oculto para Impressão */}
       <div style={{ display: "none" }}>
-        <ServiceOrderPrint ref={printRef} data={formData} />
+        <ServiceOrderPrint
+          ref={printRef}
+          data={{
+            ...formData,
+            problem: formData.clientReport,
+            clientCpf: formData.clientDocument,
+            totalPrice: Number(formData.totalPrice) || 0,
+          }}
+        />
       </div>
 
       {/* Header da Página */}
