@@ -13,15 +13,15 @@ export async function GET(request: Request) {
   try {
     const order = await prisma.serviceOrder.findFirst({
       where: {
-        id: parseInt(id),
+        osNumber: parseInt(id),
         customer: {
           document: document,
         },
       },
       select: {
         status: true,
-        model: true,
-        brand: true,
+        deviceModel: true,
+        deviceBrand: true,
         updatedAt: true,
       },
     });

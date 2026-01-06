@@ -20,9 +20,9 @@ export async function GET() {
 
     // 2. Total Service Order Revenue (Month)
     const osRevenue = await prisma.serviceOrder.aggregate({
-      _sum: { price: true },
+      _sum: { totalPrice: true },
       where: {
-        status: "ENTREGUE",
+        status: "FINALIZADO",
         updatedAt: {
           gte: startOfMonth,
           lte: endOfMonth,
@@ -31,7 +31,7 @@ export async function GET() {
     });
 
     const totalRevenue =
-      (salesRevenue._sum.total || 0) + (osRevenue._sum.price || 0);
+      (salesRevenue._sum.total || 0) + (osRevenue._sum.totalPrice || 0);
 
     // 3. Total Costs (Sales Items Cost)
     // We need to fetch all sale items for this month and sum (quantity * product.costPrice)
@@ -73,9 +73,9 @@ export async function GET() {
       });
 
       const monthOS = await prisma.serviceOrder.aggregate({
-        _sum: { price: true },
+        _sum: { totalPrice: true },
         where: {
-          status: "ENTREGUE",
+          status: "FINALIZADO",
           updatedAt: { gte: start, lte: end },
         },
       });
@@ -83,7 +83,7 @@ export async function GET() {
       chartData.push({
         name: monthName,
         vendas: monthSales._sum.total || 0,
-        servicos: monthOS._sum.price || 0,
+        servicos: monthOS._sum.totalPrice || 0,
       });
     }
 

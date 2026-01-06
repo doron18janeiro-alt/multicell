@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, Suspense } from "react";
 import {
   Save,
   Printer,
@@ -15,7 +15,7 @@ import { useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 
-export default function NewServiceOrder() {
+function OrderServiceForm() {
   const searchParams = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
@@ -484,5 +484,15 @@ export default function NewServiceOrder() {
         <ServiceOrderPrint ref={printRef} data={formData} />
       </div>
     </div>
+  );
+}
+
+export default function NewServiceOrder() {
+  return (
+    <Suspense
+      fallback={<div className="p-10 text-white">Carregando formulário...</div>}
+    >
+      <OrderServiceForm />
+    </Suspense>
   );
 }
