@@ -29,7 +29,7 @@ export default function Sidebar() {
     <aside className="w-64 h-screen bg-[#0A192F] border-r border-[#233554] flex flex-col fixed left-0 top-0 z-50">
       {/* Logo Area */}
       <div className="p-4 mb-6 flex justify-center border-b border-gray-800">
-        <img src="/logo.jpg" alt="Multicell" className="h-14 w-auto" />
+        <img src="/logo.png" alt="Multicell" className="h-14 w-auto" />
       </div>
 
       {/* Navigation */}

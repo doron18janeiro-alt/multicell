@@ -39,7 +39,11 @@ export default function Login() {
       <div className="w-full max-w-md bg-[#112240] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
         <div className="bg-[#0A192F] p-8 text-center border-b border-[#233554]">
           <div className="flex justify-center mb-6">
-            <img src="/logo.jpg" alt="Multicell Logo" className="w-48 h-auto" />
+            <img
+              src="/logo.png"
+              alt="Multicell Logo"
+              className="w-40 h-auto object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-wider">
             MULTICELL
