@@ -21,7 +21,7 @@ export default function OrderDetails() {
   const params = useParams();
   const componentRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
+    contentRef: componentRef,
   });
 
   const router = useRouter();
