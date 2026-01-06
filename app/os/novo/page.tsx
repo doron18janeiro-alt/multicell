@@ -165,6 +165,14 @@ function OrderServiceForm() {
               </button>
 
               <button
+                onClick={() => (window.location.href = `/os/${successData.id}`)}
+                className="w-full bg-[#D4AF37] hover:bg-[#C5A028] text-[#0A192F] py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+              >
+                <CheckSquare size={20} />
+                Ver Detalhes da O.S.
+              </button>
+
+              <button
                 onClick={() => {
                   setSuccessData(null);
                   setFormData({

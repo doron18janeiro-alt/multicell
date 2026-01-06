@@ -12,6 +12,10 @@ import {
   CheckCircle,
   DollarSign,
   Wrench,
+  Banknote,
+  QrCode,
+  CreditCard,
+  X,
   User,
   Smartphone,
   Calendar,
@@ -29,6 +33,13 @@ export default function OrderDetails() {
 
   const [os, setOs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Payment Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
+  const [finalPrice, setFinalPrice] = useState("");
+  const [partsCost, setPartsCost] = useState("");
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -50,40 +61,37 @@ export default function OrderDetails() {
     }
   };
 
-  const handleFinalizar = async () => {
-    // User requested prompt, but I can make a nicer modal later. For now sticking to prompt to match request precisely.
-    const valorFinal = prompt(
-      "Qual o valor final cobrado (R$)?",
-      os.totalPrice?.toString() || "0"
-    );
-    if (valorFinal === null) return;
+  const handleFinalizar = () => {
+    setFinalPrice(os.totalPrice?.toString() || "0");
+    setPartsCost(os.costPrice?.toString() || "0");
+    setIsPaymentModalOpen(true);
+  };
 
-    const pecasCusto = prompt(
-      "Qual o custo total das peças usadas (R$)?",
-      os.costPrice?.toString() || "0"
-    );
-    if (pecasCusto === null) return;
-
+  const confirmPayment = async () => {
+    setProcessingPayment(true);
     try {
-      const res = await fetch(`/api/os/${id}`, {
-        method: "PUT",
+      const res = await fetch(`/api/os/${id}/finalize`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "FINALIZADO",
-          totalPrice: valorFinal,
-          costPrice: pecasCusto,
+          paymentMethod,
+          totalPrice: finalPrice,
+          costPrice: partsCost,
         }),
       });
 
       if (res.ok) {
-        alert("Serviço finalizado! O lucro foi registrado no Dashboard.");
+        alert("Pagamento recebido e O.S. finalizada com sucesso!");
+        setIsPaymentModalOpen(false);
         fetchOrder(); // Reload data
       } else {
-        alert("Erro ao finalizar O.S.");
+        alert("Erro ao finalizar pagamento.");
       }
     } catch (error) {
       console.error(error);
       alert("Erro de conexão.");
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -117,8 +125,8 @@ export default function OrderDetails() {
               onClick={handleFinalizar}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
             >
-              <CheckCircle size={18} />
-              Finalizar e Lançar
+              <DollarSign size={18} />
+              Finalizar e Receber
             </button>
           )}
           <button
@@ -290,6 +298,123 @@ export default function OrderDetails() {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal */}
+      {isPaymentModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#112240] rounded-2xl border border-slate-700 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <DollarSign className="text-[#D4AF37]" />
+                Receber Pagamento
+              </h2>
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Values */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-slate-400 block mb-1">
+                    Valor Total (R$)
+                  </label>
+                  <input
+                    type="number"
+                    value={finalPrice}
+                    onChange={(e) => setFinalPrice(e.target.value)}
+                    className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-lg font-bold focus:border-[#D4AF37] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate-400 block mb-1">
+                    Custo de Peças (R$)
+                  </label>
+                  <input
+                    type="number"
+                    value={partsCost}
+                    onChange={(e) => setPartsCost(e.target.value)}
+                    className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white focus:border-slate-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div>
+                <label className="text-sm text-slate-400 block mb-2">
+                  Forma de Pagamento
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod("DINHEIRO")}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                      paymentMethod === "DINHEIRO"
+                        ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-[0_0_10px_#D4AF37]"
+                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    <Banknote className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-bold">DINHEIRO</span>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("PIX")}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                      paymentMethod === "PIX"
+                        ? "bg-[#22c55e] text-black border-[#22c55e] shadow-[0_0_10px_#22c55e]"
+                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200" // changed text-white to text-black for visibility on green
+                    }`}
+                  >
+                    <QrCode className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-bold">PIX</span>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("DEBITO")}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                      paymentMethod === "DEBITO"
+                        ? "bg-[#3b82f6] text-white border-[#3b82f6] shadow-[0_0_10px_#3b82f6]"
+                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    <CreditCard className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-bold">DÉBITO</span>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("CREDITO")}
+                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                      paymentMethod === "CREDITO"
+                        ? "bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]"
+                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    }`}
+                  >
+                    <CreditCard className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-bold">CRÉDITO</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Button */}
+              <button
+                onClick={confirmPayment}
+                disabled={processingPayment}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processingPayment ? (
+                  "Processando..."
+                ) : (
+                  <>
+                    <CheckCircle size={24} /> Confirmar Recebimento
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "none" }}>
         <ServiceOrderPrint ref={componentRef} data={os} />
       </div>
