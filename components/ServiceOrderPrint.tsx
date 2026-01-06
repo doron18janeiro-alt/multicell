@@ -77,8 +77,9 @@ export const ServiceOrderPrint = React.forwardRef<
         </div>
         <div className="text-right">
           <h2 className="text-2xl font-bold">ORDEM DE SERVIÇO</h2>
+          <span className="text-xs font-bold block">E TERMO DE GARANTIA</span>
           <p className="text-xl font-mono bg-gray-200 px-2 mt-1 inline-block">
-            Nº {String(data.osNumber || data.id).padStart(6, "0")}
+            Nº {String(data.id || data.osNumber).padStart(6, "0")}
           </p>
           <p className="text-sm mt-1">
             Data:{" "}

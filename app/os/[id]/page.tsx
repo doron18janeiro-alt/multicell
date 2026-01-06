@@ -225,7 +225,7 @@ export default function OrderDetails() {
                       "Continuamos trabalhando no reparo do seu aparelho com total prioridade.";
                   }
 
-                  const message = `Olá, ${os.clientName}! 🛠️\n\nAqui é da MULTICELL - Assistência Técnica Especializada. Passando para informar uma atualização na sua Ordem de Serviço:\n\n📄 OS nº: ${os.osNumber}\n📱 Aparelho: ${os.deviceBrand} ${os.deviceModel}\n🚀 Status Atual: 🟢 ${os.status}\n\n${statusMessage}\n\nQualquer dúvida, estamos à disposição. Agradecemos a confiança em nosso trabalho! ✨`;
+                  const message = `Olá, ${os.clientName}! 🛠️\n\nAqui é da MULTICELL - Assistência Técnica Especializada. Passando para informar uma atualização na sua Ordem de Serviço:\n\n📄 OS nº: ${os.id}\n📱 Aparelho: ${os.deviceBrand} ${os.deviceModel}\n🚀 Status Atual: 🟢 ${os.status}\n\n${statusMessage}\n\nQualquer dúvida, estamos à disposição. Agradecemos a confiança em nosso trabalho! ✨`;
 
                   const url = `https://wa.me/55${phone}?text=${encodeURIComponent(
                     message

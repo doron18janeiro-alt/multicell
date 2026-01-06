@@ -112,7 +112,7 @@ function OrderServiceForm() {
   const handleWhatsAppWelcome = () => {
     if (!successData) return;
     const phone = successData.clientPhone.replace(/\D/g, "");
-    const message = `Olá, ${successData.clientName}! Bem-vindo(a) à MULTICELL - Assistência Técnica Especializada. 🛠️\n\nConfirmamos a abertura da sua Ordem de Serviço nº ${successData.osNumber} para o equipamento ${successData.deviceBrand} ${successData.deviceModel}. Seu aparelho já está em nossa bancada para diagnóstico.\n\n🔒 Segurança e Transparência: Você receberá atualizações em tempo real sobre o status do reparo diretamente por este canal. Nosso compromisso é com a excelência técnica e a agilidade no seu atendimento.\n\n📍 Localização: Rua das Flores, 123 - Centro\n📞 Dúvidas: Basta responder a esta mensagem.\n\nObrigado por confiar seu patrimônio à nossa equipe! ✨`;
+    const message = `Olá, ${successData.clientName}! Bem-vindo(a) à MULTICELL - Assistência Técnica Especializada. 🛠️\n\nConfirmamos a abertura da sua Ordem de Serviço nº ${successData.id} para o equipamento ${successData.deviceBrand} ${successData.deviceModel}. Seu aparelho já está em nossa bancada para diagnóstico.\n\n🔒 Segurança e Transparência: Você receberá atualizações em tempo real sobre o status do reparo diretamente por este canal. Nosso compromisso é com a excelência técnica e a agilidade no seu atendimento.\n\n📍 Localização: Rua das Flores, 123 - Centro\n📞 Dúvidas: Basta responder a esta mensagem.\n\nObrigado por confiar seu patrimônio à nossa equipe! ✨`;
 
     const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, "_blank");
@@ -143,7 +143,7 @@ function OrderServiceForm() {
                 O.S. Criada com Sucesso!
               </h2>
               <p className="text-slate-400 font-mono text-lg mt-2">
-                #{successData.osNumber}
+                #{successData.id}
               </p>
             </div>
 

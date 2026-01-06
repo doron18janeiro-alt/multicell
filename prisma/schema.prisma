@@ -47,8 +47,7 @@ model Product {
 }
 
 model ServiceOrder {
-  id             String   @id @default(cuid())
-  osNumber       Int      @unique @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   clientName     String
   clientPhone    String
   clientCpf      String?

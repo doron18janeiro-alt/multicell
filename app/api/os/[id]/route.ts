@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { id } = await params;
     const order = await prisma.serviceOrder.findUnique({
-      where: { id: id },
+      where: { id: parseInt(id) },
       include: { customer: true },
     });
     return NextResponse.json(order);
@@ -24,7 +24,8 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, technicalReport, totalPrice, costPrice, paymentMethod } = body;
+    const { status, technicalReport, totalPrice, costPrice, paymentMethod } =
+      body;
 
     const data: any = {};
     if (status) data.status = status;
@@ -39,7 +40,7 @@ export async function PUT(
     }
 
     const updatedOrder = await prisma.serviceOrder.update({
-      where: { id: id },
+      where: { id: parseInt(id) },
       data: data,
     });
 
@@ -58,5 +59,5 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-    return PUT(request, { params });
+  return PUT(request, { params });
 }
