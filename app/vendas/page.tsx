@@ -32,7 +32,9 @@ export default function Vendas() {
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
   const [loading, setLoading] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
+  const [rates, setRates] = useState({ debit: 0, credit: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
+
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
@@ -41,12 +43,28 @@ export default function Vendas() {
 
   useEffect(() => {
     fetchProducts();
+    fetchConfig();
   }, []);
 
   const fetchProducts = async () => {
     const res = await fetch("/api/products");
     const data = await res.json();
     setProducts(data);
+  };
+
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch("/api/config");
+      const data = await res.json();
+      if (data) {
+        setRates({
+          debit: data.debitRate ?? 1.99,
+          credit: data.creditRate ?? 3.99,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const filteredProducts = products.filter((p) =>
@@ -254,41 +272,73 @@ export default function Vendas() {
               <span>R$ {total.toFixed(2)}</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setPaymentMethod("DINHEIRO")}
-                className={`flex flex-col items-center justify-center p-2 rounded border ${
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
                   paymentMethod === "DINHEIRO"
-                    ? "bg-[#FFD700] text-black border-[#FFD700]"
-                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500"
+                    ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-[0_0_10px_#D4AF37]"
+                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                 }`}
               >
                 <Banknote className="w-5 h-5 mb-1" />
-                <span className="text-xs font-bold">Dinheiro</span>
+                <span className="text-xs font-bold">DINHEIRO</span>
               </button>
               <button
                 onClick={() => setPaymentMethod("PIX")}
-                className={`flex flex-col items-center justify-center p-2 rounded border ${
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
                   paymentMethod === "PIX"
-                    ? "bg-[#FFD700] text-black border-[#FFD700]"
-                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500"
+                    ? "bg-[#22c55e] text-white border-[#22c55e] shadow-[0_0_10px_#22c55e]"
+                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                 }`}
               >
                 <QrCode className="w-5 h-5 mb-1" />
-                <span className="text-xs font-bold">Pix</span>
+                <span className="text-xs font-bold">PIX</span>
               </button>
               <button
-                onClick={() => setPaymentMethod("CARTAO")}
-                className={`flex flex-col items-center justify-center p-2 rounded border ${
-                  paymentMethod === "CARTAO"
-                    ? "bg-[#FFD700] text-black border-[#FFD700]"
-                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500"
+                onClick={() => setPaymentMethod("DEBITO")}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                  paymentMethod === "DEBITO"
+                    ? "bg-[#3b82f6] text-white border-[#3b82f6] shadow-[0_0_10px_#3b82f6]"
+                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
                 }`}
               >
                 <CreditCard className="w-5 h-5 mb-1" />
-                <span className="text-xs font-bold">Cartão</span>
+                <span className="text-xs font-bold">DÉBITO</span>
+              </button>
+              <button
+                onClick={() => setPaymentMethod("CREDITO")}
+                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                  paymentMethod === "CREDITO"
+                    ? "bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]"
+                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                }`}
+              >
+                <CreditCard className="w-5 h-5 mb-1" />
+                <span className="text-xs font-bold">CRÉDITO</span>
               </button>
             </div>
+
+            {(paymentMethod === "DEBITO" || paymentMethod === "CREDITO") &&
+              cart.length > 0 && (
+                <div className="bg-[#0B1120] p-2 rounded border border-slate-700 text-center text-xs text-slate-400">
+                  <span className="block mb-1">
+                    Taxa estimada:{" "}
+                    {paymentMethod === "DEBITO" ? rates.debit : rates.credit}%
+                  </span>
+                  <span className="text-white font-bold">
+                    Recebimento Líquido: R${" "}
+                    {(
+                      total -
+                      (total *
+                        (paymentMethod === "DEBITO"
+                          ? rates.debit
+                          : rates.credit)) /
+                        100
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              )}
 
             <button
               onClick={handleFinalize}

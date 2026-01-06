@@ -9,6 +9,7 @@ import {
   Plus,
   Truck,
   Download,
+  Pencil,
 } from "lucide-react";
 
 interface Product {
@@ -16,7 +17,8 @@ interface Product {
   name: string;
   price: number;
   costPrice: number;
-  stockQuantity: number;
+  stock: number; // Changed from stockQuantity to match API/Prisma
+  minQuantity: number;
   category: string;
   supplierId?: string;
 }
@@ -41,9 +43,11 @@ export default function Estoque() {
     price: "",
     costPrice: "",
     stockQuantity: "",
+    minQuantity: "2",
     category: "PECA",
     supplierId: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [supplierData, setSupplierData] = useState({
     name: "",
     contact: "",
@@ -75,29 +79,50 @@ export default function Estoque() {
     }
   };
 
+  const handleEdit = (product: Product) => {
+    setEditingId(product.id);
+    setFormData({
+      name: product.name,
+      price: product.price.toString(),
+      costPrice: product.costPrice.toString(),
+      stockQuantity: product.stock.toString(),
+      minQuantity: product.minQuantity.toString(),
+      category: product.category,
+      supplierId: product.supplierId || "",
+    });
+    setShowForm(true);
+  };
+
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/products", {
-        method: "POST",
+      const url = editingId ? `/api/products/${editingId}` : "/api/products";
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (res.ok) {
-        alert("Produto cadastrado com sucesso!");
+        alert(
+          editingId ? "Produto atualizado!" : "Produto cadastrado com sucesso!"
+        );
         setShowForm(false);
+        setEditingId(null);
         setFormData({
           name: "",
           price: "",
           costPrice: "",
           stockQuantity: "",
+          minQuantity: "2",
           category: "PECA",
           supplierId: "",
         });
         fetchProducts();
       } else {
-        alert("Erro ao cadastrar produto.");
+        alert("Erro ao salvar produto.");
       }
     } catch (error) {
       console.error(error);
@@ -148,7 +173,7 @@ export default function Estoque() {
           p.category,
           p.price,
           p.costPrice,
-          p.stockQuantity,
+          p.stock,
           `"${supplier}"`,
         ].join(",");
       }),
@@ -198,7 +223,19 @@ export default function Estoque() {
               Fornecedores
             </button>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setEditingId(null);
+                setFormData({
+                  name: "",
+                  price: "",
+                  costPrice: "",
+                  stockQuantity: "",
+                  minQuantity: "2",
+                  category: "PECA",
+                  supplierId: "",
+                });
+                setShowForm(true);
+              }}
               className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
@@ -241,6 +278,7 @@ export default function Estoque() {
                 <th className="p-4">Preço Venda</th>
                 <th className="p-4">Estoque</th>
                 <th className="p-4">Status</th>
+                <th className="p-4">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -279,21 +317,30 @@ export default function Estoque() {
                     <td className="p-4">
                       <span
                         className={`font-bold ${
-                          product.stockQuantity < 3
+                          product.stock <= product.minQuantity
                             ? "text-red-500"
                             : "text-white"
                         }`}
                       >
-                        {product.stockQuantity}
+                        {product.stock}
                       </span>
                     </td>
                     <td className="p-4">
-                      {product.stockQuantity < 3 && (
+                      {product.stock <= product.minQuantity && (
                         <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
                           <AlertTriangle className="w-4 h-4" />
                           BAIXO ESTOQUE
                         </div>
                       )}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-5 h-5" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -307,7 +354,7 @@ export default function Estoque() {
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
             <div className="bg-[#112240] p-8 rounded-xl border border-slate-700 w-full max-w-md">
               <h2 className="text-2xl font-bold text-white mb-6">
-                Novo Produto
+                {editingId ? "Editar Produto" : "Novo Produto"}
               </h2>
               <form onSubmit={handleCreateProduct} className="space-y-4">
                 <div>
@@ -354,7 +401,7 @@ export default function Estoque() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-slate-400 mb-1">Estoque</label>
                     <input
@@ -366,6 +413,21 @@ export default function Estoque() {
                         setFormData({
                           ...formData,
                           stockQuantity: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-400 mb-1">Mínimo</label>
+                    <input
+                      required
+                      type="number"
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                      value={formData.minQuantity}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          minQuantity: e.target.value,
                         })
                       }
                     />

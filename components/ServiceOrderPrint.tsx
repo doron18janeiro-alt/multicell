@@ -1,170 +1,214 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 interface ServiceOrderData {
-  id?: number;
+  id?: number | string;
+  osNumber?: number;
   clientName: string;
   clientPhone: string;
+  clientCpf?: string;
   deviceModel: string;
   deviceBrand: string;
-  imei: string;
-  clientReport: string;
-  checklist: any;
-  entryDate?: Date;
+  serialNumber?: string;
+  imei?: string; // Legacy support
+  problem: string;
+  observations?: string;
+  checklist?: any;
+  createdAt?: string | Date;
+  totalPrice?: number;
+}
+
+interface CompanyConfig {
+  name: string;
+  document: string;
+  address: string;
+  phone: string;
 }
 
 export const ServiceOrderPrint = React.forwardRef<
   HTMLDivElement,
   { data: ServiceOrderData }
 >(({ data }, ref) => {
+  const [config, setConfig] = useState<CompanyConfig>({
+    name: "Multicell",
+    document: "48.002.640.0001/67",
+    address: "Av Paraná, 470 - Bela Vista - Cândido de Abreu (PR)",
+    phone: "(43) 99603-1208",
+  });
+
+  useEffect(() => {
+    // Attempt to load dynamic config if available
+    fetch("/api/config")
+      .then((res) => res.json())
+      .then((cfg) => {
+        if (cfg && !cfg.error) {
+          setConfig({
+            name: cfg.name || "Multicell",
+            document: cfg.document || config.document,
+            address: cfg.address || config.address,
+            phone: cfg.phone || config.phone,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div
       ref={ref}
-      className="p-8 bg-white text-black font-sans"
-      style={{ width: "210mm", minHeight: "297mm" }}
+      className="p-8 bg-white text-black font-sans box-border"
+      style={{ width: "210mm", minHeight: "297mm", margin: "0 auto" }}
     >
-      {/* Cabeçalho */}
-      <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
+      {/* 2 Copies per page if needed, but standard is usually 1 full page for legal terms. 
+          Let's do one nice copy with big legal text. */}
+
+      {/* HEADER */}
+      <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
         <div className="flex items-center gap-4">
-          {/* Logo */}
-          <div className="w-16 h-16 text-black flex items-center justify-center">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="w-14 h-14"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v12" />
-              <path d="M6 12h12" />
-              <path d="M9 9l6 6" />
-              <path d="M15 9l-6 6" />
-            </svg>
+          <div className="border-2 border-black p-2 rounded-lg">
+            <h1 className="text-3xl font-black tracking-tighter uppercase">
+              MULTICELL
+            </h1>
           </div>
           <div>
-            <h1 className="text-2xl font-bold uppercase">MULTICELL</h1>
-            <p className="text-sm">
-              Av Paraná, 470 - Bairro Bela Vista, Cândido de Abreu (PR)
-            </p>
-            <p className="text-sm">
-              Tel: (43) 99603-1208 | CNPJ: 48.002.640.0001/67
-            </p>
+            <p className="font-bold text-sm">{config.address}</p>
+            <p className="text-sm">CNPJ: {config.document}</p>
+            <p className="text-sm">Tel/WhatsApp: {config.phone}</p>
           </div>
         </div>
         <div className="text-right">
-          <h2 className="text-xl font-bold">ORDEM DE SERVIÇO</h2>
-          <p className="text-lg">Nº {data.id || "PENDENTE"}</p>
-          <p className="text-sm">{new Date().toLocaleDateString()}</p>
-        </div>
-      </div>
-
-      {/* Dados do Cliente */}
-      <div className="mb-6 border border-black p-4 rounded">
-        <h3 className="font-bold bg-gray-200 p-1 mb-2 uppercase text-sm">
-          Dados do Cliente
-        </h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <p>
-            <span className="font-bold">Nome:</span> {data.clientName}
+          <h2 className="text-2xl font-bold">ORDEM DE SERVIÇO</h2>
+          <p className="text-xl font-mono bg-gray-200 px-2 mt-1 inline-block">
+            Nº {String(data.osNumber || data.id).padStart(6, "0")}
           </p>
-          <p>
-            <span className="font-bold">Telefone:</span> {data.clientPhone}
+          <p className="text-sm mt-1">
+            Data:{" "}
+            {data.createdAt
+              ? new Date(data.createdAt).toLocaleDateString()
+              : new Date().toLocaleDateString()}
           </p>
         </div>
       </div>
 
-      {/* Dados do Aparelho */}
-      <div className="mb-6 border border-black p-4 rounded">
-        <h3 className="font-bold bg-gray-200 p-1 mb-2 uppercase text-sm">
-          Dados do Aparelho
-        </h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <p>
-            <span className="font-bold">Marca/Modelo:</span> {data.deviceBrand}{" "}
-            - {data.deviceModel}
-          </p>
-          <p>
-            <span className="font-bold">IMEI/Serial:</span> {data.imei}
-          </p>
+      {/* CLIENTE */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="bg-black text-white px-2 py-0.5 text-xs font-bold uppercase rounded">
+            Cliente
+          </span>
+          <div className="h-px bg-black flex-1"></div>
         </div>
-      </div>
-
-      {/* Relato e Checklist */}
-      <div className="mb-6 border border-black p-4 rounded">
-        <h3 className="font-bold bg-gray-200 p-1 mb-2 uppercase text-sm">
-          Estado do Aparelho
-        </h3>
-        <div className="mb-4">
-          <p className="font-bold text-sm">Relato do Cliente:</p>
-          <p className="text-sm italic border-l-2 border-gray-400 pl-2 mt-1">
-            {data.clientReport}
-          </p>
-        </div>
-        <div>
-          <p className="font-bold text-sm mb-1">Checklist de Entrada:</p>
-          <div className="grid grid-cols-2 gap-4 text-xs">
-            <div>
-              <p className="font-bold underline mb-1">Estado Físico:</p>
-              {data.checklist?.physical &&
-                Object.entries(data.checklist.physical).map(
-                  ([key, value]) =>
-                    value && (
-                      <span key={key} className="block">
-                        ☑ {key}
-                      </span>
-                    )
-                )}
-            </div>
-            <div>
-              <p className="font-bold underline mb-1">Testes Iniciais:</p>
-              {data.checklist?.tests &&
-                Object.entries(data.checklist.tests).map(
-                  ([key, value]) =>
-                    value && (
-                      <span key={key} className="block">
-                        ☑ {key}
-                      </span>
-                    )
-                )}
-            </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border border-black p-3 rounded-lg bg-gray-50">
+          <div className="flex gap-2">
+            <span className="font-bold w-16">Nome:</span>{" "}
+            <span className="uppercase">{data.clientName}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-bold w-16">Fone:</span>{" "}
+            <span>{data.clientPhone}</span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-bold w-16">CPF:</span>{" "}
+            <span>{data.clientCpf || "_________________"}</span>
           </div>
         </div>
       </div>
 
-      {/* Termos */}
-      <div className="text-xs text-justify mb-8 border-t border-black pt-4">
-        <h3 className="font-bold mb-2">TERMO DE GARANTIA E CONDIÇÕES</h3>
-        <ul className="list-disc pl-4 space-y-1">
-          <li>
-            Garantia de 90 dias para substituição de telas e componentes (exceto
-            danos por mau uso, umidade ou quedas).
-          </li>
-          <li>
-            Aparelhos não retirados em até 90 dias após o aviso de conclusão
-            serão vendidos para custear as despesas de reparo (Art. 644 do
-            Código Civil).
-          </li>
-          <li>
-            A Multicell não se responsabiliza por perda de dados. O backup é de
-            responsabilidade do cliente.
-          </li>
-        </ul>
+      {/* EQUIPAMENTO */}
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="bg-black text-white px-2 py-0.5 text-xs font-bold uppercase rounded">
+            Equipamento
+          </span>
+          <div className="h-px bg-black flex-1"></div>
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm border border-black p-3 rounded-lg bg-gray-50">
+          <div className="flex gap-2">
+            <span className="font-bold w-16">Aparelho:</span>{" "}
+            <span className="uppercase">
+              {data.deviceBrand} {data.deviceModel}
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <span className="font-bold w-16">IMEI/SN:</span>{" "}
+            <span>{data.serialNumber || data.imei || "_________________"}</span>
+          </div>
+          <div className="col-span-2 flex gap-2">
+            <span className="font-bold w-16">Defeito:</span>{" "}
+            <span className="uppercase font-bold">{data.problem}</span>
+          </div>
+          <div className="col-span-2 flex gap-2">
+            <span className="font-bold w-16">Obs:</span>{" "}
+            <span className="uppercase">
+              {data.observations || "Sem observações."}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Assinaturas */}
-      <div className="flex justify-between mt-12 pt-8">
-        <div className="text-center w-1/3 border-t border-black">
-          <p className="text-sm">Assinatura do Cliente</p>
-        </div>
-        <div className="text-center w-1/3 border-t border-black">
-          <p className="text-sm">Assinatura do Técnico/Atendente</p>
+      {/* CHECKLIST / CONDICOES */}
+      <div className="mb-6">
+        <div className="border border-black p-4 rounded-lg bg-gray-50">
+          <h3 className="font-bold text-sm mb-2 text-center decoration-double underline">
+            TERMO DE GARANTIA E CONDIÇÕES DE SERVIÇO
+          </h3>
+          <ol className="text-[10px] space-y-1 list-decimal list-inside text-justify leading-snug">
+            <li>
+              <strong>GARANTIA DE 90 DIAS:</strong> Conforme Art. 26 do Código
+              de Defesa do Consumidor, a garantia legal é de 90 dias para
+              defeitos de peças substituídas ou mão de obra, contados a partir
+              da data de entrega.
+            </li>
+            <li>
+              A garantia <strong>NÃO COBRE</strong>: Dano físico (quebra de
+              tela/vidro), contato com líquidos (mesmo em aparelhos resistentes
+              à água), mau uso, software, instalações de terceiros ou se o selo
+              de garantia for rompido.
+            </li>
+            <li>
+              <strong>PERDA DE DADOS:</strong> A empresa NÃO SE RESPONSABILIZA
+              por perda de dados (fotos, contatos, etc) durante o reparo de
+              software ou hardware. O cliente declara ter feito backup prévio.
+            </li>
+            <li>
+              <strong>ABANDONO:</strong> Equipamentos prontos e não retirados no
+              prazo de <strong>90 DIAS</strong> serão considerados abandonados e
+              poderão ser vendidos para cobrir custos de peças e armazenagem
+              (Art. 1.275 do Código Civil Brasileiro).
+            </li>
+            <li>
+              <strong>ORÇAMENTO:</strong> O valor passado é uma estimativa. Caso
+              sejam encontrados outros defeitos durante o reparo, o cliente será
+              comunicado para nova aprovação.
+            </li>
+            <li className="font-bold">
+              Ao assinar, o cliente declara estar ciente e de acordo com todas
+              as supracitadas condições.
+            </li>
+          </ol>
         </div>
       </div>
 
-      <div className="mt-8 text-center text-xs text-gray-500">
-        Sistema Multicell - Gerado em {new Date().toLocaleString()}
+      {/* ASSINATURAS */}
+      <div className="mt-8 grid grid-cols-2 gap-12">
+        <div className="text-center">
+          <div className="border-b border-black mb-2 mx-4 relative top-4"></div>
+          <p className="text-xs font-bold uppercase mt-4">
+            Assinatura do Técnico
+          </p>
+        </div>
+        <div className="text-center">
+          <div className="border-b border-black mb-2 mx-4 relative top-4"></div>
+          <p className="text-xs font-bold uppercase mt-4">
+            Assinatura do Cliente
+          </p>
+          <p className="text-[9px] text-gray-500">{data.clientName}</p>
+        </div>
+      </div>
+
+      {/* FOOTER - CANHOTO OPTIONAL OR JUST INFO */}
+      <div className="mt-auto pt-6 border-t border-dashed border-gray-400 text-center text-[10px] text-gray-500">
+        <p>Sistema Multicell - Desenvolvido para Excelência Técnica</p>
+        <p>{new Date().toLocaleString()}</p>
       </div>
     </div>
   );

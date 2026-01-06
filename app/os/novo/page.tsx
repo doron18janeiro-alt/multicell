@@ -9,6 +9,9 @@ import {
   FileText,
   CheckSquare,
   ArrowLeft,
+  MessageCircle,
+  CheckCircle,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -18,6 +21,7 @@ import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 function OrderServiceForm() {
   const searchParams = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
+  const [successData, setSuccessData] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
@@ -92,8 +96,8 @@ function OrderServiceForm() {
 
       if (response.ok) {
         const data = await response.json();
-        alert(`O.S. #${data.id} salva com sucesso!`);
-        // Opcional: Redirecionar ou limpar formulário
+        setSuccessData(data);
+        // alert(`O.S. #${data.id} salva com sucesso!`);
       } else {
         alert("Erro ao salvar O.S.");
       }
@@ -105,8 +109,102 @@ function OrderServiceForm() {
     }
   };
 
+  const handleWhatsAppWelcome = () => {
+    if (!successData) return;
+    const phone = successData.clientPhone.replace(/\D/g, "");
+    const message = `Olá, ${successData.clientName}! Bem-vindo(a) à MULTICELL - Assistência Técnica Especializada. 🛠️\n\nConfirmamos a abertura da sua Ordem de Serviço nº ${successData.osNumber} para o equipamento ${successData.deviceBrand} ${successData.deviceModel}. Seu aparelho já está em nossa bancada para diagnóstico.\n\n🔒 Segurança e Transparência: Você receberá atualizações em tempo real sobre o status do reparo diretamente por este canal. Nosso compromisso é com a excelência técnica e a agilidade no seu atendimento.\n\n📍 Localização: Rua das Flores, 123 - Centro\n📞 Dúvidas: Basta responder a esta mensagem.\n\nObrigado por confiar seu patrimônio à nossa equipe! ✨`;
+
+    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Success Modal */}
+      {successData && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#112240] p-8 rounded-2xl border border-slate-700 w-full max-w-md relative animate-in fade-in zoom-in duration-200">
+            <button
+              onClick={() => {
+                setSuccessData(null);
+                window.location.href = "/os/novo"; // Reset form or navigate
+                // Alternatively just clear form data
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="text-center mb-6">
+              <div className="w-20 h-20 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <CheckCircle size={40} />
+              </div>
+              <h2 className="text-2xl font-bold text-white">
+                O.S. Criada com Sucesso!
+              </h2>
+              <p className="text-slate-400 font-mono text-lg mt-2">
+                #{successData.osNumber}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={handlePrint}
+                className="w-full bg-[#1e293b] hover:bg-[#334155] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-slate-700 transition-colors"
+              >
+                <Printer size={20} />
+                Imprimir Comprovante
+              </button>
+
+              <button
+                onClick={handleWhatsAppWelcome}
+                className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/20"
+              >
+                <MessageCircle size={20} />
+                Enviar Mensagem de Boas-Vindas
+              </button>
+
+              <button
+                onClick={() => {
+                  setSuccessData(null);
+                  setFormData({
+                    clientName: "",
+                    clientPhone: "",
+                    clientDocument: "",
+                    deviceModel: "",
+                    deviceBrand: "",
+                    imei: "",
+                    passcode: "",
+                    clientReport: "",
+                    totalPrice: "",
+                    checklist: {
+                      physical: {
+                        riscos: false,
+                        trincas: false,
+                        marcasQueda: false,
+                        faltaParafusos: false,
+                        marcasUmidade: false,
+                      },
+                      tests: {
+                        liga: false,
+                        touch: false,
+                        cameras: false,
+                        wifi: false,
+                        som: false,
+                        carregamento: false,
+                      },
+                    },
+                  });
+                }}
+                className="w-full text-slate-400 hover:text-white pt-2 text-sm"
+              >
+                Criar Nova O.S.
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Componente Oculto para Impressão */}
       <div style={{ display: "none" }}>
         <ServiceOrderPrint ref={printRef} data={formData} />

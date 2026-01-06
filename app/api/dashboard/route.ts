@@ -62,17 +62,21 @@ export async function GET() {
     });
 
     // Vendas de Balcão do Dia por Método de Pagamento
-    const salesByMethod = [] as any; /*await prisma.sale.groupBy({
-      by: ["paymentMethod"],
-      _sum: {
-        total: true,
+    const salesByMethod = [] as any;
+
+    // Alertas de Estoque: Fetch minimal fields and filter in memory (Prisma limitation for field comparison)
+    const allProducts = await prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        stock: true,
+        minQuantity: true,
       },
-      where: {
-        createdAt: {
-          gte: today,
-        },
-      },
-    });*/
+    });
+
+    const lowStockProducts = allProducts.filter(
+      (p) => p.stock <= p.minQuantity
+    );
 
     return NextResponse.json({
       pendingCount,
@@ -81,6 +85,7 @@ export async function GET() {
       profitToday: profitToday._sum.servicePrice || 0,
       recentOrders,
       salesByMethod,
+      lowStockProducts,
     });
   } catch (error) {
     console.error(error);

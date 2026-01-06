@@ -19,6 +19,7 @@ export default function Dashboard() {
     profitToday: 0,
     recentOrders: [] as any[],
     salesByMethod: [] as any[],
+    lowStockProducts: [] as any[],
   });
 
   useEffect(() => {
@@ -57,6 +58,36 @@ export default function Dashboard() {
           <button className="btn-primary">+ Nova Venda</button>
         </div>
       </div>
+
+      {/* Critical Stock Alerts */}
+      {stats.lowStockProducts?.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="text-red-500 w-6 h-6" />
+            <h2 className="text-xl font-bold text-white">
+              ⚠️ ALERTAS DE ESTOQUE CRÍTICO
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stats.lowStockProducts.map((p: any) => (
+              <div
+                key={p.id}
+                className="bg-[#112240] border border-red-500 rounded-lg p-4 flex items-center justify-between"
+              >
+                <div>
+                  <h3 className="font-bold text-white">{p.name}</h3>
+                  <p className="text-red-400 text-sm font-semibold">
+                    Apenas {p.stock} unidades restantes!
+                  </p>
+                </div>
+                <div className="text-xs text-slate-400">
+                  Min: {p.minQuantity}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
