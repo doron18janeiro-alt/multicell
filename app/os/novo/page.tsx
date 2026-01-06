@@ -208,7 +208,9 @@ export default function NewServiceOrder() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-yellow-500 uppercase">Marca do Aparelho</label>
+                <label className="text-sm font-medium text-yellow-500 uppercase">
+                  Marca do Aparelho
+                </label>
                 <input
                   list="marcas-list"
                   name="deviceBrand"
@@ -219,14 +221,22 @@ export default function NewServiceOrder() {
                   required
                 />
                 <datalist id="marcas-list">
-                  <option value="Samsung" /><option value="Apple" /><option value="Motorola" />
-                  <option value="Xiaomi" /><option value="Dell" /><option value="HP" />
-                  <option value="Lenovo" /><option value="Acer" /><option value="Asus" />
+                  <option value="Samsung" />
+                  <option value="Apple" />
+                  <option value="Motorola" />
+                  <option value="Xiaomi" />
+                  <option value="Dell" />
+                  <option value="HP" />
+                  <option value="Lenovo" />
+                  <option value="Acer" />
+                  <option value="Asus" />
                 </datalist>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-yellow-500 uppercase">Valor do Serviço (R$)</label>
+                <label className="text-sm font-medium text-yellow-500 uppercase">
+                  Valor do Serviço (R$)
+                </label>
                 <input
                   type="number"
                   name="totalPrice"
@@ -237,7 +247,7 @@ export default function NewServiceOrder() {
                   className="w-full bg-[#0a1529] border border-gray-700 rounded-md p-3 text-white placeholder-gray-500 focus:border-yellow-500 outline-none"
                 />
               </div>
-            </div>
+
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-[#D4AF37] uppercase mb-2">
                   Modelo

@@ -3,11 +3,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    // Total de O.S. Pendentes (Status != ENTREGUE e != PRONTO)
+    // Total de O.S. Pendentes (Status != FINALIZADO e != PRONTO)
     const pendingCount = await prisma.serviceOrder.count({
       where: {
         status: {
-          notIn: ["ENTREGUE", "PRONTO"],
+          notIn: ["FINALIZADO", "PRONTO"],
         },
       },
     });
@@ -54,7 +54,7 @@ export async function GET() {
     const recentOrders = await prisma.serviceOrder.findMany({
       take: 5,
       orderBy: {
-        entryDate: "desc",
+        createdAt: "desc",
       },
       include: {
         customer: true,
