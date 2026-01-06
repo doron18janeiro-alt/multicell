@@ -38,8 +38,12 @@ export default function Login() {
     <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#112240] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
         <div className="bg-[#0A192F] p-8 text-center border-b border-[#233554]">
-          <div className="w-20 h-20 mx-auto bg-[#D4AF37] rounded-full flex items-center justify-center text-[#0A192F] mb-4 shadow-[0_0_20px_rgba(212,175,55,0.3)]">
-            <Lock size={40} strokeWidth={2.5} />
+          <div className="flex justify-center mb-6">
+            <img
+              src="/logo (2).jpg"
+              alt="Multicell Logo"
+              className="w-40 h-auto object-contain"
+            />
           </div>
           <h1 className="text-3xl font-bold text-white tracking-wider">
             MULTICELL

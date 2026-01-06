@@ -28,18 +28,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-screen bg-[#0A192F] border-r border-[#233554] flex flex-col fixed left-0 top-0 z-50">
       {/* Logo Area */}
-      <div className="p-6 border-b border-[#233554] flex items-center gap-3">
-        <div className="w-10 h-10 bg-[#D4AF37] rounded flex items-center justify-center text-[#0A192F]">
-          <Smartphone size={24} strokeWidth={2.5} />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-white tracking-wider">
-            MULTICELL
-          </h1>
-          <p className="text-xs text-[#D4AF37] uppercase tracking-widest">
-            System
-          </p>
-        </div>
+      <div className="p-4 mb-6 flex justify-center border-b border-gray-800">
+        <img src="/logo (2).jpg" alt="Multicell" className="h-12 w-auto" />
       </div>
 
       {/* Navigation */}

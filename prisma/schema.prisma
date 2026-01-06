@@ -101,3 +101,9 @@ model SaleItem {
   quantity  Int
   unitPrice Float
 }
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+}
