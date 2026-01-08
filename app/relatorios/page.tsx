@@ -44,6 +44,10 @@ export default function RelatoriosPage() {
       const res = await fetch("/api/reports/card-sales");
       if (!res.ok) throw new Error("Falha ao buscar dados");
       const jsonData = await res.json();
+      // Defensive check
+      if (!jsonData.sales) jsonData.sales = [];
+      if (!jsonData.summary)
+        jsonData.summary = { debitTotal: 0, creditTotal: 0 };
       setData(jsonData);
     } catch (error) {
       console.error(error);

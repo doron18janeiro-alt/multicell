@@ -199,7 +199,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#233554]">
-                {stats.recentOrders.length === 0 ? (
+                {(stats.recentOrders?.length || 0) === 0 ? (
                   <tr>
                     <td
                       colSpan={6}
@@ -209,7 +209,7 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 ) : (
-                  stats.recentOrders.map((order: any) => (
+                  stats.recentOrders?.map((order: any) => (
                     <tr
                       key={order.id}
                       className={`transition-colors ${

@@ -23,11 +23,11 @@ export async function PUT(
       where: { id: id },
       data: {
         name,
-        salePrice: parseFloat(price),
-        costPrice: parseFloat(costPrice),
+        salePrice: parseFloat(String(price).replace(",", ".") || "0") || 0,
+        costPrice: parseFloat(String(costPrice).replace(",", ".") || "0") || 0,
         category,
-        stock: parseInt(stockQuantity),
-        minQuantity: parseInt(minQuantity) || 2,
+        stock: parseInt(String(stockQuantity) || "0"),
+        minQuantity: parseInt(String(minQuantity) || "2") || 2,
         supplierId: supplierId || null,
       },
     });

@@ -62,9 +62,14 @@ export default function Estoque() {
   }, []);
 
   const fetchSuppliers = async () => {
-    const res = await fetch("/api/suppliers");
-    const data = await res.json();
-    setSuppliers(data);
+    try {
+      const res = await fetch("/api/suppliers");
+      const data = await res.json();
+      setSuppliers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Erro ao buscar fornecedores:", error);
+      setSuppliers([]);
+    }
   };
 
   const fetchProducts = async () => {
@@ -72,7 +77,11 @@ export default function Estoque() {
     try {
       const res = await fetch("/api/products");
       const data = await res.json();
-      setProducts(data);
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     } finally {
@@ -191,7 +200,7 @@ export default function Estoque() {
       "Fornecedor",
     ];
 
-    const rows = products.map((p) => {
+    const rows = (Array.isArray(products) ? products : []).map((p) => {
       const supplier =
         suppliers.find((s) => s.id === p.supplierId)?.name || "N/A";
       return [
@@ -215,14 +224,16 @@ export default function Estoque() {
     document.body.removeChild(link);
   };
 
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "TODOS" || p.category === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = (Array.isArray(products) ? products : []).filter(
+    (p) => {
+      const matchesSearch = p.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        categoryFilter === "TODOS" || p.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    }
+  );
 
   return (
     <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
