@@ -99,10 +99,16 @@ export default function Estoque() {
       const url = editingId ? `/api/products/${editingId}` : "/api/products";
       const method = editingId ? "PUT" : "POST";
 
+      const payload = {
+        ...formData,
+        price: formData.price.replace(",", "."),
+        costPrice: formData.costPrice.replace(",", "."),
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -374,21 +380,29 @@ export default function Estoque() {
                     <label className="block text-slate-400 mb-1">
                       Preço Custo
                     </label>
-                    <input
-                      required
-                      type="text"
-                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.costPrice}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          costPrice: e.target.value.replace(",", "."),
-                        })
-                      }
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400">
+                        R$
+                      </span>
+                      <input
+                        required
+                        type="text"
+                        className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
+                        value={formData.costPrice}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            costPrice: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                     {formData.costPrice &&
-                      (isNaN(parseFloat(formData.costPrice)) ||
-                        parseFloat(formData.costPrice) < 0) && (
+                      (isNaN(
+                        parseFloat(formData.costPrice.replace(",", "."))
+                      ) ||
+                        parseFloat(formData.costPrice.replace(",", ".")) <
+                          0) && (
                         <p className="text-red-500 text-xs mt-1">
                           Valor inválido
                         </p>
@@ -398,21 +412,23 @@ export default function Estoque() {
                     <label className="block text-slate-400 mb-1">
                       Preço Venda
                     </label>
-                    <input
-                      required
-                      type="text"
-                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          price: e.target.value.replace(",", "."),
-                        })
-                      }
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-slate-400">
+                        R$
+                      </span>
+                      <input
+                        required
+                        type="text"
+                        className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
+                        value={formData.price}
+                        onChange={(e) =>
+                          setFormData({ ...formData, price: e.target.value })
+                        }
+                      />
+                    </div>
                     {(!formData.price ||
-                      isNaN(parseFloat(formData.price)) ||
-                      parseFloat(formData.price) <= 0) && (
+                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
+                      parseFloat(formData.price.replace(",", ".")) <= 0) && (
                       <p className="text-red-500 text-xs mt-1">
                         Obrigatório (&gt; 0)
                       </p>
@@ -498,20 +514,20 @@ export default function Estoque() {
                     disabled={
                       !formData.name ||
                       !formData.price ||
-                      isNaN(parseFloat(formData.price)) ||
-                      parseFloat(formData.price) <= 0 ||
+                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
+                      parseFloat(formData.price.replace(",", ".")) <= 0 ||
                       !formData.costPrice ||
-                      isNaN(parseFloat(formData.costPrice)) ||
-                      parseFloat(formData.costPrice) < 0
+                      isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
+                      parseFloat(formData.costPrice.replace(",", ".")) < 0
                     }
                     className={`flex-1 py-2 rounded font-bold transition-colors ${
                       !formData.name ||
                       !formData.price ||
-                      isNaN(parseFloat(formData.price)) ||
-                      parseFloat(formData.price) <= 0 ||
+                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
+                      parseFloat(formData.price.replace(",", ".")) <= 0 ||
                       !formData.costPrice ||
-                      isNaN(parseFloat(formData.costPrice)) ||
-                      parseFloat(formData.costPrice) < 0
+                      isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
+                      parseFloat(formData.costPrice.replace(",", ".")) < 0
                         ? "bg-slate-600 text-slate-400 cursor-not-allowed"
                         : "bg-[#FFD700] hover:bg-[#E5C100] text-black"
                     }`}
