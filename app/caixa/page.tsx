@@ -67,12 +67,12 @@ export default function CashFlow() {
     const dateStr = new Date().toLocaleDateString("pt-BR");
     const message = `
 *--- FECHAMENTO MULTICELL [${dateStr}] ---*
-💰 *Dinheiro:* R$ ${stats.totalCash.toFixed(2)}
-📱 *Pix:* R$ ${stats.totalPix.toFixed(2)}
-💳 *Débito:* R$ ${stats.totalDebit.toFixed(2)}
-💳 *Crédito:* R$ ${stats.totalCredit.toFixed(2)}
+💰 *Dinheiro:* R$ ${(stats.totalCash || 0).toFixed(2)}
+📱 *Pix:* R$ ${(stats.totalPix || 0).toFixed(2)}
+💳 *Débito:* R$ ${(stats.totalDebit || 0).toFixed(2)}
+💳 *Crédito:* R$ ${(stats.totalCredit || 0).toFixed(2)}
 ----------------------------
-📈 *Lucro Líquido Total:* R$ ${stats.totalNet.toFixed(2)}
+📈 *Lucro Líquido Total:* R$ ${(stats.totalNet || 0).toFixed(2)}
     `.trim();
 
     // Clean phone number (remove non-digits)

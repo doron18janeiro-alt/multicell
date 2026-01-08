@@ -376,14 +376,23 @@ export default function Estoque() {
                     </label>
                     <input
                       required
-                      type="number"
-                      step="0.01"
+                      type="text"
                       className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
                       value={formData.costPrice}
                       onChange={(e) =>
-                        setFormData({ ...formData, costPrice: e.target.value })
+                        setFormData({
+                          ...formData,
+                          costPrice: e.target.value.replace(",", "."),
+                        })
                       }
                     />
+                    {formData.costPrice &&
+                      (isNaN(parseFloat(formData.costPrice)) ||
+                        parseFloat(formData.costPrice) < 0) && (
+                        <p className="text-red-500 text-xs mt-1">
+                          Valor inválido
+                        </p>
+                      )}
                   </div>
                   <div>
                     <label className="block text-slate-400 mb-1">
@@ -391,14 +400,23 @@ export default function Estoque() {
                     </label>
                     <input
                       required
-                      type="number"
-                      step="0.01"
+                      type="text"
                       className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
                       value={formData.price}
                       onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
+                        setFormData({
+                          ...formData,
+                          price: e.target.value.replace(",", "."),
+                        })
                       }
                     />
+                    {(!formData.price ||
+                      isNaN(parseFloat(formData.price)) ||
+                      parseFloat(formData.price) <= 0) && (
+                      <p className="text-red-500 text-xs mt-1">
+                        Obrigatório (&gt; 0)
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
@@ -477,7 +495,26 @@ export default function Estoque() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-[#FFD700] hover:bg-[#E5C100] text-black py-2 rounded font-bold"
+                    disabled={
+                      !formData.name ||
+                      !formData.price ||
+                      isNaN(parseFloat(formData.price)) ||
+                      parseFloat(formData.price) <= 0 ||
+                      !formData.costPrice ||
+                      isNaN(parseFloat(formData.costPrice)) ||
+                      parseFloat(formData.costPrice) < 0
+                    }
+                    className={`flex-1 py-2 rounded font-bold transition-colors ${
+                      !formData.name ||
+                      !formData.price ||
+                      isNaN(parseFloat(formData.price)) ||
+                      parseFloat(formData.price) <= 0 ||
+                      !formData.costPrice ||
+                      isNaN(parseFloat(formData.costPrice)) ||
+                      parseFloat(formData.costPrice) < 0
+                        ? "bg-slate-600 text-slate-400 cursor-not-allowed"
+                        : "bg-[#FFD700] hover:bg-[#E5C100] text-black"
+                    }`}
                   >
                     Salvar
                   </button>
