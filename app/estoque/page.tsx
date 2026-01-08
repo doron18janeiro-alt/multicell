@@ -309,10 +309,10 @@ export default function Estoque() {
                       </span>
                     </td>
                     <td className="p-4 text-slate-400">
-                      R$ {product.costPrice.toFixed(2)}
+                      R$ {(product.costPrice || 0).toFixed(2)}
                     </td>
                     <td className="p-4 text-[#FFD700] font-bold">
-                      R$ {product.price.toFixed(2)}
+                      R$ {(product.price || 0).toFixed(2)}
                     </td>
                     <td className="p-4">
                       <span

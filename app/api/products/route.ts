@@ -53,11 +53,11 @@ export async function POST(request: Request) {
     const product = await prisma.product.create({
       data: {
         name,
-        salePrice: parseFloat(price),
-        costPrice: parseFloat(costPrice),
+        salePrice: parseFloat(price?.toString() || "0") || 0,
+        costPrice: parseFloat(costPrice?.toString() || "0") || 0,
         category,
-        stock: parseInt(stockQuantity),
-        minQuantity: parseInt(minQuantity) || 2,
+        stock: parseInt(stockQuantity?.toString() || "0") || 0,
+        minQuantity: parseInt(minQuantity?.toString() || "2") || 2,
         minStock: 5,
         supplierId: supplierId || null,
       },

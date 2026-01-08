@@ -200,7 +200,7 @@ export default function Vendas() {
                 </div>
                 <div className="flex justify-between items-end">
                   <span className="text-[#FFD700] font-bold">
-                    R$ {product.price.toFixed(2)}
+                    R$ {(product.price || 0).toFixed(2)}
                   </span>
                   <span className="text-xs bg-slate-800 px-2 py-1 rounded">
                     Est: {product.stockQuantity}
@@ -233,7 +233,7 @@ export default function Vendas() {
                       {item.name}
                     </p>
                     <p className="text-xs text-[#FFD700]">
-                      R$ {item.price.toFixed(2)}
+                      R$ {(item.price || 0).toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -269,7 +269,7 @@ export default function Vendas() {
           <div className="p-4 bg-[#0B1120] border-t border-slate-800 space-y-4">
             <div className="flex justify-between items-center text-xl font-bold text-white">
               <span>Total</span>
-              <span>R$ {total.toFixed(2)}</span>
+              <span>R$ {(total || 0).toFixed(2)}</span>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -330,11 +330,11 @@ export default function Vendas() {
                     Recebimento Líquido: R${" "}
                     {(
                       total -
-                      (total *
-                        (paymentMethod === "DEBITO"
-                          ? rates.debit
-                          : rates.credit)) /
-                        100
+                        (total *
+                          (paymentMethod === "DEBITO"
+                            ? rates.debit
+                            : rates.credit)) /
+                          100 || 0
                     ).toFixed(2)}
                   </span>
                 </div>
@@ -375,14 +375,16 @@ export default function Vendas() {
                 <span>
                   {item.quantity}x {item.product.name}
                 </span>
-                <span>R$ {(item.unitPrice * item.quantity).toFixed(2)}</span>
+                <span>
+                  R$ {((item.unitPrice || 0) * (item.quantity || 0)).toFixed(2)}
+                </span>
               </div>
             ))}
           </div>
           <div className="border-b border-black my-2"></div>
           <div className="flex justify-between font-bold text-sm">
             <span>TOTAL</span>
-            <span>R$ {lastSale?.total.toFixed(2)}</span>
+            <span>R$ {(lastSale?.total || 0).toFixed(2)}</span>
           </div>
           <p className="mt-2">Pagamento: {lastSale?.paymentMethod}</p>
           <div className="text-center mt-6">

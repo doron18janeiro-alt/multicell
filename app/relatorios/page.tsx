@@ -119,11 +119,13 @@ export default function RelatoriosPage() {
                 <ArrowUpRight size={18} /> Total Débito
               </h3>
               <p className="text-3xl font-bold text-white mb-2">
-                R$ {data.summary.debitTotal.toFixed(2)}
+                R$ {(data.summary.debitTotal || 0).toFixed(2)}
               </p>
               <p className="text-sm text-slate-400">
                 Líquido Est.: R${" "}
-                {calculateNet(data.summary.debitTotal, "DEBITO").toFixed(2)}
+                {(
+                  calculateNet(data.summary.debitTotal || 0, "DEBITO") || 0
+                ).toFixed(2)}
               </p>
             </div>
             <div className="w-full h-1 bg-slate-700/50 mt-4 rounded-full overflow-hidden">
@@ -141,11 +143,13 @@ export default function RelatoriosPage() {
                 <TrendingUp size={18} /> Total Crédito
               </h3>
               <p className="text-3xl font-bold text-white mb-2">
-                R$ {data.summary.creditTotal.toFixed(2)}
+                R$ {(data.summary.creditTotal || 0).toFixed(2)}
               </p>
               <p className="text-sm text-slate-400">
                 Líquido Est.: R${" "}
-                {calculateNet(data.summary.creditTotal, "CREDITO").toFixed(2)}
+                {(
+                  calculateNet(data.summary.creditTotal || 0, "CREDITO") || 0
+                ).toFixed(2)}
               </p>
             </div>
             <div className="w-full h-1 bg-slate-700/50 mt-4 rounded-full overflow-hidden">
@@ -160,7 +164,7 @@ export default function RelatoriosPage() {
                 <Briefcase size={18} /> Caixa Líquido (Cartões)
               </h3>
               <p className="text-4xl font-bold text-white mb-2">
-                R$ {calculateTotalNet().toFixed(2)}
+                R$ {(calculateTotalNet() || 0).toFixed(2)}
               </p>
               <p className="text-sm text-slate-400">
                 Valor real previsto após desconto das taxas.
@@ -242,13 +246,13 @@ export default function RelatoriosPage() {
                           </span>
                         </td>
                         <td className="p-4 text-right font-medium">
-                          R$ {sale.total.toFixed(2)}
+                          R$ {(sale.total || 0).toFixed(2)}
                         </td>
                         <td className="p-4 text-right text-slate-500">
                           {rate}%
                         </td>
                         <td className="p-4 text-right text-[#D4AF37] font-bold">
-                          R$ {net.toFixed(2)}
+                          R$ {(net || 0).toFixed(2)}
                         </td>
                       </tr>
                     );
