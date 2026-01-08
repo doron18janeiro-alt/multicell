@@ -76,8 +76,21 @@ export async function GET() {
       },
     });
 
-    // Vendas de Balcão do Dia por Método de Pagamento
-    const salesByMethod = [] as any;
+    // Vendas de Balcão do Dia por Método de Pagamento - SAFE AGGREGATION
+    const salesGrouped = await prisma.sale.groupBy({
+      by: ["paymentMethod"],
+      _sum: {
+        total: true,
+      },
+      where: {
+        createdAt: { gte: today },
+        status: { not: "REFUNDED" },
+      },
+    });
+    const salesByMethod = salesGrouped.map((item) => ({
+      paymentMethod: item.paymentMethod,
+      total: item._sum.total || 0,
+    }));
 
     // Alertas de Estoque: Fetch minimal fields and filter in memory (Prisma limitation for field comparison)
     const allProducts = await prisma.product.findMany({
@@ -94,19 +107,28 @@ export async function GET() {
     );
 
     return NextResponse.json({
-      pendingCount,
-      revenueToday,
+      pendingCount: pendingCount || 0,
+      revenueToday: revenueToday || 0,
       stockValue: stockValue._sum.costPrice || 0,
       profitToday: profitToday._sum.servicePrice || 0,
-      recentOrders,
-      salesByMethod,
-      lowStockProducts,
+      recentOrders: recentOrders || [],
+      salesByMethod: salesByMethod || [],
+      lowStockProducts: lowStockProducts || [],
     });
   } catch (error) {
-    console.error(error);
+    console.error("Dashboard Error:", error);
     return NextResponse.json(
-      { error: "Erro ao carregar dashboard" },
-      { status: 500 }
-    );
+      {
+        pendingCount: 0,
+        revenueToday: 0,
+        stockValue: 0,
+        profitToday: 0,
+        recentOrders: [],
+        salesByMethod: [],
+        lowStockProducts: [],
+        error: "Erro ao carregar dashboard", // Optional: include error message for debugging
+      },
+      { status: 200 }
+    ); // Return 200 with zeroed data to prevent frontend crash
   }
 }

@@ -28,7 +28,7 @@ export async function GET() {
 
     sales.forEach((sale) => {
       // Use netAmount (valor líquido) for calculation
-      const value = sale.netAmount ?? sale.total;
+      const value = sale.netAmount ?? sale.total ?? 0;
 
       if (sale.paymentMethod === "DINHEIRO") {
         totalCash += value;
@@ -54,20 +54,26 @@ export async function GET() {
     const config = await prisma.companyConfig.findFirst();
 
     return NextResponse.json({
-      totalCash,
-      totalPix,
-      totalDebit,
-      totalCredit,
-      totalNet,
+      totalCash: totalCash || 0,
+      totalPix: totalPix || 0,
+      totalDebit: totalDebit || 0,
+      totalCredit: totalCredit || 0,
+      totalNet: totalNet || 0,
       isClosed: closing?.status === "CLOSED",
       closingDetails: closing,
       companyPhone: config?.phone || "",
     });
   } catch (error) {
     console.error("Error fetching cash flow:", error);
-    return NextResponse.json(
-      { error: "Erro ao buscar fluxo de caixa" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      totalCash: 0,
+      totalPix: 0,
+      totalDebit: 0,
+      totalCredit: 0,
+      totalNet: 0,
+      isClosed: false,
+      companyPhone: "",
+      error: "Erro ao buscar dados do caixa",
+    });
   }
 }

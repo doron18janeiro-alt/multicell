@@ -2,7 +2,17 @@
 
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
-import { Search, Users, Plus, Download, Phone, FileText } from "lucide-react";
+import {
+  Search,
+  Users,
+  Plus,
+  Download,
+  Phone,
+  FileText,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface Customer {
   id: string;
@@ -14,14 +24,13 @@ interface Customer {
   };
 }
 
-import { useRouter } from "next/navigation";
-
 export default function Clientes() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -37,7 +46,7 @@ export default function Clientes() {
     try {
       const res = await fetch("/api/customers");
       const data = await res.json();
-      setCustomers(data);
+      setCustomers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
     } finally {
@@ -45,31 +54,71 @@ export default function Clientes() {
     }
   };
 
+  const handleEdit = (customer: Customer) => {
+    setEditingId(customer.id);
+    setFormData({
+      name: customer.name,
+      phone: customer.phone,
+      document: customer.document || "",
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o cliente ${name}?`)) return;
+
+    try {
+      const res = await fetch(`/api/customers/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Cliente excluído com sucesso!");
+        fetchCustomers();
+      } else {
+        const err = await res.json();
+        alert(`Erro ao excluir: ${err.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao processar exclusão.");
+    }
+  };
+
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/customers", {
-        method: "POST",
+      const url = editingId ? `/api/customers/${editingId}` : "/api/customers";
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (res.ok) {
         const result = await res.json();
-        alert("Cliente cadastrado com sucesso!");
-        const confirmar = window.confirm(
-          "✅ Cliente cadastrado! Deseja abrir uma Ordem de Serviço para ele agora?"
+        alert(
+          editingId ? "Cliente atualizado!" : "Cliente cadastrado com sucesso!"
         );
 
-        if (confirmar) {
-          router.push(`/os/novo?clientId=${result.id}&name=${result.name}`);
+        if (!editingId) {
+          const confirmar = window.confirm(
+            "✅ Cliente cadastrado! Deseja abrir uma Ordem de Serviço para ele agora?"
+          );
+          if (confirmar) {
+            router.push(`/os/novo?clientId=${result.id}&name=${result.name}`);
+          }
         }
 
         setShowForm(false);
+        setEditingId(null);
         setFormData({ name: "", phone: "", document: "" });
         fetchCustomers();
       } else {
-        alert("Erro ao cadastrar cliente.");
+        const err = await res.json();
+        alert(`Erro: ${err.error || "Erro ao salvar"}`);
       }
     } catch (error) {
       console.error(error);
@@ -124,7 +173,11 @@ export default function Clientes() {
               Exportar
             </button>
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setEditingId(null);
+                setFormData({ name: "", phone: "", document: "" });
+                setShowForm(true);
+              }}
               className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
             >
               <Plus className="w-5 h-5" />
@@ -149,45 +202,68 @@ export default function Clientes() {
 
         {/* List */}
         <div className="bg-[#112240] rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-[#0B1120] text-slate-400">
-              <tr>
-                <th className="p-4">Nome</th>
-                <th className="p-4">Telefone</th>
-                <th className="p-4">Documento</th>
-                <th className="p-4">OSs</th>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-[#0f172a] text-slate-400 text-sm uppercase tracking-wider">
+                <th className="p-4 font-medium border-b border-slate-700">
+                  Nome
+                </th>
+                <th className="p-4 font-medium border-b border-slate-700">
+                  Telefone
+                </th>
+                <th className="p-4 font-medium border-b border-slate-700">
+                  Documento
+                </th>
+                <th className="p-4 font-medium border-b border-slate-700 text-center">
+                  Ordens de Serviço
+                </th>
+                <th className="p-4 font-medium border-b border-slate-700 text-center">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-slate-400">
+                  <td colSpan={5} className="p-8 text-center text-slate-500">
                     Carregando...
                   </td>
                 </tr>
               ) : filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-slate-400">
+                  <td colSpan={5} className="p-8 text-center text-slate-500">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-[#1e293b]">
-                    <td className="p-4 font-medium text-white">
-                      {customer.name}
+                filteredCustomers.map((c) => (
+                  <tr
+                    key={c.id}
+                    className="hover:bg-[#1e293b] transition-colors"
+                  >
+                    <td className="p-4 text-white font-bold">{c.name}</td>
+                    <td className="p-4 text-slate-400 flex items-center gap-2">
+                      <Phone size={14} /> {c.phone}
                     </td>
-                    <td className="p-4 flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-slate-500" />
-                      {customer.phone}
-                    </td>
-                    <td className="p-4 text-slate-400">
-                      {customer.document || "-"}
-                    </td>
-                    <td className="p-4">
-                      <span className="bg-slate-800 text-slate-300 px-2 py-1 rounded text-sm">
-                        {customer._count?.serviceOrders || 0} OSs
+                    <td className="p-4 text-slate-400">{c.document || "—"}</td>
+                    <td className="p-4 text-center">
+                      <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">
+                        {c._count?.serviceOrders || 0}
                       </span>
+                    </td>
+                    <td className="p-4 flex gap-2 justify-center">
+                      <button
+                        onClick={() => handleEdit(c)}
+                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded transition-colors border border-blue-500/30 hover:border-blue-500/50"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id, c.name)}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded transition-colors border border-red-500/30 hover:border-red-500/50"
+                      >
+                        <Trash2 size={18} />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -201,7 +277,7 @@ export default function Clientes() {
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
             <div className="bg-[#112240] p-8 rounded-xl border border-slate-700 w-full max-w-md">
               <h2 className="text-2xl font-bold text-white mb-6">
-                Novo Cliente
+                {editingId ? "Editar Cliente" : "Novo Cliente"}
               </h2>
               <form onSubmit={handleCreateCustomer} className="space-y-4">
                 <div>
@@ -243,8 +319,11 @@ export default function Clientes() {
                 </div>
                 <div className="flex gap-3 mt-6">
                   <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                      setFormData({ name: "", phone: "", document: "" });
+                    }}
                     className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
                   >
                     Cancelar

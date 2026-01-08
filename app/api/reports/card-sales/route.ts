@@ -30,17 +30,23 @@ export async function GET() {
     const debitSales = sales.filter((s) => s.cardType === "DEBITO");
     const creditSales = sales.filter((s) => s.cardType === "CREDITO");
 
-    const debitTotal = debitSales.reduce((acc, curr) => acc + curr.total, 0);
-    const creditTotal = creditSales.reduce((acc, curr) => acc + curr.total, 0);
+    const debitTotal = debitSales.reduce(
+      (acc, curr) => acc + (curr.total || 0),
+      0
+    );
+    const creditTotal = creditSales.reduce(
+      (acc, curr) => acc + (curr.total || 0),
+      0
+    );
 
     return NextResponse.json({
       summary: {
-        debitTotal,
-        creditTotal,
+        debitTotal: debitTotal || 0,
+        creditTotal: creditTotal || 0,
       },
       sales: sales.map((s) => ({
         id: s.id,
-        total: s.total,
+        total: s.total || 0,
         cardType: s.cardType,
         createdAt: s.createdAt,
       })),
@@ -51,9 +57,11 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error fetching report:", error);
-    return NextResponse.json(
-      { error: "Erro ao buscar relatório" },
-      { status: 500 }
-    );
+    // Return safe empty structure instead of 500
+    return NextResponse.json({
+      summary: { debitTotal: 0, creditTotal: 0 },
+      sales: [],
+      config: { debitRate: 0, creditRate: 0 },
+    });
   }
 }
