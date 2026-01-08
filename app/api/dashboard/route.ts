@@ -16,7 +16,7 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const salesToday = await prisma.serviceOrder.aggregate({
+    const serviceOrdersToday = await prisma.serviceOrder.aggregate({
       _sum: {
         totalPrice: true,
       },
@@ -27,6 +27,21 @@ export async function GET() {
         },
       },
     });
+
+    const salesToday = await prisma.sale.aggregate({
+      _sum: {
+        total: true, // Use gross total for revenue
+      },
+      where: {
+        status: { not: "REFUNDED" },
+        createdAt: {
+          gte: today,
+        },
+      },
+    });
+
+    const revenueToday =
+      (serviceOrdersToday._sum.totalPrice || 0) + (salesToday._sum.total || 0);
 
     // Patrimônio em Estoque (Soma de custo * quantidade)
     const stockValue = await prisma.product.aggregate({
@@ -80,7 +95,7 @@ export async function GET() {
 
     return NextResponse.json({
       pendingCount,
-      revenueToday: salesToday._sum.totalPrice || 0,
+      revenueToday,
       stockValue: stockValue._sum.costPrice || 0,
       profitToday: profitToday._sum.servicePrice || 0,
       recentOrders,

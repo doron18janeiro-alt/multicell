@@ -190,15 +190,22 @@ export default function Estoque() {
       "Estoque",
       "Fornecedor",
     ];
-    const csvContent = [
-      headers.join(","),
-      ...products.map((p) => {
-        const supplier =
-          suppliers.find((s) => s.id === p.supplierId)?.name || "N/A";
-        return [
-          `"${p.name}"`,
-          p.category,
-          p.salePrice,
+
+    const rows = products.map((p) => {
+      const supplier =
+        suppliers.find((s) => s.id === p.supplierId)?.name || "N/A";
+      return [
+        `"${p.name}"`,
+        p.category,
+        p.salePrice,
+        p.costPrice,
+        p.stock,
+        `"${supplier}"`,
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);

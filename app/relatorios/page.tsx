@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   TrendingUp,
   Briefcase,
+  RotateCcw,
 } from "lucide-react";
 
 interface SaleReportItem {
@@ -48,6 +49,34 @@ export default function RelatoriosPage() {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefund = async (saleId: number) => {
+    if (
+      !confirm(
+        "Deseja estornar esta venda? O valor será subtraído do lucro de hoje e o item voltará ao estoque."
+      )
+    )
+      return;
+
+    try {
+      const res = await fetch(`/api/sales/${saleId}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Devolução solicitada via Painel" }),
+      });
+
+      if (res.ok) {
+        alert("Venda estornada com sucesso!");
+        fetchReport();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Erro ao estornar venda");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao realizar estorno");
     }
   };
 
@@ -203,6 +232,9 @@ export default function RelatoriosPage() {
                   <th className="p-4 font-medium border-b border-slate-700 text-right text-white">
                     Líquido
                   </th>
+                  <th className="p-4 font-medium border-b border-slate-700 text-right text-white">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody className="text-slate-300 text-sm">
@@ -253,6 +285,15 @@ export default function RelatoriosPage() {
                         </td>
                         <td className="p-4 text-right text-[#D4AF37] font-bold">
                           R$ {(net || 0).toFixed(2)}
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleRefund(sale.id)}
+                            className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
+                            title="Estornar Venda"
+                          >
+                            <RotateCcw className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                     );

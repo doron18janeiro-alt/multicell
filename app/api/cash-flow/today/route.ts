@@ -15,6 +15,9 @@ export async function GET() {
           gte: today,
           lte: endOfDay,
         },
+        status: {
+          not: "REFUNDED",
+        },
       },
     });
 

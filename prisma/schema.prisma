@@ -28,6 +28,11 @@ enum OSStatus {
   CANCELADO
 }
 
+enum SaleStatus {
+  COMPLETED
+  REFUNDED
+}
+
 model Product {
   id          String   @id @default(cuid())
   name        String
@@ -94,6 +99,8 @@ model Sale {
   paymentMethod String
   cardType      String?    // DEBITO ou CREDITO
   serviceOrderId Int?      // Link para O.S. (opcional, pois pode ser venda de balcão)
+  status        SaleStatus @default(COMPLETED)
+  returnReason  String?
   createdAt     DateTime   @default(now())
   items         SaleItem[]
 }
