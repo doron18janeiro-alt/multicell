@@ -40,3 +40,24 @@ export async function PUT(
     );
   }
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Produto excluído com sucesso" });
+  } catch (error) {
+    console.error("Erro ao excluir produto:", error);
+    return NextResponse.json(
+      { error: "Erro ao excluir produto" },
+      { status: 500 }
+    );
+  }
+}

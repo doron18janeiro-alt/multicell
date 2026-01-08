@@ -10,12 +10,13 @@ import {
   Truck,
   Download,
   Pencil,
+  Trash2,
 } from "lucide-react";
 
 interface Product {
   id: string;
   name: string;
-  price: number;
+  salePrice: number;
   costPrice: number;
   stock: number; // Changed from stockQuantity to match API/Prisma
   minQuantity: number;
@@ -83,7 +84,7 @@ export default function Estoque() {
     setEditingId(product.id);
     setFormData({
       name: product.name,
-      price: product.price.toString(),
+      price: product.salePrice.toString(),
       costPrice: product.costPrice.toString(),
       stockQuantity: product.stock.toString(),
       minQuantity: product.minQuantity.toString(),
@@ -91,6 +92,26 @@ export default function Estoque() {
       supplierId: product.supplierId || "",
     });
     setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este produto?")) return;
+
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Produto excluído com sucesso!");
+        fetchProducts();
+      } else {
+        alert("Erro ao excluir produto.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao excluir produto.");
+    }
   };
 
   const handleCreateProduct = async (e: React.FormEvent) => {
@@ -177,15 +198,7 @@ export default function Estoque() {
         return [
           `"${p.name}"`,
           p.category,
-          p.price,
-          p.costPrice,
-          p.stock,
-          `"${supplier}"`,
-        ].join(",");
-      }),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          p.salePrice,
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
@@ -318,7 +331,7 @@ export default function Estoque() {
                       R$ {(product.costPrice || 0).toFixed(2)}
                     </td>
                     <td className="p-4 text-[#FFD700] font-bold">
-                      R$ {(product.price || 0).toFixed(2)}
+                      R$ {(product.salePrice || 0).toFixed(2)}
                     </td>
                     <td className="p-4">
                       <span
@@ -339,13 +352,20 @@ export default function Estoque() {
                         </div>
                       )}
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 flex gap-2">
                       <button
                         onClick={() => handleEdit(product)}
                         className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                         title="Editar"
                       >
                         <Pencil className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
