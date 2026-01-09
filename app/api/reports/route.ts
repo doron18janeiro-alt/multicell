@@ -7,10 +7,11 @@ export async function GET() {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    // 1. Total Sales Revenue (Month)
+    // 1. Total Sales Revenue (Month) - INCLUDES Service Orders
     const salesRevenue = await prisma.sale.aggregate({
       _sum: { total: true },
       where: {
+        status: { not: "REFUNDED" },
         createdAt: {
           gte: startOfMonth,
           lte: endOfMonth,
@@ -18,9 +19,34 @@ export async function GET() {
       },
     });
 
-    // 2. Total Service Order Revenue (Month)
-    const osRevenue = await prisma.serviceOrder.aggregate({
-      _sum: { totalPrice: true },
+    const totalRevenue = salesRevenue._sum.total || 0;
+
+    // 2. Costs from Products Sold (Counter Sales)
+    const salesItems = await prisma.saleItem.findMany({
+      where: {
+        sale: {
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+          status: { not: "REFUNDED" },
+        },
+        productId: { not: null }, // Only products have tracked cost here
+      },
+      include: {
+        product: {
+          select: { costPrice: true },
+        },
+      },
+    });
+
+    const productsCost = salesItems.reduce((acc, item) => {
+      return acc + item.quantity * (item.product?.costPrice || 0);
+    }, 0);
+
+    // 3. Costs from Service Orders (Parts)
+    const osCost = await prisma.serviceOrder.aggregate({
+      _sum: { costPrice: true },
       where: {
         status: "FINALIZADO",
         updatedAt: {
@@ -30,33 +56,7 @@ export async function GET() {
       },
     });
 
-    const totalRevenue =
-      (salesRevenue._sum.total || 0) + (osRevenue._sum.totalPrice || 0);
-
-    // 3. Total Costs (Sales Items Cost)
-    // We need to fetch all sale items for this month and sum (quantity * product.costPrice)
-    // Prisma doesn't support deep aggregation easily in one query for this, so we might need to fetch items.
-    // Or we can use raw query. Let's fetch items for simplicity if volume is low, or raw query.
-    // Let's try to be efficient.
-    const salesItems = await prisma.saleItem.findMany({
-      where: {
-        sale: {
-          createdAt: {
-            gte: startOfMonth,
-            lte: endOfMonth,
-          },
-        },
-      },
-      include: {
-        product: {
-          select: { costPrice: true },
-        },
-      },
-    });
-
-    const totalCost = salesItems.reduce((acc, item) => {
-      return acc + item.quantity * (item.product?.costPrice || 0);
-    }, 0);
+    const totalCost = productsCost + (osCost._sum.costPrice || 0);
 
     // 4. Chart Data (Last 3 Months)
     const chartData = [];
@@ -67,11 +67,17 @@ export async function GET() {
       const start = new Date(d.getFullYear(), d.getMonth(), 1);
       const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
+      // "Vendas": Only pure Counter Sales (exclude OS-generated)
       const monthSales = await prisma.sale.aggregate({
         _sum: { total: true },
-        where: { createdAt: { gte: start, lte: end } },
+        where: {
+          createdAt: { gte: start, lte: end },
+          status: { not: "REFUNDED" },
+          serviceOrderId: null,
+        },
       });
 
+      // "Servicos": Service Orders
       const monthOS = await prisma.serviceOrder.aggregate({
         _sum: { totalPrice: true },
         where: {

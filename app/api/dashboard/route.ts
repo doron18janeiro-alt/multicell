@@ -16,18 +16,10 @@ export async function GET() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const serviceOrdersToday = await prisma.serviceOrder.aggregate({
-      _sum: {
-        totalPrice: true,
-      },
-      where: {
-        status: "FINALIZADO",
-        updatedAt: {
-          gte: today,
-        },
-      },
-    });
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
 
+    // Faturamento do Dia: Somente da tabela SALE para evitar duplicidade (pois O.S. finalizada gera Venda)
     const salesToday = await prisma.sale.aggregate({
       _sum: {
         total: true, // Use gross total for revenue
@@ -36,12 +28,12 @@ export async function GET() {
         status: { not: "REFUNDED" },
         createdAt: {
           gte: today,
+          lte: endOfDay,
         },
       },
     });
 
-    const revenueToday =
-      (serviceOrdersToday._sum.totalPrice || 0) + (salesToday._sum.total || 0);
+    const revenueToday = salesToday._sum.total || 0;
 
     // Patrimônio em Estoque (Soma de custo * quantidade)
     const stockValue = await prisma.product.aggregate({
