@@ -17,11 +17,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
+import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
 
 function OrderServiceForm() {
   const searchParams = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
+  const [generatedProtocol, setGeneratedProtocol] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
@@ -52,6 +54,20 @@ function OrderServiceForm() {
       },
     },
   });
+
+  const generateProtocol = () => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+
+    // Pega os 4 últimos dígitos do telefone ou 0000 se não tiver telefone suficiente
+    const phone = formData.clientPhone.replace(/\D/g, "");
+    const suffix = phone.length >= 4 ? phone.slice(-4) : "0000";
+
+    const protocol = `MC${yyyy}${mm}${dd}-${suffix}`;
+    setGeneratedProtocol(protocol);
+  };
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -219,6 +235,7 @@ function OrderServiceForm() {
           ref={printRef}
           data={{
             ...formData,
+            id: successData?.id || generatedProtocol,
             problem: formData.clientReport,
             clientCpf: formData.clientDocument,
             totalPrice: Number(formData.totalPrice) || 0,
@@ -239,12 +256,45 @@ function OrderServiceForm() {
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               Nova Ordem de Serviço
             </h1>
-            <p className="text-slate-400 text-sm">
-              Preencha os dados para entrada do aparelho
-            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-slate-400 text-sm">
+                Preencha os dados para entrada do aparelho
+              </p>
+              <div className="flex items-center gap-2 bg-[#112240] px-3 py-1 rounded-md border border-[#233554]">
+                <span className="text-xs text-[#D4AF37] font-bold uppercase">
+                  PROT:
+                </span>
+                <span className="text-sm font-mono font-bold text-white">
+                  {successData?.id
+                    ? `#${successData.id}`
+                    : generatedProtocol || "---"}
+                </span>
+                {!successData?.id && (
+                  <button
+                    onClick={generateProtocol}
+                    type="button"
+                    className="ml-2 text-[10px] bg-[#D4AF37] text-black px-2 py-0.5 rounded font-bold uppercase hover:bg-yellow-500 transition-colors"
+                  >
+                    Gerar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         <div className="flex gap-3">
+          {/* Botão de WhatsApp */}
+          <WhatsAppNotificationButton
+            clientName={formData.clientName}
+            clientPhone={formData.clientPhone}
+            deviceBrand={formData.deviceBrand}
+            deviceModel={formData.deviceModel}
+            problem={formData.clientReport}
+            osId={successData?.id || generatedProtocol}
+            status="PENDENTE" // Nova OS é sempre pendente
+            disabled={!formData.clientName || !formData.clientPhone}
+          />
+
           <button onClick={handlePrint} className="btn-outline">
             <Printer size={18} /> Imprimir Termo
           </button>
@@ -599,6 +649,7 @@ function OrderServiceForm() {
           ref={printRef}
           data={{
             ...formData,
+            id: successData?.id || generatedProtocol,
             problem: formData.clientReport,
             clientCpf: formData.clientDocument,
             totalPrice: Number(formData.totalPrice) || 0,
