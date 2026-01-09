@@ -152,12 +152,13 @@ export default function Clientes() {
         );
 
         if (!editingId) {
-          const confirmar = window.confirm(
-            "✅ Cliente cadastrado! Deseja abrir uma Ordem de Serviço para ele agora?"
+          router.push(
+            `/os/novo?customerId=${result.id}&name=${encodeURIComponent(
+              result.name
+            )}&phone=${encodeURIComponent(
+              result.phone
+            )}&document=${encodeURIComponent(result.document || "")}`
           );
-          if (confirmar) {
-            router.push(`/os/novo?clientId=${result.id}&name=${result.name}`);
-          }
         }
 
         setShowForm(false);

@@ -27,9 +27,10 @@ function OrderServiceForm() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
+    customerId: searchParams.get("customerId") || "", // New hidden field
     clientName: searchParams.get("name") || "",
-    clientPhone: "",
-    clientDocument: "",
+    clientPhone: searchParams.get("phone") || "",
+    clientDocument: searchParams.get("document") || "",
     deviceModel: "",
     deviceBrand: "",
     imei: "",
