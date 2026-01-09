@@ -177,36 +177,26 @@ function OrderServiceForm() {
                 Imprimir Comprovante
               </button>
 
-              <button
-                onClick={handleWhatsAppWelcome}
-                className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/20"
-              >
-                <div
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                  }}
-                >
-                  <WhatsAppNotificationButton
-                    clientName={successData.clientName}
-                    clientPhone={successData.clientPhone}
-                    deviceModel={successData.deviceModel}
-                    deviceBrand={successData.deviceBrand}
-                    problem={successData.problem}
-                    osId={successData.id}
-                    status="ABERTO"
-                    checklist={{
-                      liga: successData.checklist?.tests?.liga ? "SIM" : "NÃO",
-                      tela: successData.checklist?.tests?.touch
-                        ? "OK"
-                        : "COM DETALHES", // Simple logic for now
-                      corpo: successData.checklist?.physical?.riscos
+              <div className="w-full">
+                <WhatsAppNotificationButton
+                  clientName={successData.clientName}
+                  clientPhone={successData.clientPhone}
+                  deviceModel={successData.deviceModel}
+                  deviceBrand={successData.deviceBrand}
+                  problem={successData.problem}
+                  osId={successData.id}
+                  status="ABERTO"
+                  checklist={{
+                    liga: successData.checklist?.tests?.liga || "N/A",
+                    tela: successData.checklist?.tests?.touch || "N/A",
+                    corpo:
+                      successData.checklist?.physical?.observations ||
+                      (successData.checklist?.physical?.riscos
                         ? "COM RISCOS"
-                        : "OK",
-                    }}
-                  />
-                </div>
-              </button>
+                        : "OK"),
+                  }}
+                />
+              </div>
 
               <button
                 onClick={() => (window.location.href = `/os/${successData.id}`)}
