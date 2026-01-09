@@ -1,6 +1,48 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        serviceOrders: {
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    if (!customer) {
+      return NextResponse.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(customer);
+  } catch (error) {
+    console.error("Erro ao buscar detalhes do cliente:", error);
+    return NextResponse.json(
+      { error: "Erro ao buscar detalhes do cliente" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

@@ -16,6 +16,7 @@ model Customer {
   createdAt     DateTime       @default(now())
   // Relação corrigida:
   serviceOrders ServiceOrder[]
+  sales         Sale[]
 }
 
 enum OSStatus {
@@ -101,6 +102,11 @@ model Sale {
   serviceOrderId Int?      // Link para O.S. (opcional, pois pode ser venda de balcão)
   status        SaleStatus @default(COMPLETED)
   returnReason  String?
+  
+  // Relação com Cliente
+  customerId    String?
+  customer      Customer?  @relation(fields: [customerId], references: [id])
+
   createdAt     DateTime   @default(now())
   items         SaleItem[]
 }
