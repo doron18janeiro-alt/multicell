@@ -27,10 +27,10 @@ function OrderServiceForm() {
   const printRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
-    customerId: searchParams.get("customerId") || "", // New hidden field
-    clientName: searchParams.get("name") || "",
-    clientPhone: searchParams.get("phone") || "",
-    clientDocument: searchParams.get("document") || "",
+    customerId: "",
+    clientName: "",
+    clientPhone: "",
+    clientDocument: "",
     deviceModel: "",
     deviceBrand: "",
     imei: "",
@@ -57,6 +57,24 @@ function OrderServiceForm() {
       },
     },
   });
+
+  // Effect to populate form data from URL params
+  React.useEffect(() => {
+    const customerId = searchParams.get("customerId");
+    const name = searchParams.get("name");
+    const phone = searchParams.get("phone");
+    const document = searchParams.get("document");
+
+    if (customerId || name) {
+      setFormData((prev) => ({
+        ...prev,
+        customerId: customerId || prev.customerId,
+        clientName: name || prev.clientName,
+        clientPhone: phone || prev.clientPhone,
+        clientDocument: document || prev.clientDocument,
+      }));
+    }
+  }, [searchParams]);
 
   const generateProtocol = () => {
     const today = new Date();
