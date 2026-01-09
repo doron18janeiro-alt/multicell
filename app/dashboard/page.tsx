@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState({
     pendingCount: 0,
+    finishedCount: 0,
     revenueToday: 0,
     stockValue: 0,
     profitToday: 0,
@@ -38,6 +39,35 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const handleClosingSummary = () => {
+    const f = (v: number) =>
+      new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      }).format(v);
+
+    const pixMoney = stats.salesByMethod
+      .filter((m) => ["PIX", "DINHEIRO"].includes(m.paymentMethod))
+      .reduce((acc, c) => acc + c.total, 0);
+
+    const card = stats.salesByMethod
+      .filter((m) => !["PIX", "DINHEIRO"].includes(m.paymentMethod))
+      .reduce((acc, c) => acc + c.total, 0);
+
+    const txt = `📊 FECHAMENTO MULTICELL - ${new Date().toLocaleDateString()}\n\n💰 Faturamento Bruto: ${f(
+      stats.revenueToday
+    )}\n📈 Lucro Líquido: ${f(stats.profitToday)}\n🛠️ Serviços (OS): ${
+      stats.finishedCount || 0
+    } aparelhos entregues.\n📦 Patrimônio em Estoque: ${f(
+      stats.stockValue
+    )}\n💳 Pix/Dinheiro: ${f(pixMoney)} | Cartão: ${f(
+      card
+    )}\n\n📍 Av Paraná, 470 - Cândido de Abreu.`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(txt)}`;
+    window.open(url, "_blank");
+  };
 
   const handleWhatsApp = (order: any) => {
     const phone = order.customer?.phone?.replace(/\D/g, "") || "";
@@ -64,7 +94,13 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-outline">Relatórios</button>
+          <button
+            onClick={handleClosingSummary}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2"
+          >
+            <MessageCircle className="w-5 h-5" />
+            Consolidado do Dia
+          </button>
           <button className="btn-primary">+ Nova Venda</button>
         </div>
       </div>

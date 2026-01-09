@@ -101,6 +101,9 @@ export async function GET() {
       _sum: {
         servicePrice: true, // Assumindo que o serviço é o lucro, ou fazendo calc mais complexo depois
       },
+      _count: {
+        id: true,
+      },
       where: {
         status: "FINALIZADO",
         updatedAt: {
@@ -152,6 +155,7 @@ export async function GET() {
 
     return NextResponse.json({
       pendingCount: pendingCount || 0,
+      finishedCount: profitToday._count?.id || 0,
       revenueToday: revenueToday || 0,
       stockValue: stockValue || 0,
       profitToday: profitToday._sum.servicePrice || 0,

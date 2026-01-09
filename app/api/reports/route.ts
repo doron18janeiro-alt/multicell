@@ -93,11 +93,85 @@ export async function GET() {
       });
     }
 
+    // --- ANÁLISE ABC DE PERFORMANCE (Últimos 30 dias) ---
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const salesItems30d = await prisma.saleItem.findMany({
+      where: {
+        sale: {
+          createdAt: { gte: thirtyDaysAgo },
+          status: { not: "REFUNDED" },
+        },
+        productId: { not: null },
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    const productStats: Record<string, any> = {};
+
+    salesItems30d.forEach((item) => {
+      if (!item.product) return;
+      const pid = item.productId as string;
+
+      if (!productStats[pid]) {
+        productStats[pid] = {
+          id: pid,
+          name: item.product.name,
+          stock: item.product.stock,
+          minQuantity: item.product.minQuantity,
+          sold: 0,
+          revenue: 0,
+          cost: 0,
+        };
+      }
+
+      const q = item.quantity;
+      productStats[pid].sold += q;
+      productStats[pid].revenue += item.unitPrice * q;
+      productStats[pid].cost += item.product.costPrice * q;
+    });
+
+    const ranking = Object.values(productStats);
+
+    // 1. Mais Vendidos (Volume)
+    const bestSellers = [...ranking]
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 5);
+
+    // 2. Mais Lucrativos (Margem Real Total)
+    const mostProfitable = [...ranking]
+      .sort((a, b) => b.revenue - b.cost - (a.revenue - a.cost))
+      .slice(0, 5)
+      .map((p) => ({
+        ...p,
+        profit: p.revenue - p.cost,
+        margin:
+          p.revenue > 0
+            ? (((p.revenue - p.cost) / p.revenue) * 100).toFixed(1)
+            : 0,
+      }));
+
+    // 3. Sugestões de Compra (Top 20 vendas + Estoque Baixo)
+    const top20Sellers = [...ranking]
+      .sort((a, b) => b.sold - a.sold)
+      .slice(0, 20);
+
+    // Filtra onde Stock <= MinQuantity
+    const suggestions = top20Sellers.filter((p) => p.stock <= p.minQuantity);
+
     return NextResponse.json({
       totalRevenue,
       totalCost,
       netProfit: totalRevenue - totalCost,
       chartData,
+      abc: {
+        bestSellers,
+        mostProfitable,
+        suggestions,
+      },
     });
   } catch (error) {
     console.error(error);
