@@ -13,6 +13,11 @@ interface WhatsAppNotificationProps {
   osId?: string | number; // Se não tiver, usa o gerado
   totalPrice?: number | string;
   disabled?: boolean;
+  checklist?: {
+    liga: string;
+    tela: string;
+    corpo: string;
+  };
 }
 
 export const WhatsAppNotificationButton: React.FC<
@@ -27,6 +32,7 @@ export const WhatsAppNotificationButton: React.FC<
   osId,
   totalPrice,
   disabled = false,
+  checklist,
 }) => {
   const handleSend = () => {
     if (!clientPhone || !clientName) return;
@@ -36,24 +42,18 @@ export const WhatsAppNotificationButton: React.FC<
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
-    const formattedDate = `${dd}/${mm}/${yyyy}`; // Para exibição na mensagem
-    const protocolDate = `${yyyy}${mm}${dd}`; // Para o código do protocolo
-
-    // Extrair apenas números do telefone para pegar os últimos 4
+    const formattedDate = `${dd}/${mm}/${yyyy}`;
+    const protocolDate = `${yyyy}${mm}${dd}`;
     const cleanPhone = clientPhone.replace(/\D/g, "");
     const last4 = cleanPhone.length >= 4 ? cleanPhone.slice(-4) : "0000";
-
-    // Se já tiver ID, usa o ID, senão usa o protocolo gerado
     const protocolCode = osId ? `${osId}` : `MC${protocolDate}-${last4}`;
 
     // 2. Construir Mensagem
     let message = "";
 
-    const storeInfo = `📍 Endereço: Av Paraná, 470 - Bela Vista - Cândido de Abreu (PR).\n📞 Dúvidas? Fale conosco: (43) 99603-1208.`;
-    const headerCompany = `*MULTICELL* - Tecnologia e Excelência Técnica`;
+    const storeInfo = `🛡️ *Segurança:* Você receberá atualizações automáticas por aqui. Nosso compromisso é com a excelência técnica e a proteção do seu patrimônio.\n\n📍 *Unidade Cândido de Abreu:* Av Paraná, 470 - Bela Vista (PR).\n📞 *Suporte:* (43) 99603-1208.\n*MULTICELL* | CNPJ: 48.002.640.0001/67.`;
 
     if (status === "FINALIZADO") {
-      // MODELO: Serviço Concluído
       message =
         `Ótimas notícias, *${clientName}*! 🎉\n\n` +
         `O reparo do seu equipamento foi concluído e ele já está pronto para retirada na *MULTICELL*.\n\n` +
@@ -65,20 +65,18 @@ export const WhatsAppNotificationButton: React.FC<
         `📞 Dúvidas? (43) 99603-1208.\n\n` +
         `Estamos à disposição! 🚀`;
     } else {
-      // MODELO: Confirmação de Entrada (Padrão para outros status)
+      // MODELO PREMIUM DE ENTRADA
       message =
-        `Olá, *${clientName}*! 👋\n\n` +
-        `Sua Ordem de Serviço foi aberta com sucesso na *MULTICELL*.\n\n` +
-        `🆔 *Protocolo:* ${protocolCode}\n\n` +
-        `📱 *Equipamento:* ${deviceBrand} ${deviceModel}\n\n` +
-        `🛠️ *Serviço:* ${problem}\n\n` +
-        `📅 *Data de Entrada:* ${formattedDate}\n\n` +
-        `Você receberá uma notificação por aqui assim que o orçamento for aprovado ou o serviço concluído.\n\n` +
+        `Olá, *${clientName}*! 👋 Bem-vindo(a) à *MULTICELL*.\n\n` +
+        `Confirmamos a abertura da sua Ordem de Serviço para o equipamento *${deviceBrand} ${deviceModel}*.\n\n` +
+        `🆔 *Protocolo:* ${protocolCode} 📅 *Entrada:* ${formattedDate}\n\n` +
+        `📝 *Checklist de Recebimento:*\n` +
+        `⚡ *Liga:* [${checklist?.liga || "N/A"}]\n` +
+        `📲 *Tela/Touch:* [${checklist?.tela || "N/A"}]\n` +
+        `🎨 *Estado Físico:* [${checklist?.corpo || "N/A"}]\n\n` +
         `${storeInfo}`;
     }
 
-    // 3. Abrir WhatsApp
-    // Usa encodeURIComponent para garantir que caracteres especiais funcionem
     const url = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(
       message
     )}`;
@@ -92,23 +90,20 @@ export const WhatsAppNotificationButton: React.FC<
       onClick={handleSend}
       disabled={disabled || !clientPhone}
       className={`
-        flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-white transition-all
+        flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white transition-all w-full justify-center
         ${
           disabled
             ? "bg-gray-500 cursor-not-allowed opacity-50"
             : isCompleted
-            ? "bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30" // Destaque para finalizado
-            : "bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/30" // Padrão WhatsApp
+            ? "bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30"
+            : "bg-gradient-to-r from-[#25D366] to-[#128C7E] hover:from-[#20bd5a] hover:to-[#0f7a6d] shadow-lg shadow-green-500/30"
         }
       `}
-      title={
-        disabled
-          ? "Preencha telefone e nome"
-          : "Enviar notificação via WhatsApp"
-      }
     >
-      <MessageCircle size={18} />
-      {isCompleted ? "Avisar Retirada" : "Enviar Notificação"}
+      <MessageCircle size={20} />
+      {isCompleted
+        ? "Enviar Aviso de Conclusão"
+        : "Enviar Protocolo de Entrada"}
     </button>
   );
 };

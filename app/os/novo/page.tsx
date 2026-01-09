@@ -43,14 +43,16 @@ function OrderServiceForm() {
         marcasQueda: false,
         faltaParafusos: false,
         marcasUmidade: false,
+        observations: "", // New field
       },
       tests: {
-        liga: false,
-        touch: false,
-        cameras: false,
-        wifi: false,
-        som: false,
-        carregamento: false,
+        liga: "SIM", // Changed to string/select
+        touch: "OK",
+        cameras: "OK",
+        wifi: "OK",
+        som: "OK",
+        carregamento: "OK",
+        biometria: "NÃO TESTADO",
       },
     },
   });
@@ -84,7 +86,8 @@ function OrderServiceForm() {
 
   const handleChecklistChange = (
     category: "physical" | "tests",
-    key: string
+    key: string,
+    value?: any // Allow explicit value
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -93,9 +96,11 @@ function OrderServiceForm() {
         [category]: {
           ...prev.checklist[category],
           [key]:
-            !prev.checklist[category][
-              key as keyof (typeof prev.checklist)[typeof category]
-            ],
+            value !== undefined
+              ? value
+              : !prev.checklist[category][
+                  key as keyof (typeof prev.checklist)[typeof category]
+                ],
         },
       },
     }));
@@ -176,8 +181,31 @@ function OrderServiceForm() {
                 onClick={handleWhatsAppWelcome}
                 className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-green-900/20"
               >
-                <MessageCircle size={20} />
-                Enviar Mensagem de Boas-Vindas
+                <div
+                  className="w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <WhatsAppNotificationButton
+                    clientName={successData.clientName}
+                    clientPhone={successData.clientPhone}
+                    deviceModel={successData.deviceModel}
+                    deviceBrand={successData.deviceBrand}
+                    problem={successData.problem}
+                    osId={successData.id}
+                    status="ABERTO"
+                    checklist={{
+                      liga: successData.checklist?.tests?.liga ? "SIM" : "NÃO",
+                      tela: successData.checklist?.tests?.touch
+                        ? "OK"
+                        : "COM DETALHES", // Simple logic for now
+                      corpo: successData.checklist?.physical?.riscos
+                        ? "COM RISCOS"
+                        : "OK",
+                    }}
+                  />
+                </div>
               </button>
 
               <button
@@ -562,56 +590,101 @@ function OrderServiceForm() {
                 </div>
               </div>
 
-              {/* Testes Iniciais */}
+              {/* Testes Iniciais - REDESIGNED */}
               <div>
                 <h3 className="text-xs font-bold text-slate-400 uppercase mb-3">
-                  Testes Iniciais
+                  Checklist Rápido
                 </h3>
-                <div className="space-y-2">
-                  {[
-                    { id: "liga", label: "Aparelho Liga" },
-                    { id: "touch", label: "Touch Screen Funciona" },
-                    { id: "cameras", label: "Câmeras OK" },
-                    { id: "wifi", label: "Wi-Fi / Rede" },
-                    { id: "som", label: "Áudio / Microfone" },
-                    { id: "carregamento", label: "Carregamento" },
-                  ].map((item) => (
-                    <label
-                      key={item.id}
-                      className="flex items-center gap-3 p-2 rounded hover:bg-[#112240] cursor-pointer transition-colors"
-                    >
-                      <div className="relative flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={
-                            formData.checklist.tests[
-                              item.id as keyof typeof formData.checklist.tests
-                            ]
+                <div className="space-y-4">
+                  {/* Aparelho Liga */}
+                  <div>
+                    <span className="block text-xs font-bold text-[#D4AF37] uppercase mb-1">
+                      Aparelho Liga?
+                    </span>
+                    <div className="flex gap-2">
+                      {["SIM", "NÃO", "SEM CARGA"].map((opt) => (
+                        <div
+                          key={opt}
+                          onClick={() =>
+                            handleChecklistChange("tests", "liga", opt)
                           }
-                          onChange={() =>
-                            handleChecklistChange("tests", item.id)
-                          }
-                          className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-500 checked:border-[#D4AF37] checked:bg-[#D4AF37] transition-all"
-                        />
-                        <svg
-                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-0 peer-checked:opacity-100 text-[#0A192F]"
-                          viewBox="0 0 14 14"
-                          fill="none"
+                          className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
+                            formData.checklist.tests.liga === opt
+                              ? "bg-[#D4AF37] text-black border-[#D4AF37]"
+                              : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
+                          }`}
                         >
-                          <path
-                            d="M3 8L6 11L11 3.5"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </div>
-                      <span className="text-sm text-slate-300">
-                        {item.label}
-                      </span>
-                    </label>
-                  ))}
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Touch Screen */}
+                  <div>
+                    <span className="block text-xs font-bold text-[#D4AF37] uppercase mb-1">
+                      Tela / Touch
+                    </span>
+                    <div className="flex gap-2">
+                      {["OK", "FALHANDO", "QUEBRADO"].map((opt) => (
+                        <div
+                          key={opt}
+                          onClick={() =>
+                            handleChecklistChange("tests", "touch", opt)
+                          }
+                          className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
+                            formData.checklist.tests.touch === opt
+                              ? "bg-[#D4AF37] text-black border-[#D4AF37]"
+                              : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
+                          }`}
+                        >
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Estado Físico (Simplificado) */}
+                  <div>
+                    <span className="block text-xs font-bold text-[#D4AF37] uppercase mb-1">
+                      Estado da Carcaça
+                    </span>
+                    <div className="flex gap-2">
+                      {["OK", "RISCOS LEVES", "AMASSADO"].map((opt) => (
+                        <div
+                          key={opt}
+                          onClick={() =>
+                            handleChecklistChange(
+                              "physical",
+                              "riscos",
+                              opt === "RISCOS LEVES" || opt === "AMASSADO"
+                            )
+                          }
+                          className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
+                            (opt === "OK" &&
+                              !formData.checklist.physical.riscos) ||
+                            (opt !== "OK" && formData.checklist.physical.riscos)
+                              ? "bg-slate-700 text-white border-slate-600" // Just toggles for now, can be improved
+                              : "bg-transparent text-slate-400 border-slate-700"
+                          }`}
+                        >
+                          {opt}
+                        </div>
+                      ))}
+                    </div>
+                    <textarea
+                      className="w-full bg-[#0B1120] border border-gray-700 rounded-md p-2 text-xs text-white placeholder-gray-500 mt-2 h-20 resize-none"
+                      placeholder="Detalhes visuais (ex: tampa traseira trincada, botão power amassado...)"
+                      value={formData.checklist.physical.observations}
+                      onChange={(e) =>
+                        handleChecklistChange(
+                          "physical",
+                          "observations",
+                          e.target.value
+                        )
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </div>
