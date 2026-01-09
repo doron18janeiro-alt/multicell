@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
+  const [mounted, setMounted] = useState(false);
   const [stats, setStats] = useState({
     pendingCount: 0,
     revenueToday: 0,
@@ -23,11 +24,20 @@ export default function Dashboard() {
   });
 
   useEffect(() => {
+    setMounted(true);
     fetch("/api/dashboard")
       .then((res) => res.json())
       .then((data) => setStats(data))
       .catch((err) => console.error("Erro ao carregar dashboard:", err));
   }, []);
+
+  if (!mounted) {
+    return (
+      <div className="flex items-center justify-center p-8 bg-[#0B1120] text-slate-400">
+        Carregando painel...
+      </div>
+    );
+  }
 
   const handleWhatsApp = (order: any) => {
     const phone = order.customer?.phone?.replace(/\D/g, "") || "";
@@ -108,7 +118,7 @@ export default function Dashboard() {
             {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL",
-            }).format(stats.revenueToday)}
+            }).format(stats.revenueToday || 0)}
           </p>
         </div>
 
@@ -119,14 +129,14 @@ export default function Dashboard() {
               <Smartphone size={24} />
             </div>
             <span className="flex items-center text-slate-400 text-xs font-bold bg-slate-700/30 px-2 py-1 rounded">
-              {stats.pendingCount} Pendentes
+              {stats.pendingCount || 0} Pendentes
             </span>
           </div>
           <h3 className="text-slate-400 text-sm font-medium">
             O.S. em Andamento
           </h3>
           <p className="text-2xl font-bold text-white mt-1">
-            {stats.pendingCount}
+            {stats.pendingCount || 0}
           </p>
         </div>
 
@@ -147,7 +157,7 @@ export default function Dashboard() {
             {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL",
-            }).format(stats.profitToday)}
+            }).format(stats.profitToday || 0)}
           </p>
         </div>
 
@@ -168,7 +178,7 @@ export default function Dashboard() {
             {new Intl.NumberFormat("pt-BR", {
               style: "currency",
               currency: "BRL",
-            }).format(stats.stockValue)}
+            }).format(stats.stockValue || 0)}
           </p>
         </div>
       </div>
@@ -282,7 +292,7 @@ export default function Dashboard() {
                     {new Intl.NumberFormat("pt-BR", {
                       style: "currency",
                       currency: "BRL",
-                    }).format(item._sum.total)}
+                    }).format(item.total || 0)}
                   </span>
                 </div>
               ))
