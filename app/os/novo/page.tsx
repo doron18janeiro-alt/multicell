@@ -226,14 +226,16 @@ function OrderServiceForm() {
                         marcasQueda: false,
                         faltaParafusos: false,
                         marcasUmidade: false,
+                        observations: "",
                       },
                       tests: {
-                        liga: false,
-                        touch: false,
-                        cameras: false,
-                        wifi: false,
-                        som: false,
-                        carregamento: false,
+                        liga: "SIM",
+                        touch: "OK",
+                        cameras: "OK",
+                        wifi: "OK",
+                        som: "OK",
+                        carregamento: "OK",
+                        biometria: "NÃO TESTADO",
                       },
                     },
                   });
@@ -551,7 +553,7 @@ function OrderServiceForm() {
                           checked={
                             formData.checklist.physical[
                               item.id as keyof typeof formData.checklist.physical
-                            ]
+                            ] as boolean
                           }
                           onChange={() =>
                             handleChecklistChange("physical", item.id)
