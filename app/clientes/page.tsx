@@ -25,6 +25,7 @@ interface Customer {
   name: string;
   phone: string;
   document: string | null;
+  serviceOrders?: { status: string; createdAt: string }[];
   _count?: {
     serviceOrders: number;
     sales?: number;
@@ -302,50 +303,73 @@ export default function Clientes() {
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="hover:bg-[#1e293b] transition-colors group"
-                  >
-                    <td
-                      className="p-4 text-white font-bold group-hover:text-[#FFD700] transition-colors cursor-pointer"
-                      onClick={() => handleViewDetails(c.id)}
+                filteredCustomers.map((c) => {
+                  const hasPending = c.serviceOrders?.some(
+                    (os) =>
+                      !["FINALIZADO", "ENTREGUE", "CANCELADO"].includes(
+                        os.status
+                      )
+                  );
+                  const statusClass = hasPending
+                    ? "border-l-4 border-l-red-500 bg-red-500/5"
+                    : "border-l-4 border-l-emerald-500 bg-emerald-500/5";
+
+                  return (
+                    <tr
+                      key={c.id}
+                      className={`hover:bg-[#1e293b] transition-colors group ${statusClass}`}
                     >
-                      {c.name}
-                    </td>
-                    <td className="p-4 text-slate-400 flex items-center gap-2">
-                      <Phone size={14} /> {c.phone}
-                    </td>
-                    <td className="p-4 text-slate-400">{c.document || "—"}</td>
-                    <td className="p-4 text-center">
-                      <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">
-                        {c._count?.serviceOrders || 0}
-                      </span>
-                    </td>
-                    <td className="p-4 flex gap-2 justify-center">
-                      <button
+                      <td
+                        className="p-4 text-white font-bold group-hover:text-[#FFD700] transition-colors cursor-pointer flex items-center gap-2"
                         onClick={() => handleViewDetails(c.id)}
-                        className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 p-2 rounded transition-colors border border-emerald-500/30 hover:border-emerald-500/50"
-                        title="Ver Histórico"
                       >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(c)}
-                        className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded transition-colors border border-blue-500/30 hover:border-blue-500/50"
-                        title="Editar"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(c.id, c.name)}
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded transition-colors border border-red-500/30 hover:border-red-500/50"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                        <div
+                          className={`w-2 h-2 rounded-full ${
+                            hasPending
+                              ? "bg-red-500 animate-pulse"
+                              : "bg-emerald-500"
+                          }`}
+                        />
+                        {c.name}
+                      </td>
+                      <td className="p-4 text-slate-400">
+                        <div className="flex items-center gap-2">
+                          <Phone size={14} /> {c.phone}
+                        </div>
+                      </td>
+                      <td className="p-4 text-slate-400">
+                        {c.document || "—"}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">
+                          {c._count?.serviceOrders || 0}
+                        </span>
+                      </td>
+                      <td className="p-4 flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleViewDetails(c.id)}
+                          className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 p-2 rounded transition-colors border border-emerald-500/30 hover:border-emerald-500/50"
+                          title="Ver Histórico"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(c)}
+                          className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 p-2 rounded transition-colors border border-blue-500/30 hover:border-blue-500/50"
+                          title="Editar"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(c.id, c.name)}
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-400 p-2 rounded transition-colors border border-red-500/30 hover:border-red-500/50"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

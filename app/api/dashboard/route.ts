@@ -1,8 +1,57 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Helper: Ensure Daily Closing for Today exists
+async function ensureDailyClosing() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Check if closing exists for today
+  const existingClosing = await prisma.dailyClosing.findUnique({
+    where: { date: today },
+  });
+
+  if (!existingClosing) {
+    // Get yesterday's closing to carry over balance
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Find absolute latest closing if yesterday doesn't exist?
+    // For now, simple logic: find yesterday.
+    const lastClosing =
+      (await prisma.dailyClosing.findUnique({
+        where: { date: yesterday },
+      })) ||
+      (await prisma.dailyClosing.findFirst({
+        orderBy: { date: "desc" },
+      }));
+
+    const startBalance = lastClosing
+      ? lastClosing.totalCash - lastClosing.totalNet
+      : 0;
+    // Actually, usually you start with the cash you left in the drawer (Float).
+    // Let's assume start with 0 if no previous, or previous totalCash.
+    const initialCash = lastClosing ? lastClosing.totalCash : 0;
+
+    // Create today's closing record (Open the Register)
+    await prisma.dailyClosing.create({
+      data: {
+        date: today,
+        status: "OPEN",
+        totalCash: initialCash, // Carry over cash
+        totalPix: 0,
+        totalDebit: 0,
+        totalCredit: 0,
+        totalNet: 0,
+      },
+    });
+  }
+}
+
 export async function GET() {
   try {
+    await ensureDailyClosing();
+
     // Total de O.S. Pendentes (Status != FINALIZADO e != PRONTO)
     const pendingCount = await prisma.serviceOrder.count({
       where: {
@@ -36,11 +85,14 @@ export async function GET() {
     const revenueToday = salesToday._sum.total || 0;
 
     // Patrimônio em Estoque (Soma de custo * quantidade)
-    const stockValue = await prisma.product.aggregate({
-      _sum: {
-        costPrice: true,
-      },
+    // Prisma aggregate sum can't multiply, so we fetch all products
+    const allProducts = await prisma.product.findMany({
+      select: { costPrice: true, stock: true },
     });
+
+    const stockValue = allProducts.reduce((acc, curr) => {
+      return acc + curr.costPrice * curr.stock;
+    }, 0);
 
     // Lucro do Dia (Vendas - Custo das Peças usadas hoje)
     // Nota: Em um cenário real, você subtrairia o custo das peças usadas nas O.S. finalizadas hoje.
@@ -85,7 +137,7 @@ export async function GET() {
     }));
 
     // Alertas de Estoque: Fetch minimal fields and filter in memory (Prisma limitation for field comparison)
-    const allProducts = await prisma.product.findMany({
+    const stockProducts = await prisma.product.findMany({
       select: {
         id: true,
         name: true,
@@ -94,14 +146,14 @@ export async function GET() {
       },
     });
 
-    const lowStockProducts = allProducts.filter(
+    const lowStockProducts = stockProducts.filter(
       (p) => p.stock <= p.minQuantity
     );
 
     return NextResponse.json({
       pendingCount: pendingCount || 0,
       revenueToday: revenueToday || 0,
-      stockValue: stockValue._sum.costPrice || 0,
+      stockValue: stockValue || 0,
       profitToday: profitToday._sum.servicePrice || 0,
       recentOrders: recentOrders || [],
       salesByMethod: salesByMethod || [],

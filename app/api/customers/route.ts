@@ -6,12 +6,17 @@ export async function GET() {
     const customers = await prisma.customer.findMany({
       orderBy: { name: "asc" },
       include: {
-        _count: {
-          select: { serviceOrders: true },
+        serviceOrders: {
+          select: { status: true },
         },
       },
     });
-    return NextResponse.json(customers);
+    // Transform to include count for compatibility if needed, though frontend can use .length
+    const formattedCustomers = customers.map((c) => ({
+      ...c,
+      _count: { serviceOrders: c.serviceOrders.length },
+    }));
+    return NextResponse.json(formattedCustomers);
   } catch (error) {
     return NextResponse.json(
       { error: "Erro ao buscar clientes" },
