@@ -211,6 +211,7 @@ function OrderServiceForm() {
                 onClick={() => {
                   setSuccessData(null);
                   setFormData({
+                    customerId: "",
                     clientName: "",
                     clientPhone: "",
                     clientDocument: "",
