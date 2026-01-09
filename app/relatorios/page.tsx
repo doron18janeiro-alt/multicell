@@ -251,7 +251,6 @@ export default function RelatoriosPage() {
                           <p className="text-xs text-slate-500">
                             Receita Gerada:{" "}
                             {new Intl.NumberFormat("pt-BR", {
-                              className: "currency",
                               style: "currency",
                               currency: "BRL",
                             }).format(p.revenue)}
@@ -298,7 +297,6 @@ export default function RelatoriosPage() {
                         </span>
                         <span className="text-lg font-bold text-white">
                           {new Intl.NumberFormat("pt-BR", {
-                            className: "currency",
                             style: "currency",
                             currency: "BRL",
                           }).format(p.profit)}
