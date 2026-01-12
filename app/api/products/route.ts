@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -7,18 +8,21 @@ export async function GET(request: Request) {
   const search = searchParams.get("search");
 
   try {
-    const where: any = {};
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const where: any = {
+      companyId: session.user.companyId,
+    };
 
     if (category && category !== "TODOS") {
       where.category = category;
     }
 
     if (search) {
-      where.OR = [
-        { name: { contains: search } }, // SQLite is case-sensitive by default, but Prisma usually handles it or we might need raw query for case-insensitive if needed. For now, simple contains.
-        // Add barcode search if we had a barcode field, but we don't in the schema yet. Using ID or Name.
-        { id: { contains: search } },
-      ];
+      where.OR = [{ name: { contains: search } }, { id: { contains: search } }];
     }
 
     const products = await prisma.product.findMany({
@@ -39,6 +43,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       name,

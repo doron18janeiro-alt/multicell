@@ -1,14 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // Helper: Ensure Daily Closing for Today exists
-async function ensureDailyClosing() {
+async function ensureDailyClosing(companyId: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   // Check if closing exists for today
   const existingClosing = await prisma.dailyClosing.findUnique({
-    where: { date: today },
+    where: {
+      date_companyId: {
+        date: today,
+        companyId: companyId,
+      },
+    },
   });
 
   if (!existingClosing) {
@@ -16,26 +22,27 @@ async function ensureDailyClosing() {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // Find absolute latest closing if yesterday doesn't exist?
-    // For now, simple logic: find yesterday.
+    // Find absolute latest closing
     const lastClosing =
       (await prisma.dailyClosing.findUnique({
-        where: { date: yesterday },
+        where: {
+          date_companyId: {
+            date: yesterday,
+            companyId: companyId,
+          },
+        },
       })) ||
       (await prisma.dailyClosing.findFirst({
+        where: { companyId },
         orderBy: { date: "desc" },
       }));
 
-    const startBalance = lastClosing
-      ? lastClosing.totalCash - lastClosing.totalNet
-      : 0;
-    // Actually, usually you start with the cash you left in the drawer (Float).
-    // Let's assume start with 0 if no previous, or previous totalCash.
     const initialCash = lastClosing ? lastClosing.totalCash : 0;
 
     // Create today's closing record (Open the Register)
     await prisma.dailyClosing.create({
       data: {
+        companyId,
         date: today,
         status: "OPEN",
         totalCash: initialCash, // Carry over cash
@@ -50,30 +57,37 @@ async function ensureDailyClosing() {
 
 export async function GET() {
   try {
-    await ensureDailyClosing();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const companyId = session.user.companyId;
+
+    await ensureDailyClosing(companyId);
 
     // Total de O.S. Pendentes (Status != FINALIZADO e != PRONTO)
     const pendingCount = await prisma.serviceOrder.count({
       where: {
+        companyId,
         status: {
           notIn: ["FINALIZADO", "PRONTO"],
         },
       },
     });
 
-    // Faturamento do Dia (Soma de price onde status = ENTREGUE e updatedAt = hoje)
+    // Faturamento do Dia
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Faturamento do Dia: Somente da tabela SALE para evitar duplicidade (pois O.S. finalizada gera Venda)
     const salesToday = await prisma.sale.aggregate({
       _sum: {
         total: true, // Use gross total for revenue
       },
       where: {
+        companyId,
         status: { not: "REFUNDED" },
         createdAt: {
           gte: today,
@@ -87,6 +101,7 @@ export async function GET() {
     // Patrimônio em Estoque (Soma de custo * quantidade)
     // Prisma aggregate sum can't multiply, so we fetch all products
     const allProducts = await prisma.product.findMany({
+      where: { companyId },
       select: { costPrice: true, stock: true },
     });
 
@@ -95,16 +110,15 @@ export async function GET() {
     }, 0);
 
     // Lucro do Dia (Vendas - Custo das Peças usadas hoje)
-    // Nota: Em um cenário real, você subtrairia o custo das peças usadas nas O.S. finalizadas hoje.
-    // Aqui estamos simplificando pegando o totalPrice das O.S. finalizadas.
     const profitToday = await prisma.serviceOrder.aggregate({
       _sum: {
-        servicePrice: true, // Assumindo que o serviço é o lucro, ou fazendo calc mais complexo depois
+        servicePrice: true,
       },
       _count: {
         id: true,
       },
       where: {
+        companyId,
         status: "FINALIZADO",
         updatedAt: {
           gte: today,
@@ -114,6 +128,7 @@ export async function GET() {
 
     // Últimas 5 O.S.
     const recentOrders = await prisma.serviceOrder.findMany({
+      where: { companyId },
       take: 5,
       orderBy: {
         createdAt: "desc",
@@ -123,13 +138,14 @@ export async function GET() {
       },
     });
 
-    // Vendas de Balcão do Dia por Método de Pagamento - SAFE AGGREGATION
+    // Vendas de Balcão do Dia por Método de Pagamento
     const salesGrouped = await prisma.sale.groupBy({
       by: ["paymentMethod"],
       _sum: {
         total: true,
       },
       where: {
+        companyId,
         createdAt: { gte: today },
         status: { not: "REFUNDED" },
       },
@@ -139,8 +155,9 @@ export async function GET() {
       total: item._sum.total || 0,
     }));
 
-    // Alertas de Estoque: Fetch minimal fields and filter in memory (Prisma limitation for field comparison)
+    // Alertas de Estoque
     const stockProducts = await prisma.product.findMany({
+      where: { companyId },
       select: {
         id: true,
         name: true,
@@ -174,9 +191,9 @@ export async function GET() {
         recentOrders: [],
         salesByMethod: [],
         lowStockProducts: [],
-        error: "Erro ao carregar dashboard", // Optional: include error message for debugging
+        error: "Erro ao carregar dashboard",
       },
       { status: 200 }
-    ); // Return 200 with zeroed data to prevent frontend crash
+    );
   }
 }

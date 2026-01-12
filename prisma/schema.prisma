@@ -10,13 +10,16 @@ datasource db {
 
 model Customer {
   id            String         @id @default(uuid())
+  companyId     String         @default("multicell-oficial")
   name          String
   phone         String
-  document      String?        @unique
+  document      String?        
   createdAt     DateTime       @default(now())
   // Relação corrigida:
   serviceOrders ServiceOrder[]
   sales         Sale[]
+
+  @@unique([document, companyId]) // Garante unicidade por empresa
 }
 
 enum OSStatus {
@@ -36,6 +39,7 @@ enum SaleStatus {
 
 model Product {
   id          String   @id @default(cuid())
+  companyId   String   @default("multicell-oficial")
   name        String
   description String?
   category    String
@@ -55,6 +59,7 @@ model Product {
 
 model ServiceOrder {
   id             Int      @id @default(autoincrement())
+  companyId      String   @default("multicell-oficial")
   clientName     String
   clientPhone    String
   clientCpf      String?
@@ -84,6 +89,7 @@ model ServiceOrder {
 
 model Supplier {
   id          String    @id @default(uuid())
+  companyId   String    @default("multicell-oficial")
   name        String
   contact     String?
   whatsapp    String?
@@ -93,6 +99,7 @@ model Supplier {
 
 model Sale {
   id            Int        @id @default(autoincrement())
+  companyId     String     @default("multicell-oficial")
   total         Float
   discount      Float?     @default(0) // Descontos aplicados na venda
   feeAmount     Float?     @default(0) // Taxa de cartão descontada
@@ -124,6 +131,7 @@ model SaleItem {
 
 model CompanyConfig {
   id        String   @id @default(cuid())
+  companyId String   @default("multicell-oficial")
   name      String   @default("Multicell")
   document  String?  // CNPJ
   phone     String?
@@ -132,6 +140,8 @@ model CompanyConfig {
   debitRate Float    @default(1.99)
   creditRate Float   @default(3.99)
   updatedAt DateTime @updatedAt
+  
+  @@unique([companyId])
 }
 
 model User {
@@ -142,7 +152,8 @@ model User {
 
 model DailyClosing {
   id          String    @id @default(cuid())
-  date        DateTime  @unique // Data de referência (meia-noite)
+  companyId   String    @default("multicell-oficial")
+  date        DateTime  // Data de referência (meia-noite)
   totalCash   Float     @default(0)
   totalPix    Float     @default(0)
   totalDebit  Float     @default(0)
@@ -151,4 +162,6 @@ model DailyClosing {
   status      String    @default("OPEN") // OPEN, CLOSED
   closedAt    DateTime?
   createdAt   DateTime  @default(now())
+  
+  @@unique([date, companyId])
 }

@@ -10,9 +10,10 @@ async function main() {
   const password = "18011989Lp*";
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  console.log("🔄 Atualizando usuário no banco de dados...");
+  console.log("🔄 Atualizando usuários no banco de dados...");
 
-  const user = await prisma.user.upsert({
+  // Usuário 1: admin@multicell.com
+  await prisma.user.upsert({
     where: { email: "admin@multicell.com" },
     update: { password: hashedPassword },
     create: {
@@ -20,14 +21,18 @@ async function main() {
       password: hashedPassword,
     },
   });
+  console.log("✅ admin@multicell.com atualizado.");
 
-  console.log(`✅ SUCESSO! Usuário [${user.email}] atualizado.`);
-  console.log(
-    `🔑 Senha no banco agora começa com: ${user.password.substring(
-      0,
-      10
-    )}... (Criptografada)`
-  );
+  // Usuário 2: doron18janeiro@gmail.com
+  await prisma.user.upsert({
+    where: { email: "doron18janeiro@gmail.com" },
+    update: { password: hashedPassword },
+    create: {
+      email: "doron18janeiro@gmail.com",
+      password: hashedPassword,
+    },
+  });
+  console.log("✅ doron18janeiro@gmail.com atualizado.");
 }
 
 main()

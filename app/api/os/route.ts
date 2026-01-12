@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 // GET: Listar todas as O.S.
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const orders = await prisma.serviceOrder.findMany({
+      where: {
+        companyId: session.user.companyId,
+      },
       include: {
         customer: true,
       },
@@ -24,6 +33,11 @@ export async function GET() {
 // POST: Criar nova O.S.
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const {
       clientName,
@@ -35,38 +49,41 @@ export async function POST(request: Request) {
       passcode,
       clientReport,
       checklist,
-      totalPrice
+      totalPrice,
     } = body;
 
     // 1. Busca ou cria o cliente (Opcional se quisermos manter vinculo forte)
     // No novo schema customerId é opcional, mas vamos tentar vincular
-    let customerId = null; 
+    let customerId = null;
     let customer = await prisma.customer.findFirst({
-        where: {
-            OR: [
-                { document: clientDocument || undefined }, // undefined to avoid matching nulls if empty
-                { phone: clientPhone }
-            ]
-        }
+      where: {
+        companyId: session.user.companyId,
+        OR: [
+          { document: clientDocument || undefined }, // undefined to avoid matching nulls if empty
+          { phone: clientPhone },
+        ],
+      },
     });
 
     if (customer) {
-        customerId = customer.id;
+      customerId = customer.id;
     } else if (clientName && clientPhone) {
-        // Create customer if basic info present
-        const newCustomer = await prisma.customer.create({
-            data: {
-                name: clientName,
-                phone: clientPhone,
-                document: clientDocument || null
-            }
-        });
-        customerId = newCustomer.id;
+      // Create customer if basic info present
+      const newCustomer = await prisma.customer.create({
+        data: {
+          name: clientName,
+          phone: clientPhone,
+          document: clientDocument || null,
+          companyId: session.user.companyId,
+        },
+      });
+      customerId = newCustomer.id;
     }
 
     // 2. Cria a O.S.
     const serviceOrder = await prisma.serviceOrder.create({
       data: {
+        companyId: session.user.companyId, // Vincular à empresa logada
         clientName,
         clientPhone,
         clientCpf: clientDocument,
@@ -78,7 +95,7 @@ export async function POST(request: Request) {
         checklist: checklist || {},
         totalPrice: totalPrice ? parseFloat(totalPrice) : 0,
         customerId: customerId,
-        status: "ABERTO"
+        status: "ABERTO",
       },
     });
 
