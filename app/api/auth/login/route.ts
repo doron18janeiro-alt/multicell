@@ -45,8 +45,19 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true, companyId });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Erro no servidor" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Erro crítico no login:", error);
+    // Log detalhado para depuração na Vercel
+    console.error("Detalhes do erro:", {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack,
+    });
+
+    return NextResponse.json(
+      { error: "Erro interno no servidor. Verifique os logs." },
+      { status: 500 }
+    );
   }
 }
