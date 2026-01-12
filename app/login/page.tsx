@@ -2,15 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, User } from "lucide-react";
 
-export default function Login() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -22,69 +21,55 @@ export default function Login() {
       });
 
       if (res.ok) {
-        // Cookie is set by the server
-        localStorage.setItem("multicell_auth", "true"); // Keep for client-side checks if any
         router.push("/dashboard");
       } else {
         const data = await res.json();
         setError(data.error || "Credenciais inválidas");
       }
     } catch (err) {
-      setError("Erro ao conectar com o servidor");
+      setError("Erro ao conectar com o sistema.");
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1120] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#112240] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden">
-        <div className="bg-[#0A192F] p-8 text-center border-b border-[#233554]">
-          <div className="flex justify-center mb-6">
-            <img
-              src="/logo.png"
-              alt="Multicell Logo"
-              className="w-40 h-auto object-contain"
+    <div className="flex flex-col items-center justify-center min-h-screen bg-[#020617]">
+      <form
+        onSubmit={handleSubmit}
+        className="p-8 bg-[#0f172a] rounded-xl shadow-2xl w-full max-w-md border border-slate-800"
+      >
+        <h1 className="text-2xl font-bold text-white mb-2 text-center">
+          Bem-vindo
+        </h1>
+        <p className="text-slate-400 mb-6 text-center">
+          Acesse o Multicell System
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              E-mail
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded bg-[#1e293b] text-white border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="seu@email.com"
+              required
             />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-wider">
-            MULTICELL
-          </h1>
-          <p className="text-sm text-[#D4AF37] uppercase tracking-widest mt-2">
-            Acesso Restrito
-          </p>
-        </div>
-
-        <form onSubmit={handleLogin} className="p-8 space-y-6">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-3 text-slate-500 w-5 h-5" />
-              <input
-                type="email"
-                required
-                className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-[#D4AF37] outline-none transition-colors"
-                placeholder="admin@multicell.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Senha
             </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 text-slate-500 w-5 h-5" />
-              <input
-                type="password"
-                required
-                className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white focus:border-[#D4AF37] outline-none transition-colors"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 rounded bg-[#1e293b] text-white border border-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Digite sua senha"
+              required
+            />
           </div>
 
           {error && (
@@ -95,12 +80,12 @@ export default function Login() {
 
           <button
             type="submit"
-            className="w-full bg-[#D4AF37] hover:bg-[#C5A028] text-[#0A192F] font-bold py-4 rounded-lg transition-colors shadow-lg hover:shadow-[#D4AF37]/20"
+            className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded transition-colors"
           >
             Acessar Sistema
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }
