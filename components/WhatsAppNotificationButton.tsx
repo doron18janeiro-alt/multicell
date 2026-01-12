@@ -51,7 +51,7 @@ export const WhatsAppNotificationButton: React.FC<
     // 2. Construir Mensagem
     let message = "";
 
-    const storeInfo = `🛡️ *Segurança:* Você receberá atualizações automáticas por aqui. Nosso compromisso é com a excelência técnica e a proteção do seu patrimônio.\n\n📍 *Unidade Cândido de Abreu:* Av Paraná, 470 - Bela Vista (PR).\n📞 *Suporte:* (43) 99603-1208.\n*MULTICELL* | CNPJ: 48.002.640.0001/67.`;
+    const storeInfo = `🛡️ *Segurança:* Você receberá atualizações automáticas por aqui. Nosso compromisso é com a excelência técnica e a proteção do seu patrimônio.\n\n� *Consulte o Status:* https://multicellsystem.com.br/consulta\n\n�📍 *Unidade Cândido de Abreu:* Av Paraná, 470 - Bela Vista (PR).\n📞 *Suporte:* (43) 99603-1208.\n*MULTICELL* | CNPJ: 48.002.640.0001/67.`;
 
     if (status === "FINALIZADO") {
       message =
