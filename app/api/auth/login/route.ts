@@ -27,11 +27,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Senha incorreta" }, { status: 401 });
     }
 
-    // 3. Define companyId baseado no email (Lógica Multi-tenant Hardcoded por enquanto)
-    let companyId = "multicell-oficial"; // default
-    if (email === "doron18janeiro@gmail.com") {
-      companyId = "outra-empresa";
-    }
+    // 3. Obtém companyId do banco ou usa fallback
+    const companyId = user.companyId || "multicell-oficial";
 
     // 4. Salva sessão no cookie
     const cookieStore = await cookies();

@@ -23,6 +23,7 @@ export async function GET() {
     });
     return NextResponse.json(orders);
   } catch (error) {
+    console.error("Erro ao buscar ordens de serviço:", error);
     return NextResponse.json(
       { error: "Erro ao buscar ordens de serviço" },
       { status: 500 }

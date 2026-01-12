@@ -25,6 +25,7 @@ export async function GET() {
     }));
     return NextResponse.json(formattedCustomers);
   } catch (error) {
+    console.error("Erro ao buscar clientes:", error);
     return NextResponse.json(
       { error: "Erro ao buscar clientes" },
       { status: 500 }
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(customer, { status: 201 });
   } catch (error) {
+    console.error("Erro ao criar cliente:", error);
     return NextResponse.json(
       { error: "Erro ao criar cliente" },
       { status: 500 }

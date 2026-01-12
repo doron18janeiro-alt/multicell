@@ -34,6 +34,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(products);
   } catch (error) {
+    console.error("Erro ao buscar produtos:", error);
     return NextResponse.json(
       { error: "Erro ao buscar produtos" },
       { status: 500 }
@@ -69,11 +70,13 @@ export async function POST(request: Request) {
         minQuantity: parseInt(minQuantity?.toString() || "2") || 2,
         minStock: 5,
         supplierId: supplierId || null,
+        companyId: session.user.companyId,
       },
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error) {
+    console.error("Erro ao criar produto:", error);
     return NextResponse.json(
       { error: "Erro ao criar produto" },
       { status: 500 }
