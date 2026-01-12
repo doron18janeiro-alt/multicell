@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const companyId = session.user.companyId;
+
     const body = await req.json();
     const { totalCash, totalPix, totalDebit, totalCredit, totalNet } = body;
 
@@ -10,7 +17,12 @@ export async function POST(req: Request) {
     today.setHours(0, 0, 0, 0);
 
     const closing = await prisma.dailyClosing.upsert({
-      where: { date: today },
+      where: {
+        date_companyId: {
+          date: today,
+          companyId,
+        },
+      },
       update: {
         totalCash,
         totalPix,
@@ -21,6 +33,7 @@ export async function POST(req: Request) {
         closedAt: new Date(),
       },
       create: {
+        companyId,
         date: today,
         totalCash,
         totalPix,

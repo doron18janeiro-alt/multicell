@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const companyId = session.user.companyId;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -11,6 +18,7 @@ export async function GET() {
 
     const sales = await prisma.sale.findMany({
       where: {
+        companyId,
         createdAt: {
           gte: today,
           lte: endOfDay,
@@ -47,7 +55,11 @@ export async function GET() {
 
     const closing = await prisma.dailyClosing.findUnique({
       where: {
-        date: today,
+        date_companyId: {
+          date: today,
+          companyId,
+        },
+      },
       },
     });
 
