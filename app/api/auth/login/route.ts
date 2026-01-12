@@ -8,7 +8,20 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { email, password } = body;
 
+    // Log de Diagnóstico DB
+    try {
+      await prisma.$connect();
+      console.log("✅ Conexão com DB estabelecida com sucesso.");
+    } catch (dbError) {
+      console.error("❌ Erro ao conectar no DB:", dbError);
+      return NextResponse.json(
+        { error: "Erro de conexão com banco de dados" },
+        { status: 500 }
+      );
+    }
+
     // 1. Busca usuário no banco
+    console.log(`🔍 Buscando usuário: ${email}`);
     const user = await prisma.user.findUnique({
       where: { email },
     });
