@@ -14,18 +14,18 @@ model Customer {
   name          String
   phone         String
   document      String?        
-  createdAt     DateTime       @default(now())
-  // Relação corrigida:
+  createdAt     DateTime       @default(now()) @map("created_at")
   serviceOrders ServiceOrder[]
   sales         Sale[]
 
-  @@unique([document, companyId]) // Garante unicidade por empresa
+  @@unique([document, companyId])
+  @@map("clients")
 }
 
 enum OSStatus {
   ABERTO
   EM_REPARO
-  EM_ANDAMENTO // Added alias/option
+  EM_ANDAMENTO
   AGUARDANDO_PECA
   PRONTO
   FINALIZADO
@@ -44,47 +44,48 @@ model Product {
   description String?
   category    String
   stock       Int      @default(0)
-  minStock    Int      @default(5)
-  minQuantity Int      @default(2)
-  costPrice   Float    @default(0) // Preço de custo para o lucro
-  salePrice   Float
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  minStock    Int      @default(5) @map("min_stock")
+  minQuantity Int      @default(2) @map("min_quantity")
+  costPrice   Float    @default(0) @map("cost_price")
+  salePrice   Float    @map("sale_price")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
   
-  // Relacionamentos necessários:
-  supplierId  String?
+  supplierId  String?  @map("supplier_id")
   supplier    Supplier?  @relation(fields: [supplierId], references: [id])
   sales       SaleItem[]
+
+  @@map("products")
 }
 
 model ServiceOrder {
   id             Int      @id @default(autoincrement())
   companyId      String   @default("multicell-oficial") @map("company_id")
-  clientName     String
-  clientPhone    String
-  clientCpf      String?
-  deviceBrand    String   // Ex: Samsung, Dell, HP
-  deviceModel    String   // Ex: S23, Latitude 3420
-  deviceColor    String?
-  serialNumber   String?
-  devicePassword String?
+  clientName     String   @map("client_name")
+  clientPhone    String   @map("client_phone")
+  clientCpf      String?  @map("client_cpf")
+  deviceBrand    String   @map("device_brand")
+  deviceModel    String   @map("device_model")
+  deviceColor    String?  @map("device_color")
+  serialNumber   String?  @map("serial_number")
+  devicePassword String?  @map("device_password")
   problem        String
   observations   String?
   checklist      Json?    
   status         OSStatus @default(ABERTO)
   
-  // Financeiro da O.S. (Garantindo lucro livre)
-  costPrice      Float    @default(0) // Valor gasto em peças
-  servicePrice   Float    @default(0) // Valor da mão de obra
-  totalPrice     Float    @default(0) // Valor total cobrado
-  paymentMethod  String?  
+  costPrice      Float    @default(0) @map("cost_price")
+  servicePrice   Float    @default(0) @map("service_price")
+  totalPrice     Float    @default(0) @map("total_price")
+  paymentMethod  String?  @map("payment_method")
 
-  // Relação com Customer (Obrigatório para o Prisma):
-  customerId     String?
+  customerId     String?  @map("customer_id")
   customer       Customer? @relation(fields: [customerId], references: [id])
   
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("os")
 }
 
 model Supplier {
@@ -93,40 +94,45 @@ model Supplier {
   name        String
   contact     String?
   whatsapp    String?
-  catalogUrl  String?
+  catalogUrl  String?   @map("catalog_url")
   products    Product[]
+  
+  @@map("suppliers")
 }
 
 model Sale {
   id            Int        @id @default(autoincrement())
   companyId     String     @default("multicell-oficial") @map("company_id")
   total         Float
-  discount      Float?     @default(0) // Descontos aplicados na venda
-  feeAmount     Float?     @default(0) // Taxa de cartão descontada
-  netAmount     Float?     // Valor líquido (total - fee)
-  paymentMethod String
-  cardType      String?    // DEBITO ou CREDITO
-  serviceOrderId Int?      // Link para O.S. (opcional, pois pode ser venda de balcão)
+  discount      Float?     @default(0)
+  feeAmount     Float?     @default(0) @map("fee_amount")
+  netAmount     Float?     @map("net_amount")
+  paymentMethod String     @map("payment_method")
+  cardType      String?    @map("card_type")
+  serviceOrderId Int?      @map("service_order_id")
   status        SaleStatus @default(COMPLETED)
-  returnReason  String?
+  returnReason  String?    @map("return_reason")
   
-  // Relação com Cliente
-  customerId    String?
+  customerId    String?    @map("customer_id")
   customer      Customer?  @relation(fields: [customerId], references: [id])
 
-  createdAt     DateTime   @default(now())
+  createdAt     DateTime   @default(now()) @map("created_at")
   items         SaleItem[]
+
+  @@map("sales")
 }
 
 model SaleItem {
   id        Int     @id @default(autoincrement())
-  saleId    Int
+  saleId    Int     @map("sale_id")
   sale      Sale    @relation(fields: [saleId], references: [id])
-  productId String?
+  productId String? @map("product_id")
   product   Product? @relation(fields: [productId], references: [id])
-  description String? // Para itens sem produto cadastrado (ex: Serviço)
+  description String?
   quantity  Int
-  unitPrice Float
+  unitPrice Float   @map("unit_price")
+
+  @@map("sale_items")
 }
 
 model CompanyConfig {
@@ -136,12 +142,13 @@ model CompanyConfig {
   document  String?  // CNPJ
   phone     String?
   address   String?
-  logoUrl   String?  @default("/logo.png")
-  debitRate Float    @default(1.99)
-  creditRate Float   @default(3.99)
-  updatedAt DateTime @updatedAt
+  logoUrl   String?  @default("/logo.png") @map("logo_url")
+  debitRate Float    @default(1.99) @map("debit_rate")
+  creditRate Float   @default(3.99) @map("credit_rate")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   @@unique([companyId])
+  @@map("company_config")
 }
 
 model User {
@@ -149,20 +156,24 @@ model User {
   companyId String? @map("company_id")
   email     String  @unique
   password  String
+
+  @@map("users")
 }
 
 model DailyClosing {
   id          String    @id @default(cuid())
   companyId   String    @default("multicell-oficial") @map("company_id")
-  date        DateTime  // Data de referência (meia-noite)
-  totalCash   Float     @default(0)
-  totalPix    Float     @default(0)
-  totalDebit  Float     @default(0)
-  totalCredit Float     @default(0)
-  totalNet    Float     @default(0)
-  status      String    @default("OPEN") // OPEN, CLOSED
-  closedAt    DateTime?
-  createdAt   DateTime  @default(now())
+  date        DateTime
+  totalCash   Float     @default(0) @map("total_cash")
+  totalPix    Float     @default(0) @map("total_pix")
+  totalDebit  Float     @default(0) @map("total_debit")
+  totalCredit Float     @default(0) @map("total_credit")
+  totalNet    Float     @default(0) @map("total_net")
+  status      String    @default("OPEN")
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
   
   @@unique([date, companyId])
+  @@map("daily_closing")
 }
+
