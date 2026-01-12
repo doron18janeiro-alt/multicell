@@ -25,12 +25,3 @@ export async function getSession(): Promise<Session> {
     return null;
   }
 }
-      user: {
-        email: sessionData.email,
-        companyId: sessionData.companyId,
-      },
-    };
-  } catch (e) {
-    return null;
-  }
-}

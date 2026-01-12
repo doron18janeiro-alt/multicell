@@ -60,7 +60,6 @@ export async function GET() {
           companyId,
         },
       },
-      },
     });
 
     const config = await prisma.companyConfig.findFirst();
