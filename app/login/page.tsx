@@ -97,7 +97,7 @@ export default function Login() {
             type="submit"
             className="w-full bg-[#D4AF37] hover:bg-[#C5A028] text-[#0A192F] font-bold py-4 rounded-lg transition-colors shadow-lg hover:shadow-[#D4AF37]/20"
           >
-            ENTRAR NO SISTEMA
+            Acessar Sistema
           </button>
         </form>
       </div>
