@@ -13,7 +13,6 @@ import {
   Smartphone,
   LogOut,
   BarChart3,
-  Wallet,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -39,7 +38,6 @@ export default function Sidebar() {
     { name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" },
     { name: "Clientes", icon: Users, path: "/clientes" },
     { name: "Estoque", icon: Package, path: "/estoque" },
-    { name: "Caixa", icon: Wallet, path: "/caixa" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
     { name: "Configurações", icon: Settings, path: "/configuracoes" },
   ];
