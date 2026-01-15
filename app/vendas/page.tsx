@@ -185,7 +185,7 @@ _Gerado pelo Sistema Multicell_
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           {/* Card Dinheiro */}
           <div className="bg-[#112240] p-6 rounded-xl border border-green-900/50 shadow-[0_0_20px_rgba(34,197,94,0.1)] relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-green-500/20"></div>
@@ -259,6 +259,25 @@ _Gerado pelo Sistema Multicell_
             </div>
             <div className="mt-2 text-xs text-purple-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Processado
+            </div>
+          </div>
+
+          {/* Card TOTAL */}
+          <div className="bg-[#112240] p-6 rounded-xl border border-yellow-500/50 shadow-[0_0_20px_rgba(234,179,8,0.2)] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-yellow-500/20"></div>
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-yellow-400 font-bold text-sm uppercase tracking-wider">
+                VALOR TOTAL (HOJE)
+              </h3>
+              <div className="p-2 bg-yellow-900/30 rounded-lg text-yellow-400 border border-yellow-600">
+                <DollarSign size={20} />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white">
+              R$ {todayTotals.total.toFixed(2)}
+            </div>
+            <div className="mt-2 text-xs text-yellow-400 flex items-center gap-1">
+              <Zap size={12} fill="currentColor" /> Soma Geral
             </div>
           </div>
         </div>
