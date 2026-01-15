@@ -17,6 +17,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderThermalPrint } from "@/components/ServiceOrderThermalPrint";
+import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
 
 function OrderServiceForm() {
@@ -90,10 +91,6 @@ function OrderServiceForm() {
     const protocol = `MC${yyyy}${mm}${dd}-${suffix}`;
     setGeneratedProtocol(protocol);
   };
-
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-  });
 
   const handleInputChange = (
     e: React.ChangeEvent<

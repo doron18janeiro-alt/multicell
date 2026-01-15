@@ -405,8 +405,10 @@ export default function PDV() {
           <div className="border-b border-black mb-2"></div>
           <div className="mb-2">
             <p className="font-bold">Cliente:</p>
-            <p>{customer?.name || "Consumidor Final"}</p>
-            {customer?.phone && <p>Tel: {customer.phone}</p>}
+            <p>{lastSale?.customer?.name || "Consumidor Final"}</p>
+            {lastSale?.customer?.phone && (
+              <p>Tel: {lastSale?.customer?.phone}</p>
+            )}
           </div>
           <p className="font-bold text-center mb-2">CUPOM NÃO FISCAL</p>
           <p>Venda #{lastSale?.id}</p>
