@@ -245,7 +245,12 @@ export default function Clientes() {
             <button
               onClick={() => {
                 setEditingId(null);
-                setFormData({ name: "", phone: "", document: "" });
+                setFormData({
+                  name: "",
+                  phone: "",
+                  document: "",
+                  birthDate: "",
+                });
                 setShowForm(true);
               }}
               className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"

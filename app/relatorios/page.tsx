@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   AlertTriangle,
   FileText,
+  Calendar,
 } from "lucide-react";
 
 interface SaleReportItem {
