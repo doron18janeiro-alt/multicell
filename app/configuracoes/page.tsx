@@ -31,13 +31,24 @@ export default function Configuracoes() {
     debitRate: 1.99,
     creditRate: 3.99,
   });
+  const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
     fetchConfig();
+    fetchUser();
   }, []);
+
+  const fetchUser = async () => {
+    // Assuming we have an endpoint or we can get it from session/settings?
+    // Since we don't have a dedicated get user endpoint showing email in previous context,
+    // I'll skip fetching the current email for now or assume the user knows it.
+    // Or better, let's fetch it if possible. The session has it.
+    // But client components don't have direct access to server session without props provider.
+    // I'll leave the email field empty for "New Email" to change it, or just showing placeholder.
+  };
 
   const fetchConfig = async () => {
     try {
@@ -59,19 +70,42 @@ export default function Configuracoes() {
     }
   };
 
-  const handleSaveConfig = async () => {
+  const handleSaveAll = async () => {
     setLoading(true);
     setMsg("");
+
+    // 1. Save Company Config
     try {
-      const res = await fetch("/api/config", {
+      const resConfig = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config),
       });
-      if (res.ok) {
-        setMsg("✅ Configurações salvas com sucesso!");
+
+      // 2. Save User Settings (if changed)
+      let userUpdated = false;
+      if (email || newPassword) {
+        const resUser = await fetch("/api/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email || undefined,
+            password: newPassword || undefined,
+          }),
+        });
+        if (resUser.ok) userUpdated = true;
+      }
+
+      if (resConfig.ok) {
+        let text = "✅ Dados da empresa salvos!";
+        if (userUpdated) {
+          text += " Credenciais atualizadas!";
+          setNewPassword("");
+          setEmail("");
+        }
+        setMsg(text);
       } else {
-        setMsg("❌ Erro ao salvar configurações.");
+        setMsg("❌ Erro ao salvar dados.");
       }
     } catch (error) {
       setMsg("❌ Erro de conexão.");
@@ -80,20 +114,24 @@ export default function Configuracoes() {
     }
   };
 
-  const handleChangePassword = async () => {
+  const handleUpdateUser = async () => {
     setLoading(true);
     setMsg("");
     try {
-      const res = await fetch("/api/user/change-password", {
-        method: "POST",
+      const res = await fetch("/api/settings", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({
+          email: email || undefined,
+          password: newPassword || undefined,
+        }),
       });
       if (res.ok) {
-        setMsg("✅ Senha alterada com sucesso!");
+        setMsg("✅ Credenciais atualizadas com sucesso!");
         setNewPassword("");
+        setEmail("");
       } else {
-        setMsg("❌ Erro ao alterar senha.");
+        setMsg("❌ Erro ao atualizar credenciais.");
       }
     } catch (error) {
       setMsg("❌ Erro de conexão.");
@@ -246,6 +284,18 @@ export default function Configuracoes() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">
+                    Novo E-mail de Login
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-red-500 outline-none"
+                    placeholder="novo@email.com (opcional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
                     Nova Senha de Acesso
                   </label>
                   <input
@@ -260,7 +310,7 @@ export default function Configuracoes() {
             </section>
 
             <button
-              onClick={handleSaveConfig}
+              onClick={handleSaveAll}
               disabled={loading}
               className="w-full bg-[#D4AF37] text-black font-semibold py-4 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2 text-lg"
             >

@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 
 export type Session = {
   user: {
+    id?: string; // Add optional ID
     email: string;
     companyId: string;
   };
@@ -17,6 +18,7 @@ export async function getSession(): Promise<Session> {
     const sessionData = JSON.parse(token.value);
     return {
       user: {
+        id: sessionData.id, // Try to get ID from token
         email: sessionData.email,
         companyId: sessionData.companyId,
       },

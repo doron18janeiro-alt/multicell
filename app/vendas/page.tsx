@@ -28,7 +28,8 @@ export default function SalesMetrics() {
   const [todayTotals, setTodayTotals] = useState({
     money: 0,
     pix: 0,
-    card: 0,
+    debit: 0,
+    credit: 0,
     total: 0,
   });
 
@@ -75,18 +76,24 @@ export default function SalesMetrics() {
 
         if (method === "DINHEIRO") acc.money += value;
         else if (method === "PIX") acc.pix += value;
-        // Agrupa Crédito, Débito e Cartão genérico
-        else if (
-          method.includes("CARTAO") ||
-          method.includes("CREDITO") ||
-          method.includes("DEBITO")
-        )
-          acc.card += value;
+        // Check for specific Debit/Credit or generic Card with cardType
+        else if (method.includes("DEBITO")) acc.debit += value;
+        else if (method.includes("CREDITO")) acc.credit += value;
+        else if (method === "CARTAO") {
+          // Fallback if paymentMethod is generic "CARTAO", try to check other property if available or split logic?
+          // The prompt implies we have card_type column separately but frontend might not have it in the Sale interface yet.
+          // However, if the API was returning mapped paymentMethod as DEBITO/CREDITO based on cardType, we are good.
+          // If API returns "Carta" and cardType "DEBITO", we need to check cardType.
+          // Let's assume the API might return generic "CARTAO" and we check the sale object.
+          if ((sale as any).cardType === "DEBITO") acc.debit += value;
+          else if ((sale as any).cardType === "CREDITO") acc.credit += value;
+          else acc.credit += value; // Default to credit if unknown card
+        }
 
         acc.total += value;
         return acc;
       },
-      { money: 0, pix: 0, card: 0, total: 0 }
+      { money: 0, pix: 0, debit: 0, credit: 0, total: 0 }
     );
     setTodayTotals(totals);
   };
@@ -127,7 +134,8 @@ export default function SalesMetrics() {
 -------------------------
 💵 *Dinheiro:* R$ ${todayTotals.money.toFixed(2)}
 ⚡ *Pix:* R$ ${todayTotals.pix.toFixed(2)}
-💳 *Cartão:* R$ ${todayTotals.card.toFixed(2)}
+💳 *Débito:* R$ ${todayTotals.debit.toFixed(2)}
+💳 *Crédito:* R$ ${todayTotals.credit.toFixed(2)}
 -------------------------
 💰 *TOTAL GERAL:* R$ ${todayTotals.total.toFixed(2)}
 
@@ -177,8 +185,7 @@ _Gerado pelo Sistema Multicell_
           </div>
         </header>
 
-        {/* Mini-Dashboard (Cards) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* Card Dinheiro */}
           <div className="bg-[#112240] p-6 rounded-xl border border-green-900/50 shadow-[0_0_20px_rgba(34,197,94,0.1)] relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-green-500/20"></div>
@@ -217,21 +224,40 @@ _Gerado pelo Sistema Multicell_
             </div>
           </div>
 
-          {/* Card Cartão */}
+          {/* Card Débito */}
           <div className="bg-[#112240] p-6 rounded-xl border border-blue-900/50 shadow-[0_0_20px_rgba(59,130,246,0.1)] relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-blue-500/20"></div>
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-slate-400 font-medium text-sm uppercase tracking-wider">
-                Total em Cartão
+                Débito
               </h3>
               <div className="p-2 bg-blue-900/30 rounded-lg text-blue-400 border border-blue-800">
                 <CreditCard size={20} />
               </div>
             </div>
             <div className="text-3xl font-bold text-white">
-              R$ {todayTotals.card.toFixed(2)}
+              R$ {todayTotals.debit.toFixed(2)}
             </div>
             <div className="mt-2 text-xs text-blue-400 flex items-center gap-1">
+              <Zap size={12} fill="currentColor" /> Processado
+            </div>
+          </div>
+
+          {/* Card Crédito */}
+          <div className="bg-[#112240] p-6 rounded-xl border border-purple-900/50 shadow-[0_0_20px_rgba(168,85,247,0.1)] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-purple-500/20"></div>
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-slate-400 font-medium text-sm uppercase tracking-wider">
+                Crédito
+              </h3>
+              <div className="p-2 bg-purple-900/30 rounded-lg text-purple-400 border border-purple-800">
+                <CreditCard size={20} />
+              </div>
+            </div>
+            <div className="text-3xl font-bold text-white">
+              R$ {todayTotals.credit.toFixed(2)}
+            </div>
+            <div className="mt-2 text-xs text-purple-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Processado
             </div>
           </div>

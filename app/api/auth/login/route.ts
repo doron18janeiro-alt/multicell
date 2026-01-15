@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     // 4. Salva sessão no cookie
     const cookieStore = await cookies();
     const sessionData = JSON.stringify({
+      id: user.id, // Add ID to session
       email: user.email,
       companyId: companyId,
     });
