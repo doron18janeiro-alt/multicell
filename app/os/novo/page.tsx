@@ -16,7 +16,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useReactToPrint } from "react-to-print";
-import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
+import { ServiceOrderThermalPrint } from "@/components/ServiceOrderThermalPrint";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
 
 function OrderServiceForm() {
@@ -25,6 +25,7 @@ function OrderServiceForm() {
   const [successData, setSuccessData] = useState<any>(null);
   const [generatedProtocol, setGeneratedProtocol] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
+  const thermalPrintRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -158,8 +159,20 @@ function OrderServiceForm() {
     window.open(url, "_blank");
   };
 
+  const handlePrint = useReactToPrint({
+    // @ts-ignore
+    contentRef: thermalPrintRef,
+  });
+
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Hidden Thermal Print Component */}
+      <div style={{ display: "none" }}>
+        {successData && (
+          <ServiceOrderThermalPrint ref={thermalPrintRef} data={successData} />
+        )}
+      </div>
+
       {/* Success Modal */}
       {successData && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
@@ -189,7 +202,7 @@ function OrderServiceForm() {
 
             <div className="space-y-4">
               <button
-                onClick={handlePrint}
+                onClick={() => handlePrint()}
                 className="w-full bg-[#1e293b] hover:bg-[#334155] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 border border-slate-700 transition-colors"
               >
                 <Printer size={20} />

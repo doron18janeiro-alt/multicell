@@ -403,6 +403,11 @@ export default function PDV() {
             <p>Tel: (43) 99603-1208</p>
           </div>
           <div className="border-b border-black mb-2"></div>
+          <div className="mb-2">
+            <p className="font-bold">Cliente:</p>
+            <p>{customer?.name || "Consumidor Final"}</p>
+            {customer?.phone && <p>Tel: {customer.phone}</p>}
+          </div>
           <p className="font-bold text-center mb-2">CUPOM NÃO FISCAL</p>
           <p>Venda #{lastSale?.id}</p>
           <p>Data: {new Date().toLocaleString()}</p>
