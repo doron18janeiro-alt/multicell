@@ -194,7 +194,7 @@ _Gerado pelo Sistema Multicell_
               R$ {todayTotals.money.toFixed(2)}
             </div>
             <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
-              <Zap size={12} filling="currentColor" /> Atualizado agora
+              <Zap size={12} fill="currentColor" /> Atualizado agora
             </div>
           </div>
 
@@ -213,7 +213,7 @@ _Gerado pelo Sistema Multicell_
               R$ {todayTotals.pix.toFixed(2)}
             </div>
             <div className="mt-2 text-xs text-teal-400 flex items-center gap-1">
-              <Zap size={12} filling="currentColor" /> Sincronizado
+              <Zap size={12} fill="currentColor" /> Sincronizado
             </div>
           </div>
 
@@ -232,7 +232,7 @@ _Gerado pelo Sistema Multicell_
               R$ {todayTotals.card.toFixed(2)}
             </div>
             <div className="mt-2 text-xs text-blue-400 flex items-center gap-1">
-              <Zap size={12} filling="currentColor" /> Processado
+              <Zap size={12} fill="currentColor" /> Processado
             </div>
           </div>
         </div>
