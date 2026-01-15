@@ -12,6 +12,7 @@ import {
   QrCode,
   Plus,
   ArrowLeft,
+  User,
 } from "lucide-react";
 
 interface Product {
@@ -26,8 +27,15 @@ interface CartItem extends Product {
   quantity: number;
 }
 
+interface Customer {
+  id: string;
+  name: string;
+}
+
 export default function PDV() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
@@ -45,6 +53,7 @@ export default function PDV() {
   // Polling para sincronização automática
   useEffect(() => {
     fetchProducts();
+    fetchCustomers();
     fetchConfig();
 
     const interval = setInterval(() => {
@@ -60,6 +69,18 @@ export default function PDV() {
       window.removeEventListener("focus", onFocus);
     };
   }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await fetch("/api/customers");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setCustomers(data);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar clientes:", e);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -142,6 +163,7 @@ export default function PDV() {
         })),
         paymentMethod,
         total,
+        customerId: selectedCustomerId || null,
       };
 
       const res = await fetch("/api/sales", {
@@ -194,6 +216,24 @@ export default function PDV() {
               Voltar
             </a>
           </header>
+
+          <div className="bg-[#112240] p-4 rounded-xl border border-slate-700 mb-6 flex items-center gap-4">
+            <User className="text-[#FFD700]" />
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              className="flex-1 bg-transparent text-white border-none outline-none cursor-pointer text-lg"
+            >
+              <option value="" className="text-black">
+                Cliente: Consumidor Final
+              </option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id} className="text-black">
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="relative mb-6">
             <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />

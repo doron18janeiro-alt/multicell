@@ -139,7 +139,7 @@ export default function Dashboard() {
                   onClick={() => {
                     const msg = `Olá, ${
                       client.name.split(" ")[0]
-                    }! 🥳 A equipe Multicell System deseja que seu novo ciclo seja repleto de conexões incríveis e muita felicidade. Parabéns! 💙📱`;
+                    }! 🥳 A equipe Multicell deseja um feliz aniversário! 💙📱`;
                     window.open(
                       `https://wa.me/55${client.phone.replace(
                         /\D/g,

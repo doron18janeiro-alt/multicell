@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { items, paymentMethod, total } = body;
+    const { items, paymentMethod, total, customerId } = body;
 
     let finalPaymentMethod = paymentMethod;
     let cardType = null;
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
           cardType,
           feeAmount,
           netAmount,
+          customerId,
           items: {
             create: items.map((item: any) => ({
               productId: item.productId,
@@ -98,6 +99,7 @@ export async function POST(request: Request) {
               product: true,
             },
           },
+          customer: true, // Includes customer for Receipt
         },
       });
 

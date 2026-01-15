@@ -144,6 +144,12 @@ export default function Clientes() {
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.birthDate) {
+      alert("A Data de Nascimento é OBRIGATÓRIA para cadastro.");
+      return;
+    }
+
     try {
       const url = editingId ? `/api/customers/${editingId}` : "/api/customers";
       const method = editingId ? "PUT" : "POST";

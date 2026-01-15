@@ -141,24 +141,10 @@ export const WarrantyTermPrint = React.forwardRef<
 
       <div className="text-[10px] text-justify space-y-2 mb-4">
         <p>
-          1. A garantia é válida pelo prazo de{" "}
-          <span className="font-bold">{warrantyDays} dias</span> a contar desta
-          data, cobrindo exclusivamente os serviços prestados e peças
-          substituídas.
-        </p>
-        <p>
-          2. A garantia PERDE A VALIDADE em casos de: mau uso, quedas, contato
-          com líquidos, oxidação, violação do selo de garantia ou intervenção de
-          terceiros.
-        </p>
-        <p>
-          3. Não nos responsabilizamos por backup de dados. O cliente declara
-          ter realizado backup previamente.
-        </p>
-        <p>
-          4. Aparelhos não retirados no prazo de 90 dias após notificação de
-          conclusão poderão ser descartados ou vendidos para custear o serviço
-          (Lei 2.606/98).
+          GARANTIA MULTICELL: {warrantyDays} dias para defeitos de fabricação na
+          peça substituída. A GARANTIA SERÁ ANULADA em casos de: 1. Quedas ou
+          danos físicos; 2. Contato com líquidos (oxidação); 3. Violação dos
+          selos de segurança; 4. Tentativa de reparo por terceiros.
         </p>
       </div>
 
