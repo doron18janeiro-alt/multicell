@@ -39,38 +39,34 @@ const FloatingIcons = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 15 }).map((_, i) => {
+      {Array.from({ length: 20 }).map((_, i) => {
         const Icon = icons[i % icons.length];
-        const randomX = Math.floor(Math.random() * 100);
-        const randomY = Math.floor(Math.random() * 100);
-        const randomDuration = 10 + Math.random() * 20;
-        const randomDelay = Math.random() * 5;
-        const size = 20 + Math.random() * 30;
+        const randomX = Math.random() * 100;
+        const randomY = Math.random() * 100;
 
         return (
           <motion.div
             key={i}
             className="absolute text-cyan-500/10"
-            initial={{
-              x: `${randomX}vw`,
-              y: `${randomY}vh`,
-              opacity: 0,
-              scale: 0.5,
+            style={{
+              left: `${randomX}%`,
+              top: `${randomY}%`,
             }}
+            initial={{ opacity: 0, scale: 0.5 }}
             animate={{
-              y: [`${randomY}vh`, `${randomY - 20}vh`, `${randomY}vh`],
-              x: [`${randomX}vw`, `${randomX + 10}vw`, `${randomX}vw`],
+              y: [0, -50, 0],
+              x: [0, 30, 0],
               rotate: [0, 180, 360],
-              opacity: [0.05, 0.15, 0.05],
+              opacity: [0.1, 0.3, 0.1],
+              scale: [1, 1.2, 1],
             }}
             transition={{
-              duration: randomDuration,
+              duration: 15 + Math.random() * 10,
               repeat: Infinity,
-              delay: randomDelay,
               ease: "linear",
             }}
           >
-            <Icon size={size} strokeWidth={1.5} />
+            <Icon size={24 + Math.random() * 24} strokeWidth={1.5} />
           </motion.div>
         );
       })}
