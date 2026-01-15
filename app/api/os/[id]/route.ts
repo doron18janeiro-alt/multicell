@@ -61,3 +61,84 @@ export async function PATCH(
 ) {
   return PUT(request, { params });
 }
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const osId = parseInt(id);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Buscar Vendas vinculadas a esta OS (para evitar erro de FK e estornar estoque)
+      // O campo serviceOrderId existe no modelo Sale
+      const linkedSales = await tx.sale.findMany({
+        where: { serviceOrderId: osId },
+        include: { items: true },
+      });
+
+      // 2. Processar exclusão das vendas vinculadas
+      for (const sale of linkedSales) {
+        // 2.1 Estornar Estoque (Resiliente a falhas)
+        for (const item of sale.items) {
+          if (item.productId) {
+            try {
+              // Verifica existência antes do update
+              const product = await tx.product.findUnique({
+                where: { id: item.productId },
+              });
+
+              if (product) {
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: {
+                    stock: { increment: item.quantity },
+                  },
+                });
+              } else {
+                console.warn(
+                  `[Delete OS] Produto ${item.productId} não encontrado. Ignorando estorno.`
+                );
+              }
+            } catch (stockError) {
+              console.error(
+                `[Delete OS] Erro ao estornar item ${item.id}:`,
+                stockError
+              );
+              // Continua mesmo com erro
+            }
+          }
+        }
+
+        // 2.2 Excluir Itens da Venda
+        await tx.saleItem.deleteMany({
+          where: { saleId: sale.id },
+        });
+
+        // 2.3 Excluir a Venda
+        await tx.sale.delete({
+          where: { id: sale.id },
+        });
+      }
+
+      // 3. Excluir a Ordem de Serviço
+      // Removemos validação de status. Exclui direto.
+      await tx.serviceOrder.delete({
+        where: { id: osId },
+      });
+    });
+
+    return NextResponse.json({
+      message: "Ordem de Serviço excluída com sucesso",
+    });
+  } catch (error: any) {
+    console.error("Erro ao excluir OS:", error);
+    return NextResponse.json(
+      {
+        error: "Erro ao excluir OS: " + (error.message || "Erro desconhecido"),
+      },
+      { status: 500 }
+    );
+  }
+}

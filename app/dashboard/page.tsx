@@ -208,7 +208,7 @@ export default function Dashboard() {
             </span>
           </div>
           <h3 className="text-slate-400 text-sm font-medium">
-            Patrimônio (Custo)
+            Valor Atual de Estoque
           </h3>
           <p className="text-2xl font-bold text-white mt-1">
             {new Intl.NumberFormat("pt-BR", {

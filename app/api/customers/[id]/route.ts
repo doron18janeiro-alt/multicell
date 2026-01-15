@@ -77,17 +77,9 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Check for related records
+    // Check if customer exists first
     const customer = await prisma.customer.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            serviceOrders: true,
-            // sales: true, // If sales have customer relation. For now assuming SO.
-          },
-        },
-      },
     });
 
     if (!customer) {
@@ -97,16 +89,8 @@ export async function DELETE(
       );
     }
 
-    if (customer._count.serviceOrders > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "Não é possível excluir cliente com Ordens de Serviço vinculadas.",
-        },
-        { status: 400 }
-      );
-    }
-
+    // Now delete directly.
+    // Schema relations with onDelete: Cascade will handle cleanup of OS and Sales automatically.
     await prisma.customer.delete({
       where: { id },
     });

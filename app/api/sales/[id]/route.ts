@@ -24,12 +24,33 @@ export async function DELETE(
 
       // 2. Restore Stock
       for (const item of sale.items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: { increment: item.quantity },
-          },
-        });
+        // Verifica se o produto existe e é válido antes de tentar atualizar
+        if (item.productId) {
+          try {
+            const product = await tx.product.findUnique({
+              where: { id: item.productId },
+            });
+
+            if (product) {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: {
+                  stock: { increment: item.quantity },
+                },
+              });
+            } else {
+              console.warn(
+                `Produto ID ${item.productId} não encontrado. Ignorando estorno de estoque.`
+              );
+            }
+          } catch (stockError) {
+            console.error(
+              `Erro ao estornar estoque para o item ${item.id}:`,
+              stockError
+            );
+            // Não relança o erro, permitindo que a exclusão da venda continue
+          }
+        }
       }
 
       // 3. Delete the sale (Cascade delete items usually, but let's be safe)

@@ -10,15 +10,35 @@ export async function GET() {
     }
     const companyId = session.user.companyId;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Ajuste de Fuso Horário (Brasil UTC-3)
+    const brazilOffset = -3; // UTC-3
+    const now = new Date();
 
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // Calcula o "agora" em horário do Brasil (apenas para pegar o dia correto)
+    const nowBrazil = new Date(now.getTime() + brazilOffset * 60 * 60 * 1000);
+
+    // Define limites do dia baseado no horário brasileiro
+    const startOfDayBrazil = new Date(nowBrazil);
+    startOfDayBrazil.setUTCHours(0, 0, 0, 0);
+
+    const endOfDayBrazil = new Date(nowBrazil);
+    endOfDayBrazil.setUTCHours(23, 59, 59, 999);
+
+    // Converte de volta para UTC real para consultar o banco
+    const today = new Date(
+      startOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
+    );
+    const endOfDay = new Date(
+      endOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
+    );
+
+    console.log(
+      `[CashFlow] Buscando vendas entre ${today.toISOString()} e ${endOfDay.toISOString()} para empresa ${companyId}`
+    );
 
     const sales = await prisma.sale.findMany({
       where: {
-        companyId,
+        companyId: companyId, // Garante filtro explícito
         createdAt: {
           gte: today,
           lte: endOfDay,
@@ -29,6 +49,8 @@ export async function GET() {
       },
     });
 
+    console.log(`[CashFlow] Vendas encontradas: ${sales.length}`);
+
     let totalCash = 0;
     let totalPix = 0;
     let totalDebit = 0;
@@ -37,12 +59,13 @@ export async function GET() {
     sales.forEach((sale) => {
       // Use netAmount (valor líquido) for calculation
       const value = sale.netAmount ?? sale.total ?? 0;
+      const method = sale.paymentMethod ? sale.paymentMethod.toUpperCase() : "";
 
-      if (sale.paymentMethod === "DINHEIRO") {
+      if (method === "DINHEIRO") {
         totalCash += value;
-      } else if (sale.paymentMethod === "PIX") {
+      } else if (method === "PIX") {
         totalPix += value;
-      } else if (sale.paymentMethod === "CARTAO") {
+      } else if (method === "CARTAO") {
         if (sale.cardType === "DEBITO") {
           totalDebit += value;
         } else if (sale.cardType === "CREDITO") {

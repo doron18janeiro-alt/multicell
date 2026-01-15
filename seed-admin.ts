@@ -7,7 +7,7 @@ async function main() {
   console.log("🔐 Gerando hash seguro para a senha...");
 
   /* Hash da senha exata solicitada */
-  const password = "18011989Lp*";
+  const password = "123456789";
   const hashedPassword = await bcrypt.hash(password, 10);
 
   console.log("🔄 Atualizando usuários no banco de dados...");
@@ -19,6 +19,7 @@ async function main() {
     create: {
       email: "admin@multicell.com",
       password: hashedPassword,
+      companyId: "multicell-oficial",
     },
   });
   console.log("✅ admin@multicell.com atualizado.");
@@ -30,6 +31,7 @@ async function main() {
     create: {
       email: "doron18janeiro@gmail.com",
       password: hashedPassword,
+      companyId: "multicell-oficial",
     },
   });
   console.log("✅ doron18janeiro@gmail.com atualizado.");

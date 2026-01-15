@@ -4,8 +4,18 @@ import { getSession } from "@/lib/auth";
 
 // Helper: Ensure Daily Closing for Today exists
 async function ensureDailyClosing(companyId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Ajuste de Fuso Horário (Brasil UTC-3)
+  const brazilOffset = -3;
+  const now = new Date();
+  const nowBrazil = new Date(now.getTime() + brazilOffset * 60 * 60 * 1000);
+
+  const startOfDayBrazil = new Date(nowBrazil);
+  startOfDayBrazil.setUTCHours(0, 0, 0, 0);
+
+  // Data de referência: 03:00 UTC (Meia-noite BR)
+  const today = new Date(
+    startOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
+  );
 
   // Check if closing exists for today
   const existingClosing = await prisma.dailyClosing.findUnique({
@@ -76,18 +86,31 @@ export async function GET() {
     });
 
     // Faturamento do Dia
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const brazilOffset = -3;
+    const now = new Date();
+    const nowBrazil = new Date(now.getTime() + brazilOffset * 60 * 60 * 1000);
+    const startOfDayBrazil = new Date(nowBrazil);
+    startOfDayBrazil.setUTCHours(0, 0, 0, 0);
+    const endOfDayBrazil = new Date(nowBrazil);
+    endOfDayBrazil.setUTCHours(23, 59, 59, 999);
 
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const today = new Date(
+      startOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
+    );
+    const endOfDay = new Date(
+      endOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
+    );
+
+    console.log(
+      `[Dashboard] Filtering sales for ${companyId} between ${today.toISOString()} and ${endOfDay.toISOString()}`
+    );
 
     const salesToday = await prisma.sale.aggregate({
       _sum: {
         total: true, // Use gross total for revenue
       },
       where: {
-        companyId,
+        companyId: companyId,
         status: { not: "REFUNDED" },
         createdAt: {
           gte: today,
@@ -97,6 +120,7 @@ export async function GET() {
     });
 
     const revenueToday = salesToday._sum.total || 0;
+    console.log(`[Dashboard] Revenue Today: ${revenueToday}`);
 
     // Patrimônio em Estoque (Soma de custo * quantidade)
     // Prisma aggregate sum can't multiply, so we fetch all products
