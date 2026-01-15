@@ -46,11 +46,19 @@ interface ReportData {
   };
 }
 
+interface PerformanceData {
+  closings: any[];
+  bestDay: any;
+  worstDay: any;
+}
+
 export default function RelatoriosPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [abcData, setAbcData] = useState<ABCData | null>(null);
+  const [performanceData, setPerformanceData] =
+    useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"cards" | "performance">(
+  const [activeTab, setActiveTab] = useState<"cards" | "abc" | "performance">(
     "performance"
   );
 
@@ -60,9 +68,10 @@ export default function RelatoriosPage() {
 
   const fetchReport = async () => {
     try {
-      const [cardRes, reportRes] = await Promise.all([
+      const [cardRes, reportRes, perfRes] = await Promise.all([
         fetch("/api/reports/card-sales"),
         fetch("/api/reports"),
+        fetch("/api/reports/performance"),
       ]);
 
       if (cardRes.ok) {
@@ -79,6 +88,10 @@ export default function RelatoriosPage() {
         if (reportData.abc) {
           setAbcData(reportData.abc);
         }
+      }
+
+      if (perfRes.ok) {
+        setPerformanceData(await perfRes.json());
       }
     } catch (error) {
       console.error(error);
@@ -187,10 +200,164 @@ export default function RelatoriosPage() {
           </div>
         </header>
 
-        {activeTab === "performance" && abcData && (
+        {activeTab === "performance" && (abcData || performanceData) && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Performance - Melhor/Pior Dia */}
+            {performanceData && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-[#112240] rounded-2xl p-6 border border-emerald-500/30 relative overflow-hidden shadow-lg shadow-emerald-900/10">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <TrendingUp size={120} className="text-emerald-500" />
+                  </div>
+                  <h3 className="text-emerald-400 font-bold mb-4 flex items-center gap-2">
+                    <TrendingUp size={20} /> Melhor Dia (Faturamento)
+                  </h3>
+                  {performanceData.bestDay ? (
+                    <div>
+                      <p className="text-4xl font-bold text-white mb-2">
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(performanceData.bestDay.total)}
+                      </p>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold uppercase border border-emerald-500/20">
+                          RECORD
+                        </span>
+                        <p className="capitalize">
+                          {new Date(
+                            performanceData.bestDay.date
+                          ).toLocaleDateString("pt-BR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 py-4">
+                      Ainda sem dados de fechamento.
+                    </p>
+                  )}
+                </div>
+
+                <div className="bg-[#112240] rounded-2xl p-6 border border-rose-500/30 relative overflow-hidden shadow-lg shadow-rose-900/10">
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <AlertTriangle size={120} className="text-rose-500" />
+                  </div>
+                  <h3 className="text-rose-400 font-bold mb-4 flex items-center gap-2">
+                    <AlertTriangle size={20} /> Pior Dia (Faturamento)
+                  </h3>
+                  {performanceData.worstDay ? (
+                    <div>
+                      <p className="text-4xl font-bold text-white mb-2">
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(performanceData.worstDay.total)}
+                      </p>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <span className="bg-rose-500/10 text-rose-400 px-2 py-1 rounded text-xs font-bold uppercase border border-rose-500/20">
+                          BAIXA
+                        </span>
+                        <p className="capitalize">
+                          {new Date(
+                            performanceData.worstDay.date
+                          ).toLocaleDateString("pt-BR", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-slate-500 py-4">
+                      Ainda sem dados de fechamento.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {performanceData &&
+              performanceData.closings &&
+              performanceData.closings.length > 0 && (
+                <div className="bg-[#112240] rounded-2xl border border-slate-700/50 p-6">
+                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <Calendar size={20} className="text-[#D4AF37]" />
+                    Histórico de Fechamentos
+                  </h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-700 text-slate-400 text-sm">
+                          <th className="py-3 px-4">Data</th>
+                          <th className="py-3 px-4 text-right">Dinheiro</th>
+                          <th className="py-3 px-4 text-right">Pix</th>
+                          <th className="py-3 px-4 text-right">Cartões</th>
+                          <th className="py-3 px-4 text-right text-white">
+                            Total Bruto
+                          </th>
+                          <th className="py-3 px-4 text-right text-emerald-400">
+                            Total Líquido
+                          </th>
+                          <th className="py-3 px-4 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm text-slate-300">
+                        {performanceData.closings.map(
+                          (closing: any, idx: number) => (
+                            <tr
+                              key={idx}
+                              className="border-b border-slate-800 hover:bg-slate-800/50"
+                            >
+                              <td className="py-3 px-4">
+                                {new Date(closing.date).toLocaleDateString(
+                                  "pt-BR"
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                R$ {closing.totalCash.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                R$ {closing.totalPix.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                R${" "}
+                                {(
+                                  closing.totalDebit + closing.totalCredit
+                                ).toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-medium text-white">
+                                R${" "}
+                                {(
+                                  closing.totalCash +
+                                  closing.totalPix +
+                                  closing.totalDebit +
+                                  closing.totalCredit
+                                ).toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                                R$ {closing.totalNet.toFixed(2)}
+                              </td>
+                              <td className="py-3 px-4 text-center">
+                                <span className="bg-green-500/10 text-green-500 text-xs px-2 py-1 rounded border border-green-500/20">
+                                  {closing.status}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             {/* Sugestões de Compra */}
-            {abcData.suggestions.length > 0 && (
+            {abcData && abcData.suggestions.length > 0 && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <AlertTriangle className="text-red-500" />
@@ -229,84 +396,86 @@ export default function RelatoriosPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Mais Vendidos */}
-              <div className="bg-[#112240] rounded-2xl border border-slate-700/50 p-6">
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                  <Package className="text-blue-400" />
-                  Produtos Mais Vendidos (Vol.)
-                </h2>
-                <div className="space-y-4">
-                  {abcData.bestSellers.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-[#0B1120] rounded-lg border border-slate-800"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
-                          #{idx + 1}
+            {abcData && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Mais Vendidos */}
+                <div className="bg-[#112240] rounded-2xl border border-slate-700/50 p-6">
+                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <Package className="text-blue-400" />
+                    Produtos Mais Vendidos (Vol.)
+                  </h2>
+                  <div className="space-y-4">
+                    {abcData.bestSellers.map((p, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-[#0B1120] rounded-lg border border-slate-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
+                            #{idx + 1}
+                          </span>
+                          <div>
+                            <p className="font-medium text-white">{p.name}</p>
+                            <p className="text-xs text-slate-500">
+                              Receita Gerada:{" "}
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(p.revenue)}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-xl font-bold text-white">
+                          {p.sold}{" "}
+                          <span className="text-sm text-slate-500 font-normal">
+                            un
+                          </span>
                         </span>
-                        <div>
-                          <p className="font-medium text-white">{p.name}</p>
-                          <p className="text-xs text-slate-500">
-                            Receita Gerada:{" "}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mais Lucrativos */}
+                <div className="bg-[#112240] rounded-2xl border border-slate-700/50 p-6">
+                  <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                    <TrendingUp className="text-emerald-400" />
+                    Produtos Mais Lucrativos (Margem Real)
+                  </h2>
+                  <div className="space-y-4">
+                    {abcData.mostProfitable.map((p, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 bg-[#0B1120] rounded-lg border border-slate-800"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
+                            #{idx + 1}
+                          </span>
+                          <div>
+                            <p className="font-medium text-white">{p.name}</p>
+                            <p className="text-xs text-emerald-400">
+                              Margem: {p.margin}%
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="block text-sm text-slate-500">
+                            Lucro Total
+                          </span>
+                          <span className="text-lg font-bold text-white">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",
                               currency: "BRL",
-                            }).format(p.revenue)}
-                          </p>
+                            }).format(p.profit)}
+                          </span>
                         </div>
                       </div>
-                      <span className="text-xl font-bold text-white">
-                        {p.sold}{" "}
-                        <span className="text-sm text-slate-500 font-normal">
-                          un
-                        </span>
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-
-              {/* Mais Lucrativos */}
-              <div className="bg-[#112240] rounded-2xl border border-slate-700/50 p-6">
-                <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                  <TrendingUp className="text-emerald-400" />
-                  Produtos Mais Lucrativos (Margem Real)
-                </h2>
-                <div className="space-y-4">
-                  {abcData.mostProfitable.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-[#0B1120] rounded-lg border border-slate-800"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">
-                          #{idx + 1}
-                        </span>
-                        <div>
-                          <p className="font-medium text-white">{p.name}</p>
-                          <p className="text-xs text-emerald-400">
-                            Margem: {p.margin}%
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-sm text-slate-500">
-                          Lucro Total
-                        </span>
-                        <span className="text-lg font-bold text-white">
-                          {new Intl.NumberFormat("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          }).format(p.profit)}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         )}
 

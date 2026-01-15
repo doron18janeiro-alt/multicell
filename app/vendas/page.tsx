@@ -31,6 +31,17 @@ export default function SalesMetrics() {
     debit: 0,
     credit: 0,
     total: 0,
+    taxMoney: 0,
+    taxPix: 0,
+    taxDebit: 0,
+    taxCredit: 0,
+    taxTotal: 0,
+  });
+  const [rates, setRates] = useState({
+    taxCash: 0,
+    taxPix: 0,
+    debitRate: 1.99,
+    creditRate: 3.99,
   });
 
   // Data atual formatada (YYYY-MM-DD) para a API
@@ -43,10 +54,36 @@ export default function SalesMetrics() {
   };
 
   useEffect(() => {
+    fetchConfig();
     fetchSales();
     const interval = setInterval(fetchSales, 30000); // Auto-refresh a cada 30s
     return () => clearInterval(interval);
   }, []);
+
+  const fetchConfig = async () => {
+    try {
+      const res = await fetch("/api/config");
+      const data = await res.json();
+      if (data && !data.error) {
+        setRates({
+          taxCash: data.taxCash ?? 0,
+          taxPix: data.taxPix ?? 0,
+          debitRate: data.debitRate ?? 1.99,
+          creditRate: data.creditRate ?? 3.99,
+        });
+        // Recalculate totals if sales are already loaded?
+        // It's safer to let the next fetchSales or a dependency effect handle it,
+        // but here we just set rates. We should probably trigger calc if rates change or depend on rates.
+        // For simplicity, we'll let the next render or fetch handle it if we pass rates to calc.
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (sales.length > 0) calculateTotals(sales);
+  }, [rates]);
 
   const fetchSales = async () => {
     try {
@@ -74,27 +111,51 @@ export default function SalesMetrics() {
         // Normalização simples caso venha algo diferente
         const method = sale.paymentMethod?.toUpperCase() || "";
 
-        if (method === "DINHEIRO") acc.money += value;
-        else if (method === "PIX") acc.pix += value;
+        if (method === "DINHEIRO") {
+          acc.money += value;
+          acc.taxMoney += value * (rates.taxCash / 100);
+        } else if (method === "PIX") {
+          acc.pix += value;
+          acc.taxPix += value * (rates.taxPix / 100);
+        }
         // Check for specific Debit/Credit or generic Card with cardType
-        else if (method.includes("DEBITO")) acc.debit += value;
-        else if (method.includes("CREDITO")) acc.credit += value;
-        else if (method === "CARTAO") {
-          // Fallback if paymentMethod is generic "CARTAO", try to check other property if available or split logic?
-          // The prompt implies we have card_type column separately but frontend might not have it in the Sale interface yet.
-          // However, if the API was returning mapped paymentMethod as DEBITO/CREDITO based on cardType, we are good.
-          // If API returns "Carta" and cardType "DEBITO", we need to check cardType.
-          // Let's assume the API might return generic "CARTAO" and we check the sale object.
-          if ((sale as any).cardType === "DEBITO") acc.debit += value;
-          else if ((sale as any).cardType === "CREDITO") acc.credit += value;
-          else acc.credit += value; // Default to credit if unknown card
+        else if (method.includes("DEBITO")) {
+          acc.debit += value;
+          acc.taxDebit += value * (rates.debitRate / 100);
+        } else if (method.includes("CREDITO")) {
+          acc.credit += value;
+          acc.taxCredit += value * (rates.creditRate / 100);
+        } else if (method === "CARTAO") {
+          if ((sale as any).cardType === "DEBITO") {
+            acc.debit += value;
+            acc.taxDebit += value * (rates.debitRate / 100);
+          } else if ((sale as any).cardType === "CREDITO") {
+            acc.credit += value;
+            acc.taxCredit += value * (rates.creditRate / 100);
+          } else {
+            acc.credit += value;
+            acc.taxCredit += value * (rates.creditRate / 100);
+          }
         }
 
         acc.total += value;
         return acc;
       },
-      { money: 0, pix: 0, debit: 0, credit: 0, total: 0 }
+      {
+        money: 0,
+        pix: 0,
+        debit: 0,
+        credit: 0,
+        total: 0,
+        taxMoney: 0,
+        taxPix: 0,
+        taxDebit: 0,
+        taxCredit: 0,
+        taxTotal: 0,
+      }
     );
+    totals.taxTotal =
+      totals.taxMoney + totals.taxPix + totals.taxDebit + totals.taxCredit;
     setTodayTotals(totals);
   };
 
@@ -127,23 +188,33 @@ export default function SalesMetrics() {
     }
   };
 
-  const setupCloseDay = () => {
-    const dateStr = new Date().toLocaleDateString("pt-BR");
-    const message = `
-🔒 *FECHAMENTO DE CAIXA* - ${dateStr}
--------------------------
-💵 *Dinheiro:* R$ ${todayTotals.money.toFixed(2)}
-⚡ *Pix:* R$ ${todayTotals.pix.toFixed(2)}
-💳 *Débito:* R$ ${todayTotals.debit.toFixed(2)}
-💳 *Crédito:* R$ ${todayTotals.credit.toFixed(2)}
--------------------------
-💰 *TOTAL GERAL:* R$ ${todayTotals.total.toFixed(2)}
+  const handleCloseCash = async () => {
+    if (
+      !confirm(
+        "CONFIRMAÇÃO:\nDeseja realizar o Fechamento de Caixa agora?\n\nOs valores atuais serão salvos no histórico financeiro."
+      )
+    )
+      return;
 
-_Gerado pelo Sistema Multicell_
-    `.trim();
+    try {
+      const res = await fetch("/api/caixa/fechar", {
+        method: "POST",
+      });
 
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, "_blank");
+      if (res.ok) {
+        alert("✅ Caixa fechado com sucesso! Dados salvos no histórico.");
+        setSales([]); // Clear local checking view if desired, or just let it be.
+        calculateTotals([]);
+        // Force refresh to get fresh state?
+        // Ideally we just keep showing the data but it's "marked" closed.
+        // For visual "zerar", we clear state.
+      } else {
+        alert("Erro ao fechar caixa.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro de conexão.");
+    }
   };
 
   const filteredSales = sales.filter((sale) =>
@@ -168,11 +239,11 @@ _Gerado pelo Sistema Multicell_
 
           <div className="flex gap-3">
             <button
-              onClick={setupCloseDay}
-              className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)]"
+              onClick={handleCloseCash}
+              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.4)]"
             >
-              <Share2 className="w-4 h-4" />
-              Fechar Dia (WhatsApp)
+              <CreditCard className="w-4 h-4" />
+              Fechar Caixa
             </button>
 
             <a
@@ -200,6 +271,9 @@ _Gerado pelo Sistema Multicell_
             <div className="text-3xl font-bold text-white">
               R$ {todayTotals.money.toFixed(2)}
             </div>
+            <div className="text-xs text-red-500 font-medium mt-1">
+              - R$ {todayTotals.taxMoney.toFixed(2)} em taxas
+            </div>
             <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Atualizado agora
             </div>
@@ -218,6 +292,9 @@ _Gerado pelo Sistema Multicell_
             </div>
             <div className="text-3xl font-bold text-white">
               R$ {todayTotals.pix.toFixed(2)}
+            </div>
+            <div className="text-xs text-red-500 font-medium mt-1">
+              - R$ {todayTotals.taxPix.toFixed(2)} em taxas
             </div>
             <div className="mt-2 text-xs text-teal-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Sincronizado
@@ -238,6 +315,9 @@ _Gerado pelo Sistema Multicell_
             <div className="text-3xl font-bold text-white">
               R$ {todayTotals.debit.toFixed(2)}
             </div>
+            <div className="text-xs text-red-500 font-medium mt-1">
+              - R$ {todayTotals.taxDebit.toFixed(2)} em taxas
+            </div>
             <div className="mt-2 text-xs text-blue-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Processado
             </div>
@@ -257,6 +337,9 @@ _Gerado pelo Sistema Multicell_
             <div className="text-3xl font-bold text-white">
               R$ {todayTotals.credit.toFixed(2)}
             </div>
+            <div className="text-xs text-red-500 font-medium mt-1">
+              - R$ {todayTotals.taxCredit.toFixed(2)} em taxas
+            </div>
             <div className="mt-2 text-xs text-purple-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Processado
             </div>
@@ -275,6 +358,9 @@ _Gerado pelo Sistema Multicell_
             </div>
             <div className="text-3xl font-bold text-white">
               R$ {todayTotals.total.toFixed(2)}
+            </div>
+            <div className="text-xs text-red-500 font-bold mt-1">
+              - R$ {todayTotals.taxTotal.toFixed(2)} em taxas acumuladas
             </div>
             <div className="mt-2 text-xs text-yellow-400 flex items-center gap-1">
               <Zap size={12} fill="currentColor" /> Soma Geral

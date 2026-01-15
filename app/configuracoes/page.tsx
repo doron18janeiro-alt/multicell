@@ -19,6 +19,8 @@ interface CompanyConfig {
   logoUrl: string;
   debitRate: number;
   creditRate: number;
+  taxPix: number;
+  taxCash: number;
 }
 
 export default function Configuracoes() {
@@ -30,6 +32,8 @@ export default function Configuracoes() {
     logoUrl: "",
     debitRate: 1.99,
     creditRate: 3.99,
+    taxPix: 0,
+    taxCash: 0,
   });
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -63,6 +67,8 @@ export default function Configuracoes() {
           logoUrl: data.logoUrl || "",
           debitRate: data.debitRate ?? 1.99,
           creditRate: data.creditRate ?? 3.99,
+          taxPix: data.taxPix ?? 0,
+          taxCash: data.taxCash ?? 0,
         });
       }
     } catch (error) {
@@ -266,6 +272,40 @@ export default function Configuracoes() {
                       setConfig({
                         ...config,
                         creditRate: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Taxa Pix (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={config.taxPix}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        taxPix: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Taxa Dinheiro (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={config.taxCash}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        taxCash: parseFloat(e.target.value),
                       })
                     }
                     className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-blue-500 outline-none"

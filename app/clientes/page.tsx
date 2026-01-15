@@ -25,6 +25,7 @@ interface Customer {
   name: string;
   phone: string;
   document: string | null;
+  birthDate?: string | null;
   serviceOrders?: { status: string; createdAt: string }[];
   _count?: {
     serviceOrders: number;
@@ -77,7 +78,14 @@ export default function Clientes() {
     name: "",
     phone: "",
     document: "",
+    birthDate: "",
   });
+
+  // Post-Creation Modal
+  const [successCustomer, setSuccessCustomer] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Details Modal
   const [viewingCustomer, setViewingCustomer] =
@@ -108,6 +116,7 @@ export default function Clientes() {
       name: customer.name,
       phone: customer.phone,
       document: customer.document || "",
+      birthDate: customer.birthDate ? customer.birthDate.split("T")[0] : "",
     });
     setShowForm(true);
   };
@@ -147,24 +156,17 @@ export default function Clientes() {
 
       if (res.ok) {
         const result = await res.json();
-        alert(
-          editingId ? "Cliente atualizado!" : "Cliente cadastrado com sucesso!"
-        );
-
-        if (!editingId) {
-          router.push(
-            `/os/novo?customerId=${result.id}&name=${encodeURIComponent(
-              result.name
-            )}&phone=${encodeURIComponent(
-              result.phone
-            )}&document=${encodeURIComponent(result.document || "")}`
-          );
-        }
 
         setShowForm(false);
         setEditingId(null);
-        setFormData({ name: "", phone: "", document: "" });
+        setFormData({ name: "", phone: "", document: "", birthDate: "" });
         fetchCustomers();
+
+        if (!editingId) {
+          setSuccessCustomer({ id: result.id, name: result.name });
+        } else {
+          alert("Cliente atualizado com sucesso!");
+        }
       } else {
         const err = await res.json();
         alert(`Erro: ${err.error || "Erro ao salvar"}`);
@@ -627,12 +629,31 @@ export default function Clientes() {
                     }
                   />
                 </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    Data de Nascimento (Opcional)
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                    value={formData.birthDate}
+                    onChange={(e) =>
+                      setFormData({ ...formData, birthDate: e.target.value })
+                    }
+                  />
+                </div>
                 <div className="flex gap-3 mt-6">
                   <button
+                    type="button"
                     onClick={() => {
                       setShowForm(false);
                       setEditingId(null);
-                      setFormData({ name: "", phone: "", document: "" });
+                      setFormData({
+                        name: "",
+                        phone: "",
+                        document: "",
+                        birthDate: "",
+                      });
                     }}
                     className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
                   >
@@ -646,6 +667,57 @@ export default function Clientes() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Success / Next Step Modal */}
+        {successCustomer && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[60]">
+            <div className="bg-[#112240] p-8 rounded-2xl border border-green-500/50 w-full max-w-lg text-center relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
+
+              <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Users size={32} />
+              </div>
+
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Cliente Cadastrado!
+              </h2>
+              <p className="text-slate-400 mb-8">
+                O cliente{" "}
+                <strong className="text-white">{successCustomer.name}</strong>{" "}
+                foi salvo com sucesso. O que deseja fazer agora?
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() =>
+                    router.push(`/os/novo?customerId=${successCustomer.id}`)
+                  }
+                  className="bg-[#112240] border border-slate-600 hover:border-[#FFD700] hover:bg-[#1e293b] text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 group"
+                >
+                  <Wrench className="group-hover:text-[#FFD700]" />
+                  Abrir Nova O.S.
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push(`/vendas/novo?customerId=${successCustomer.id}`)
+                  }
+                  className="bg-green-600 hover:bg-green-500 text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 shadow-lg shadow-green-900/20"
+                >
+                  <ShoppingBag />
+                  Iniciar Venda
+                </button>
+              </div>
+
+              <button
+                onClick={() => setSuccessCustomer(null)}
+                className="mt-6 text-slate-500 hover:text-white text-sm underline"
+              >
+                Voltar para Lista de Clientes
+              </button>
             </div>
           </div>
         )}

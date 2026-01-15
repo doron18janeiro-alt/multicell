@@ -11,15 +11,22 @@ export async function POST(req: Request) {
     const companyId = session.user.companyId;
 
     const body = await req.json();
-    const { totalCash, totalPix, totalDebit, totalCredit, totalNet } = body;
+    const { totalCash, totalPix, totalDebit, totalCredit, totalNet, date } =
+      body;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use provided date or today. If date passed as "yyyy-mm-dd", parse it.
+    let closingDate = new Date();
+    if (date) {
+      // Force time to midday to avoid timezone shifts during storage
+      closingDate = new Date(`${date}T12:00:00.000Z`);
+    } else {
+      closingDate.setHours(0, 0, 0, 0);
+    }
 
     const closing = await prisma.dailyClosing.upsert({
       where: {
         date_companyId: {
-          date: today,
+          date: closingDate,
           companyId,
         },
       },
@@ -34,7 +41,7 @@ export async function POST(req: Request) {
       },
       create: {
         companyId,
-        date: today,
+        date: closingDate,
         totalCash,
         totalPix,
         totalDebit,

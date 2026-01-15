@@ -37,6 +37,10 @@ export async function PUT(req: Request) {
           phone: data.phone,
           address: data.address,
           logoUrl: data.logoUrl,
+          debitRate: parseFloat(data.debitRate) || 0,
+          creditRate: parseFloat(data.creditRate) || 0,
+          taxPix: parseFloat(data.taxPix) || 0,
+          taxCash: parseFloat(data.taxCash) || 0,
         },
       });
     } else {
@@ -47,6 +51,10 @@ export async function PUT(req: Request) {
           phone: data.phone,
           address: data.address,
           logoUrl: data.logoUrl,
+          debitRate: parseFloat(data.debitRate) || 0,
+          creditRate: parseFloat(data.creditRate) || 0,
+          taxPix: parseFloat(data.taxPix) || 0,
+          taxCash: parseFloat(data.taxCash) || 0,
         },
       });
     }

@@ -10,11 +10,12 @@ datasource db {
 
 model Customer {
   id            String         @id @default(uuid())
-  companyId     String         @default("multicell-oficial") @map("company_id")
   name          String
   phone         String
-  document      String?        
+  document      String?
+  companyId     String         @default("multicell-oficial") @map("company_id")
   createdAt     DateTime       @default(now()) @map("created_at")
+  birthDate     DateTime?      @map("birth_date") @db.Date
   serviceOrders ServiceOrder[]
   sales         Sale[]
 
@@ -22,36 +23,20 @@ model Customer {
   @@map("clients")
 }
 
-enum OSStatus {
-  ABERTO
-  EM_REPARO
-  EM_ANDAMENTO
-  AGUARDANDO_PECA
-  PRONTO
-  FINALIZADO
-  CANCELADO
-}
-
-enum SaleStatus {
-  COMPLETED
-  REFUNDED
-}
-
 model Product {
-  id          String   @id @default(cuid())
-  companyId   String   @default("multicell-oficial") @map("company_id")
+  id          String     @id @default(cuid())
   name        String
-  description String?
+  stock       Int        @default(0)
+  minStock    Int        @default(5) @map("min_stock")
   category    String
-  stock       Int      @default(0)
-  minStock    Int      @default(5) @map("min_stock")
-  minQuantity Int      @default(2) @map("min_quantity")
-  costPrice   Float    @default(0) @map("cost_price")
-  salePrice   Float    @map("sale_price")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  
-  supplierId  String?  @map("supplier_id")
+  companyId   String     @default("multicell-oficial") @map("company_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  costPrice   Float      @default(0) @map("cost_price")
+  description String?
+  minQuantity Int        @default(2) @map("min_quantity")
+  salePrice   Float      @map("sale_price")
+  supplierId  String?    @map("supplier_id")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
   supplier    Supplier?  @relation(fields: [supplierId], references: [id])
   sales       SaleItem[]
 
@@ -59,121 +44,135 @@ model Product {
 }
 
 model ServiceOrder {
-  id             Int      @id @default(autoincrement())
-  companyId      String   @default("multicell-oficial") @map("company_id")
-  clientName     String   @map("client_name")
-  clientPhone    String   @map("client_phone")
-  clientCpf      String?  @map("client_cpf")
-  deviceBrand    String   @map("device_brand")
-  deviceModel    String   @map("device_model")
-  deviceColor    String?  @map("device_color")
-  serialNumber   String?  @map("serial_number")
-  devicePassword String?  @map("device_password")
-  problem        String
+  deviceModel    String    @map("device_model")
+  companyId      String    @default("multicell-oficial") @map("company_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  checklist      Json?
+  clientCpf      String?   @map("client_cpf")
+  clientName     String    @map("client_name")
+  clientPhone    String    @map("client_phone")
+  costPrice      Float     @default(0) @map("cost_price")
+  customerId     String?   @map("customer_id")
+  deviceBrand    String    @map("device_brand")
+  deviceColor    String?   @map("device_color")
+  devicePassword String?   @map("device_password")
   observations   String?
-  checklist      Json?    
-  status         OSStatus @default(ABERTO)
-  
-  costPrice      Float    @default(0) @map("cost_price")
-  servicePrice   Float    @default(0) @map("service_price")
-  totalPrice     Float    @default(0) @map("total_price")
-  paymentMethod  String?  @map("payment_method")
-
-  customerId     String?  @map("customer_id")
+  paymentMethod  String?   @map("payment_method")
+  problem        String
+  serialNumber   String?   @map("serial_number")
+  servicePrice   Float     @default(0) @map("service_price")
+  totalPrice     Float     @default(0) @map("total_price")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  id             Int       @id @default(autoincrement())
+  status         OSStatus  @default(ABERTO)
   customer       Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@map("os")
 }
 
 model Supplier {
-  id          String    @id @default(uuid())
-  companyId   String    @default("multicell-oficial") @map("company_id")
-  name        String
-  contact     String?
-  whatsapp    String?
-  catalogUrl  String?   @map("catalog_url")
-  products    Product[]
-  
+  id         String    @id @default(uuid())
+  companyId  String    @default("multicell-oficial") @map("company_id")
+  name       String
+  contact    String?
+  whatsapp   String?
+  catalogUrl String?   @map("catalog_url")
+  products   Product[]
+
   @@map("suppliers")
 }
 
 model Sale {
-  id            Int        @id @default(autoincrement())
-  companyId     String     @default("multicell-oficial") @map("company_id")
-  total         Float
-  discount      Float?     @default(0)
-  feeAmount     Float?     @default(0) @map("fee_amount")
-  netAmount     Float?     @map("net_amount")
-  paymentMethod String     @map("payment_method")
-  cardType      String?    @map("card_type")
-  serviceOrderId Int?      @map("service_order_id")
-  status        SaleStatus @default(COMPLETED)
-  returnReason  String?    @map("return_reason")
-  
-  customerId    String?    @map("customer_id")
-  customer      Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-
-  createdAt     DateTime   @default(now()) @map("created_at")
-  items         SaleItem[]
+  id             Int        @id @default(autoincrement())
+  companyId      String     @default("multicell-oficial") @map("company_id")
+  total          Float
+  discount       Float?     @default(0)
+  feeAmount      Float?     @default(0) @map("fee_amount")
+  netAmount      Float?     @map("net_amount")
+  paymentMethod  String     @map("payment_method")
+  cardType       String?    @map("card_type")
+  serviceOrderId Int?       @map("service_order_id")
+  status         SaleStatus @default(COMPLETED)
+  returnReason   String?    @map("return_reason")
+  customerId     String?    @map("customer_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  items          SaleItem[]
+  customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@map("sales")
 }
 
 model SaleItem {
-  id        Int     @id @default(autoincrement())
-  saleId    Int     @map("sale_id")
-  sale      Sale    @relation(fields: [saleId], references: [id])
-  productId String? @map("product_id")
-  product   Product? @relation(fields: [productId], references: [id])
+  id          Int      @id @default(autoincrement())
+  saleId      Int      @map("sale_id")
+  productId   String?  @map("product_id")
   description String?
-  quantity  Int
-  unitPrice Float   @map("unit_price")
+  quantity    Int
+  unitPrice   Float    @map("unit_price")
+  product     Product? @relation(fields: [productId], references: [id])
+  sale        Sale     @relation(fields: [saleId], references: [id])
 
   @@map("sale_items")
 }
 
 model CompanyConfig {
-  id        String   @id @default(cuid())
-  companyId String   @default("multicell-oficial") @map("company_id")
-  name      String   @default("Multicell")
-  document  String?  // CNPJ
-  phone     String?
-  address   String?
-  logoUrl   String?  @default("/logo.png") @map("logo_url")
-  debitRate Float    @default(1.99) @map("debit_rate")
-  creditRate Float   @default(3.99) @map("credit_rate")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  @@unique([companyId])
+  id         String   @id @default(cuid())
+  name       String   @default("Multicell")
+  address    String?
+  phone      String?
+  companyId  String   @unique @default("multicell-oficial") @map("company_id")
+  creditRate Float    @default(3.99) @map("credit_rate")
+  debitRate  Float    @default(1.99) @map("debit_rate")
+  document   String?
+  logoUrl    String?  @default("/logo.png") @map("logo_url")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  taxPix     Float    @default(0) @map("tax_pix")
+  taxCash    Float    @default(0) @map("tax_cash")
+
   @@map("company_config")
 }
 
 model User {
-  id        String  @id @default(uuid())
-  companyId String  @map("company_id")
-  email     String  @unique
+  id        String @id @default(uuid())
+  email     String @unique
   password  String
+  companyId String @map("company_id")
 
   @@map("users")
 }
 
 model DailyClosing {
-  id          String    @id @default(cuid())
-  companyId   String    @default("multicell-oficial") @map("company_id")
-  date        DateTime
-  totalCash   Float     @default(0) @map("total_cash")
-  totalPix    Float     @default(0) @map("total_pix")
-  totalDebit  Float     @default(0) @map("total_debit")
-  totalCredit Float     @default(0) @map("total_credit")
-  totalNet    Float     @default(0) @map("total_net")
-  status      String    @default("OPEN")
-  closedAt    DateTime? @map("closed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  
+  id            String    @id @default(dbgenerated("uuid_generate_v4()"))
+  companyId     String    @default("multicell-oficial") @map("company_id")
+  date          DateTime  @unique
+  totalCash     Float     @default(0) @map("total_cash")
+  totalPix      Float     @default(0) @map("total_pix")
+  totalDebit    Float     @default(0) @map("total_debit")
+  totalCredit   Float     @default(0) @map("total_credit")
+  totalNet      Float     @default(0) @map("total_net")
+  status        String    @default("OPEN")
+  closedAt      DateTime? @map("closed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  total_bruto   Float?    @default(0)
+  total_taxas   Float?    @default(0)
+  total_liquido Float?    @default(0)
+  vendas_qtd    Int?      @default(0)
+
   @@unique([date, companyId])
   @@map("daily_closing")
 }
 
+enum OSStatus {
+  ABERTO
+  EM_REPARO
+  AGUARDANDO_PECA
+  PRONTO
+  FINALIZADO
+  CANCELADO
+  EM_ANDAMENTO
+}
+
+enum SaleStatus {
+  COMPLETED
+  REFUNDED
+}

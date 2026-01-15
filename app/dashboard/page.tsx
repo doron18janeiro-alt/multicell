@@ -22,14 +22,23 @@ export default function Dashboard() {
     recentOrders: [] as any[],
     salesByMethod: [] as any[],
     lowStockProducts: [] as any[],
+    birthdayClients: [] as any[],
   });
 
   useEffect(() => {
     setMounted(true);
-    fetch("/api/dashboard")
-      .then((res) => res.json())
-      .then((data) => setStats(data))
-      .catch((err) => console.error("Erro ao carregar dashboard:", err));
+
+    const loadData = () => {
+      fetch("/api/dashboard")
+        .then((res) => res.json())
+        .then((data) => setStats(data))
+        .catch((err) => console.error("Erro ao carregar dashboard:", err));
+    };
+
+    loadData(); // Initial load
+    const interval = setInterval(loadData, 10000); // Refresh every 10s
+
+    return () => clearInterval(interval);
   }, []);
 
   if (!mounted) {
@@ -104,6 +113,51 @@ export default function Dashboard() {
           <button className="btn-primary">+ Nova Venda</button>
         </div>
       </div>
+
+      {/* Birthday Alert */}
+      {stats.birthdayClients?.length > 0 && (
+        <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 border border-pink-500/50 rounded-xl p-6 mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Clock size={100} />
+          </div>
+          <div className="flex items-center gap-3 mb-4 relative z-10">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              🎂 Aniversariantes de Hoje
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+            {stats.birthdayClients.map((client: any, idx: number) => (
+              <div
+                key={idx}
+                className="bg-[#112240] border border-pink-500/30 p-4 rounded-lg flex justify-between items-center group hover:border-pink-500 transition-colors"
+              >
+                <div>
+                  <p className="font-bold text-white">{client.name}</p>
+                  <p className="text-xs text-pink-400">Parabéns!</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const msg = `Olá, ${
+                      client.name.split(" ")[0]
+                    }! 🥳 A equipe Multicell System deseja que seu novo ciclo seja repleto de conexões incríveis e muita felicidade. Parabéns! 💙📱`;
+                    window.open(
+                      `https://wa.me/55${client.phone.replace(
+                        /\D/g,
+                        ""
+                      )}?text=${encodeURIComponent(msg)}`,
+                      "_blank"
+                    );
+                  }}
+                  className="bg-green-600 hover:bg-green-500 text-white p-2 rounded-full transition-colors"
+                  title="Enviar Parabéns no WhatsApp"
+                >
+                  <MessageCircle size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Critical Stock Alerts */}
       {stats.lowStockProducts?.length > 0 && (
