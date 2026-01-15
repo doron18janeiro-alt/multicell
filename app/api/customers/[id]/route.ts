@@ -50,7 +50,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, phone, document } = body;
+    const { name, phone, document, birthDate } = body;
 
     const customer = await prisma.customer.update({
       where: { id: id },
@@ -58,6 +58,7 @@ export async function PUT(
         name,
         phone,
         document,
+        birthDate: birthDate ? new Date(birthDate) : null,
       },
     });
 

@@ -642,10 +642,11 @@ export default function Clientes() {
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1">
-                    Data de Nascimento (Opcional)
+                    Data de Nascimento (Obrigatória)
                   </label>
                   <input
                     type="date"
+                    required
                     className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
                     value={formData.birthDate}
                     onChange={(e) =>

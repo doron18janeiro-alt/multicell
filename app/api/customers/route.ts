@@ -41,13 +41,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { name, phone, document } = body;
+    const { name, phone, document, birthDate } = body;
 
     const customer = await prisma.customer.create({
       data: {
         name,
         phone,
         document,
+        birthDate: birthDate ? new Date(birthDate) : null,
         companyId: session.user.companyId,
       },
     });

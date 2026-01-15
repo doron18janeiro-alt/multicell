@@ -141,10 +141,10 @@ export const WarrantyTermPrint = React.forwardRef<
 
       <div className="text-[10px] text-justify space-y-2 mb-4">
         <p>
-          GARANTIA MULTICELL: {warrantyDays} dias para defeitos de fabricação na
-          peça substituída. A GARANTIA SERÁ ANULADA em casos de: 1. Quedas ou
-          danos físicos; 2. Contato com líquidos (oxidação); 3. Violação dos
-          selos de segurança; 4. Tentativa de reparo por terceiros.
+          TERMO DE GARANTIA MULTICELL: Garantia de {warrantyDays} dias limitada
+          a defeitos de fabricação. A garantia NÃO COBRE: danos por quedas,
+          telas quebradas, contato com líquidos (oxidação), selos rompidos ou
+          reparos por terceiros.
         </p>
       </div>
 
