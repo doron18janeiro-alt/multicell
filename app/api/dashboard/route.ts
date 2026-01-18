@@ -62,7 +62,7 @@ export async function GET() {
       stats.monthly_profit = 0;
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       dailyProfit: Number(stats.daily_profit || 0),
       weeklyProfit: Number(stats.weekly_profit || 0),
       monthlyProfit: Number(stats.monthly_profit || 0),
@@ -70,6 +70,16 @@ export async function GET() {
       stockProfitEstimate: Number(stats.stock_profit_estimate || 0),
       totalStockItems: Number(stats.total_stock_items || 0),
     });
+
+    // Desabilitar cache completamente para garantir dados frescos
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
   } catch (error) {
     console.error("Dashboard Real-time Error:", error);
     return NextResponse.json(

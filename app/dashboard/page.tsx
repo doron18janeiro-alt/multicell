@@ -83,8 +83,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Dashboard() {
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher, {
-    refreshInterval: 5000,
+    refreshInterval: 2000,
     revalidateOnFocus: true,
+    dedupingInterval: 0,
   });
 
   if (error) {
