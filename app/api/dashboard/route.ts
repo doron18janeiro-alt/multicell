@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { startOfDay, startOfWeek, startOfMonth } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export const dynamic = "force-dynamic";
 
@@ -13,53 +15,124 @@ export async function GET() {
 
     const companyId = session.user.companyId;
 
-    // 1. Tenta buscar via RPC (Função otimizada do Banco)
+    // Inicializa objeto de stats
     let stats: any = {};
+    let rpcSuccess = false;
+
+    // 1. Tenta buscar via RPC (Função otimizada do Banco)
     try {
       const result: any = await prisma.$queryRaw`
         SELECT * FROM get_realtime_management_stats(${companyId}::uuid)
       `;
       if (result && result.length > 0) {
         stats = result[0];
+        // Verifica se veio campo válido
+        if (stats.daily_profit !== undefined) {
+          rpcSuccess = true;
+        }
       }
     } catch (dbError) {
-      console.warn("RPC Error, falling back to Prisma aggregation:", dbError);
+      console.warn(
+        "RPC Error (get_realtime_management_stats), falling back to Prisma aggregation:",
+        dbError
+      );
     }
 
-    // 2. Fallback de Segurança: Se o estoque vier zerado, calcula na mão
-    // Isso garante que mesmo se a procedure falhar, o painel não mostre "R$ 0,00"
-    if (!stats.stock_value || Number(stats.stock_value) === 0) {
-      const products = await prisma.product.findMany({
-        where: { companyId },
-        select: {
-          stock: true,
-          costPrice: true,
-          salePrice: true,
+    // 2. FALLBACK COMPLETO: Se RPC falhou, calcula TUDO via Node.js
+    // Isso garante que o dashboard NUNCA fique zerado por falta de procedure ou erro
+    if (!rpcSuccess) {
+      // console.log("Using TypeScript fallback for Dashboard calculations...");
+
+      const timeZone = "America/Sao_Paulo";
+      const now = new Date();
+      const nowInSP = toZonedTime(now, timeZone);
+
+      // Datas 'visuais' em SP
+      const todaySP = startOfDay(nowInSP);
+      const weekSP = startOfWeek(nowInSP); // Domingo default
+      const monthSP = startOfMonth(nowInSP);
+
+      // Converte para UTC para consultar o banco
+      const todayUTC = fromZonedTime(todaySP, timeZone);
+      const weekUTC = fromZonedTime(weekSP, timeZone);
+      const monthUTC = fromZonedTime(monthSP, timeZone);
+
+      // Busca Vendas do mês (que inclui semana e hoje) a partir da menor data necessária
+      // Usamos timestamp numérico para Math.min
+      const minTime = Math.min(weekUTC.getTime(), monthUTC.getTime());
+      const queryDate = new Date(minTime);
+
+      const sales = await prisma.sale.findMany({
+        where: {
+          companyId,
+          status: "COMPLETED",
+          createdAt: { gte: queryDate },
+        },
+        include: {
+          items: {
+            include: { product: true },
+          },
         },
       });
 
-      const stockValue = products.reduce(
+      // Helpers de filtro
+      const isToday = (date: Date) => date >= todayUTC;
+      const isWeek = (date: Date) => date >= weekUTC;
+      const isMonth = (date: Date) => date >= monthUTC;
+
+      const calculateProfit = (filteredSales: typeof sales) => {
+        return filteredSales.reduce((acc, sale) => {
+          const revenue = sale.netAmount ?? sale.total - (sale.feeAmount || 0);
+          const cost = sale.items.reduce(
+            (c, item) => c + (item.product?.costPrice || 0) * item.quantity,
+            0
+          );
+          return acc + (revenue - cost);
+        }, 0);
+      };
+
+      stats.daily_profit = calculateProfit(
+        sales.filter((s) => isToday(s.createdAt))
+      );
+      stats.weekly_profit = calculateProfit(
+        sales.filter((s) => isWeek(s.createdAt))
+      );
+      stats.monthly_profit = calculateProfit(
+        sales.filter((s) => isMonth(s.createdAt))
+      );
+
+      // Busca Produtos para Estoque
+      const products = await prisma.product.findMany({
+        where: { companyId },
+        select: { stock: true, costPrice: true, salePrice: true },
+      });
+
+      stats.stock_value = products.reduce(
         (acc, p) => acc + p.stock * p.costPrice,
         0
       );
-      const stockProfitEstimate = products.reduce(
+      stats.stock_profit_estimate = products.reduce(
         (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
         0
       );
-      const totalStockItems = products.reduce((acc, p) => acc + p.stock, 0);
-
-      stats.stock_value = stockValue;
-      stats.stock_profit_estimate = stockProfitEstimate;
-      stats.total_stock_items = totalStockItems;
-    }
-
-    // 3. Fallback para Lucros (Se RPC falhar completamente)
-    if (stats.daily_profit === undefined) {
-      // Se chegou aqui, a RPC falhou total. Vamos zerar ou implementar fallback de lucro.
-      // Para evitar lentidão, vamos assumir 0 se a RPC falhou, mas o estoque já foi corrigido.
-      stats.daily_profit = 0;
-      stats.weekly_profit = 0;
-      stats.monthly_profit = 0;
+      stats.total_stock_items = products.reduce((acc, p) => acc + p.stock, 0);
+    } else {
+      // Correção específica para estoque zerado mesmo com RPC sucesso (caso raro onde RPC retorna nulls)
+      if (!stats.stock_value || Number(stats.stock_value) === 0) {
+        const products = await prisma.product.findMany({
+          where: { companyId },
+          select: { stock: true, costPrice: true, salePrice: true },
+        });
+        stats.stock_value = products.reduce(
+          (acc, p) => acc + p.stock * p.costPrice,
+          0
+        );
+        stats.stock_profit_estimate = products.reduce(
+          (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
+          0
+        );
+        stats.total_stock_items = products.reduce((acc, p) => acc + p.stock, 0);
+      }
     }
 
     const response = NextResponse.json({
@@ -71,7 +144,7 @@ export async function GET() {
       totalStockItems: Number(stats.total_stock_items || 0),
     });
 
-    // Desabilitar cache completamente para garantir dados frescos
+    // Desabilitar cache
     response.headers.set(
       "Cache-Control",
       "no-store, no-cache, must-revalidate, proxy-revalidate"
@@ -81,7 +154,7 @@ export async function GET() {
 
     return response;
   } catch (error) {
-    console.error("Dashboard Real-time Error:", error);
+    console.error("Dashboard Final Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

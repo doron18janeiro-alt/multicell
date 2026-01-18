@@ -79,7 +79,8 @@ const StatCard = ({
   );
 };
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) =>
+  fetch(`${url}?t=${Date.now()}`).then((res) => res.json());
 
 export default function Dashboard() {
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher, {
