@@ -216,10 +216,10 @@ export default function RelatoriosPage() {
                   {performanceData.bestDay ? (
                     <div>
                       <p className="text-4xl font-bold text-white mb-2">
-                        {new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(performanceData.bestDay.total || 0)}
+                        {(performanceData.bestDay.total || 0).toLocaleString(
+                          "pt-BR",
+                          { style: "currency", currency: "BRL" }
+                        )}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold uppercase border border-emerald-500/20">
@@ -253,10 +253,10 @@ export default function RelatoriosPage() {
                   {performanceData.worstDay ? (
                     <div>
                       <p className="text-4xl font-bold text-white mb-2">
-                        {new Intl.NumberFormat("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        }).format(performanceData.worstDay.total)}
+                        {(performanceData.worstDay.total || 0).toLocaleString(
+                          "pt-BR",
+                          { style: "currency", currency: "BRL" }
+                        )}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="bg-rose-500/10 text-rose-400 px-2 py-1 rounded text-xs font-bold uppercase border border-rose-500/20">
