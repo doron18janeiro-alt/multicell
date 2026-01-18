@@ -219,7 +219,7 @@ export default function RelatoriosPage() {
                         {new Intl.NumberFormat("pt-BR", {
                           style: "currency",
                           currency: "BRL",
-                        }).format(performanceData.bestDay.total)}
+                        }).format(performanceData.bestDay.total || 0)}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold uppercase border border-emerald-500/20">

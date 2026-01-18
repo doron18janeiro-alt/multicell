@@ -15,7 +15,7 @@ export async function GET() {
 
     const companyId = session.user.companyId;
     const timeZone = "America/Sao_Paulo";
-    
+
     // 1. Determinar o intervalo de tempo correto (Hoje, Semana, Mês) em UTC
     // Baseado no fuso horário do Brasil
     const now = new Date();
@@ -35,7 +35,9 @@ export async function GET() {
     // 2. Buscar vendas a partir do início do mês (abrange semana e dia)
     // Usamos o início do mês como base para query de banco (performance)
     // Nota: Se a semana começar no mês anterior (ex: dia 30), precisamos pegar o menor
-    const queryStartDate = new Date(Math.min(startOfWeekUTC.getTime(), startOfMonthUTC.getTime()));
+    const queryStartDate = new Date(
+      Math.min(startOfWeekUTC.getTime(), startOfMonthUTC.getTime())
+    );
 
     const sales = await prisma.sale.findMany({
       where: {
@@ -55,23 +57,29 @@ export async function GET() {
     });
 
     // 3. Filtrar em memória e Calcular Lucros
-    
+
     // Filtros
-    const salesToday = sales.filter(s => new Date(s.createdAt) >= startOfDayUTC);
-    const salesWeek = sales.filter(s => new Date(s.createdAt) >= startOfWeekUTC);
-    const salesMonth = sales.filter(s => new Date(s.createdAt) >= startOfMonthUTC);
+    const salesToday = sales.filter(
+      (s) => new Date(s.createdAt) >= startOfDayUTC
+    );
+    const salesWeek = sales.filter(
+      (s) => new Date(s.createdAt) >= startOfWeekUTC
+    );
+    const salesMonth = sales.filter(
+      (s) => new Date(s.createdAt) >= startOfMonthUTC
+    );
 
     // Lógica de Cálculo de Lucro Real
     // Lucro = (Venda.Net - Custo) || (Venda.Total - Taxas - Custo)
     const calculateProfit = (salesData: typeof sales) => {
       return salesData.reduce((totalProfit, sale) => {
         // Receita Líquida
-        const revenue = sale.netAmount ?? (sale.total - (sale.feeAmount || 0));
+        const revenue = sale.netAmount ?? sale.total - (sale.feeAmount || 0);
 
         // Custo dos Produtos (CMV)
         const cost = sale.items.reduce((totalCost, item) => {
           const unitCost = item.product?.costPrice || 0;
-          return totalCost + (unitCost * item.quantity);
+          return totalCost + unitCost * item.quantity;
         }, 0);
 
         return totalProfit + (revenue - cost);
@@ -89,15 +97,18 @@ export async function GET() {
         stock: true,
         costPrice: true,
         salePrice: true,
-      }
+      },
     });
 
-    const stockValue = products.reduce((acc, p) => acc + (p.stock * p.costPrice), 0);
-    
+    const stockValue = products.reduce(
+      (acc, p) => acc + p.stock * p.costPrice,
+      0
+    );
+
     // Lucro Estimado: (Preço Venda - Preço Custo) * Estoque
     const stockProfitEstimate = products.reduce((acc, p) => {
       const margin = p.salePrice - p.costPrice;
-      return acc + (p.stock * margin);
+      return acc + p.stock * margin;
     }, 0);
 
     const totalStockItems = products.reduce((acc, p) => acc + p.stock, 0);
@@ -110,7 +121,6 @@ export async function GET() {
       stockProfitEstimate,
       totalStockItems,
     });
-
   } catch (error) {
     console.error("Dashboard Error:", error);
     return NextResponse.json(
