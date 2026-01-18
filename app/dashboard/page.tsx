@@ -118,12 +118,16 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {isLoading && !data && (
-          <div className="flex items-center gap-2 text-slate-500 text-sm animate-pulse">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Sincronizando...
-          </div>
-        )}
+        <button
+          onClick={() => mutate()}
+          className="flex items-center gap-2 text-slate-500 text-sm hover:text-emerald-400 transition-colors cursor-pointer opacity-80 hover:opacity-100"
+          title="Clique para atualizar agora"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+          {isLoading && !data
+            ? "Sincronizando..."
+            : "Atualização em tempo real (2s)"}
+        </button>
       </div>
 
       {/* Grid de Cards */}
