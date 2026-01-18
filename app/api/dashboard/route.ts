@@ -13,25 +13,54 @@ export async function GET() {
 
     const companyId = session.user.companyId;
 
-    // Chama a função RPC do Supabase que calcula tudo no banco de dados
-    // Isso garante consistência total e performance
-    const result: any = await prisma.$queryRaw`
-      SELECT * FROM get_real_management_stats(${companyId}::uuid)
-    `;
-
-    // Se não retornar dados, devolve zerado
-    if (!result || result.length === 0) {
-      return NextResponse.json({
-        dailyProfit: 0,
-        weeklyProfit: 0,
-        monthlyProfit: 0,
-        stockValue: 0,
-        stockProfitEstimate: 0,
-        totalStockItems: 0,
-      });
+    // 1. Tenta buscar via RPC (Função otimizada do Banco)
+    let stats: any = {};
+    try {
+      const result: any = await prisma.$queryRaw`
+        SELECT * FROM get_realtime_management_stats(${companyId}::uuid)
+      `;
+      if (result && result.length > 0) {
+        stats = result[0];
+      }
+    } catch (dbError) {
+      console.warn("RPC Error, falling back to Prisma aggregation:", dbError);
     }
 
-    const stats = result[0];
+    // 2. Fallback de Segurança: Se o estoque vier zerado, calcula na mão
+    // Isso garante que mesmo se a procedure falhar, o painel não mostre "R$ 0,00"
+    if (!stats.stock_value || Number(stats.stock_value) === 0) {
+      const products = await prisma.product.findMany({
+        where: { companyId },
+        select: {
+          stock: true,
+          costPrice: true,
+          salePrice: true,
+        },
+      });
+
+      const stockValue = products.reduce(
+        (acc, p) => acc + p.stock * p.costPrice,
+        0
+      );
+      const stockProfitEstimate = products.reduce(
+        (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
+        0
+      );
+      const totalStockItems = products.reduce((acc, p) => acc + p.stock, 0);
+
+      stats.stock_value = stockValue;
+      stats.stock_profit_estimate = stockProfitEstimate;
+      stats.total_stock_items = totalStockItems;
+    }
+
+    // 3. Fallback para Lucros (Se RPC falhar completamente)
+    if (stats.daily_profit === undefined) {
+      // Se chegou aqui, a RPC falhou total. Vamos zerar ou implementar fallback de lucro.
+      // Para evitar lentidão, vamos assumir 0 se a RPC falhou, mas o estoque já foi corrigido.
+      stats.daily_profit = 0;
+      stats.weekly_profit = 0;
+      stats.monthly_profit = 0;
+    }
 
     return NextResponse.json({
       dailyProfit: Number(stats.daily_profit || 0),
