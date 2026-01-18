@@ -40,6 +40,7 @@ model Product {
   supplier    Supplier?  @relation(fields: [supplierId], references: [id])
   sales       SaleItem[]
 
+  @@index([stock, costPrice, salePrice], map: "idx_products_stock_prices")
   @@map("products")
 }
 
@@ -142,21 +143,25 @@ model User {
 }
 
 model DailyClosing {
-  id            String    @id @default(dbgenerated("uuid_generate_v4()"))
-  companyId     String    @default("multicell-oficial") @map("company_id")
-  date          DateTime  @unique
-  totalCash     Float     @default(0) @map("total_cash")
-  totalPix      Float     @default(0) @map("total_pix")
-  totalDebit    Float     @default(0) @map("total_debit")
-  totalCredit   Float     @default(0) @map("total_credit")
-  totalNet      Float     @default(0) @map("total_net")
-  status        String    @default("OPEN")
-  closedAt      DateTime? @map("closed_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  total_bruto   Float?    @default(0)
-  total_taxas   Float?    @default(0)
-  total_liquido Float?    @default(0)
-  vendas_qtd    Int?      @default(0)
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()"))
+  companyId           String    @default("multicell-oficial") @map("company_id")
+  date                DateTime  @unique
+  totalCash           Float     @default(0) @map("total_cash")
+  totalPix            Float     @default(0) @map("total_pix")
+  totalDebit          Float     @default(0) @map("total_debit")
+  totalCredit         Float     @default(0) @map("total_credit")
+  totalNet            Float     @default(0) @map("total_net")
+  status              String    @default("OPEN")
+  closedAt            DateTime? @map("closed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  total_bruto         Float?    @default(0)
+  total_taxas         Float?    @default(0)
+  total_liquido       Float?    @default(0)
+  vendas_qtd          Int?      @default(0)
+  total_lucro_diario  Float?    @default(0)
+  total_lucro_semanal Float?    @default(0)
+  total_lucro_mensal  Float?    @default(0)
+  valor_total_estoque Float?    @default(0)
 
   @@unique([date, companyId])
   @@map("daily_closing")

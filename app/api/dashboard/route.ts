@@ -1,76 +1,71 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { startOfDay, startOfWeek, startOfMonth, endOfDay } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const session = await getSession();
-    if (!session)
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const companyId = session.user.companyId;
+    const timeZone = "America/Sao_Paulo";
 
-    // Timezone setup: America/Sao_Paulo (UTC-3)
-    // Robust date generation using Intl to strictly follow "Today" in SP
+    // Data atual no fuso horário correto
     const now = new Date();
-    const brazilDateStr = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now); // Returns YYYY-MM-DD
 
-    // Create Date objects representing the exact start/end of day in SP, converted to UTC
-    const startOfDayUTC = new Date(`${brazilDateStr}T00:00:00.000-03:00`);
-    const endOfDayUTC = new Date(`${brazilDateStr}T23:59:59.999-03:00`);
+    // Definir intervalos de tempo ajustados para o fuso horário
+    // Usamos uma aproximação segura gerando strings ISO baseadas no locale
+    const getSafeDate = (d: Date) =>
+      new Date(d.toLocaleString("en-US", { timeZone }));
 
-    // Get Company Config for Tax Rates
-    const config = await prisma.companyConfig.findFirst({
-      where: { companyId },
-    });
-    const debitRate = config?.debitRate ?? 1.99;
-    const creditRate = config?.creditRate ?? 3.99;
-    const taxPix = config?.taxPix ?? 0;
-    const taxCash = config?.taxCash ?? 0;
+    const nowSP = getSafeDate(now);
 
-    // Birthday Check
-    // Prisma doesn't have easy day/month extraction in finding.
-    // We will fetch all clients with birthDate and filter in JS (assuming small clientele < 10000 for now)
-    // Or use raw query:
-    const todayDay = now.getDate();
-    const todayMonth = now.getMonth() + 1;
+    // Helpers para datas (zerando horas para comparar >=)
+    const getStartOfDay = (date: Date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
 
-    // Efficient raw query for birthdays
-    const birthdayClients = await prisma.$queryRaw`
-      SELECT name, phone FROM clients 
-      WHERE EXTRACT(MONTH FROM birth_date) = ${todayMonth} 
-      AND EXTRACT(DAY FROM birth_date) = ${todayDay}
-      AND company_id = ${companyId}
-    `;
+    const getStartOfWeek = (date: Date) => {
+      const d = new Date(date);
+      const day = d.getDay(); // 0 (Sun) to 6 (Sat)
+      // Domingo (0) é o começo da semana
+      d.setDate(d.getDate() - day);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
 
-    // 1. O.S. em Andamento (Status = ABERTO)
-    const pendingCount = await prisma.serviceOrder.count({
+    const getStartOfMonth = (date: Date) => {
+      const d = new Date(date);
+      d.setDate(1);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const todayStart = getStartOfDay(nowSP);
+    const weekStart = getStartOfWeek(nowSP);
+    const monthStart = getStartOfMonth(nowSP);
+
+    // 1. Buscar Vendas (Hoje, Semana, Mês)
+    // Para otimizar, busamos todas do mês (que inclui semana e hoje)
+    // Se hoje for dia 1, weekStart pode ser do mês anterior, então pegamos o menor range.
+    const queryStartDate = new Date(
+      Math.min(weekStart.getTime(), monthStart.getTime())
+    );
+
+    const sales = await prisma.sale.findMany({
       where: {
         companyId,
-        status: "ABERTO", // Explicitly "ABERTO" per request, but usually "PENDING WORK" is multiple statuses
-        // The prompt says: "Contagem de registros na tabela os com status 'ABERTO'."
-      },
-    });
-
-    // Also counting Finished for the dashboard generic view if needed, but specifically requested ABERTO
-    const finishedCount = await prisma.serviceOrder.count({
-      where: { companyId, status: "FINALIZADO" },
-    });
-
-    // 2. Faturamento e Lucro Líquido (Sales de Hoje)
-    const salesToday = await prisma.sale.findMany({
-      where: {
-        companyId,
+        status: "COMPLETED",
         createdAt: {
-          gte: startOfDayUTC,
-          lte: endOfDayUTC,
+          gte: queryStartDate,
         },
       },
       include: {
@@ -82,89 +77,74 @@ export async function GET() {
       },
     });
 
-    let revenueToday = 0;
-    let profitToday = 0;
-    const salesByMethod: any[] = [];
+    // Filtros em memória
+    const salesToday = sales.filter((s) => new Date(s.createdAt) >= todayStart);
+    const salesWeek = sales.filter((s) => new Date(s.createdAt) >= weekStart);
+    const salesMonth = sales.filter((s) => new Date(s.createdAt) >= monthStart);
 
-    let totalTaxAmount = 0;
+    // Função de Cálculo de Lucro Real
+    // Lucro = (Venda Líquida) - (Custo dos Produtos)
+    const calculateProfit = (salesData: typeof sales) => {
+      return salesData.reduce((totalProfit, sale) => {
+        // Receita Líquida: O valor que entrou no caixa.
+        // Se netAmount existir, usa ele. Se não, usa (Total - Taxas).
+        const revenue = sale.netAmount ?? sale.total - (sale.feeAmount || 0);
 
-    for (const sale of salesToday) {
-      revenueToday += sale.total;
+        // Custo dos Produtos (CMV)
+        const cost = sale.items.reduce((totalCost, item) => {
+          // Preço de Custo
+          const unitCost = item.product?.costPrice || 0;
+          return totalCost + unitCost * item.quantity;
+        }, 0);
 
-      // Tax Logic
-      let currentTax = 0;
-      if (sale.paymentMethod === "DINHEIRO") {
-        currentTax = sale.total * (taxCash / 100);
-      } else if (sale.paymentMethod === "PIX") {
-        currentTax = sale.total * (taxPix / 100);
-      } else if (
-        sale.paymentMethod === "DEBITO" ||
-        (sale.paymentMethod === "CARTAO" && sale.cardType === "DEBITO")
-      ) {
-        currentTax = sale.total * (debitRate / 100);
-      } else if (
-        sale.paymentMethod === "CREDITO" ||
-        (sale.paymentMethod === "CARTAO" && sale.cardType === "CREDITO")
-      ) {
-        currentTax = sale.total * (creditRate / 100);
-      }
+        return totalProfit + (revenue - cost);
+      }, 0);
+    };
 
-      totalTaxAmount += currentTax;
+    const dailyProfit = calculateProfit(salesToday);
+    const weeklyProfit = calculateProfit(salesWeek);
+    const monthlyProfit = calculateProfit(salesMonth);
 
-      // Profit = (total - tax - cost)
-      let totalCost = 0;
-      for (const item of sale.items) {
-        if (item.product) {
-          totalCost += (item.product.costPrice || 0) * item.quantity;
-        }
-      }
-
-      // If sale has explicit feeAmount saved, prefer it?
-      // User says "Recupere os valores ... calcule: valor_taxa = ...".
-      // So we should calculate based on current config for the dashboard view or for "Today's" dynamic view.
-      // Let's use the calculated one for consistency with "Today's" summary request.
-      const netAmount = sale.total - currentTax; // Using real-time calculated tax
-      profitToday += netAmount - totalCost;
-
-      salesByMethod.push({
-        method: sale.paymentMethod,
-        total: sale.total,
-        cardType: sale.cardType,
-        tax: currentTax,
-      });
-    }
-
-    // 3. Valor Atual de Estoque
+    // 2. Buscar Dados de Estoque
     const products = await prisma.product.findMany({
-      where: { companyId },
+      where: {
+        companyId,
+      },
+      select: {
+        stock: true,
+        costPrice: true,
+        salePrice: true,
+      },
     });
 
-    const stockValue = products.reduce((acc, prod) => {
-      return acc + prod.stock * prod.costPrice;
+    // Valor Atual de Estoque: Soma total de (Estoque * Preço de Custo)
+    const stockValue = products.reduce(
+      (acc, p) => acc + p.stock * p.costPrice,
+      0
+    );
+
+    // Lucro Estimado de Estoque: Soma de (Estoque * (Preço Venda - Preço Custo))
+    const stockProfitEstimate = products.reduce((acc, p) => {
+      const estimatedProfitPerUnit = p.salePrice - p.costPrice;
+      return acc + p.stock * estimatedProfitPerUnit;
     }, 0);
 
-    const lowStockProducts = products
-      .filter((p) => p.stock <= p.minStock)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        stock: p.stock,
-        minQuantity: p.minStock,
-      }));
+    // Total de Itens no Estoque
+    const totalStockItems = products.reduce((acc, p) => acc + p.stock, 0);
 
     return NextResponse.json({
-      pendingCount,
-      finishedCount,
-      revenueToday,
-      profitToday,
-      totalTaxAmount,
+      dailyProfit,
+      weeklyProfit,
+      monthlyProfit,
       stockValue,
-      salesByMethod,
-      birthdayClients, // Added
-      lowStockProducts,
+      stockProfitEstimate,
+      totalStockItems,
     });
   } catch (error) {
     console.error("Dashboard Error:", error);
-    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
