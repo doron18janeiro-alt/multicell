@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { startOfDay, startOfWeek, startOfMonth } from "date-fns";
-import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 export const dynamic = "force-dynamic";
 
@@ -15,133 +13,92 @@ export async function GET() {
 
     const companyId = session.user.companyId;
 
-    // Inicializa objeto de stats
-    let stats: any = {};
-    let rpcSuccess = false;
+    // --- CÁLCULO DIRETO VIA RAW SQL (Sem dependência de Functions ou TZ libs no server) ---
+    // Usamos o fuso 'America/Sao_Paulo' diretamente no Postgres.
+    // Isso evita problemas de UUID vs String na function RPC e problemas de JS Date.
 
-    // 1. Tenta buscar via RPC (Função otimizada do Banco)
-    try {
-      const result: any = await prisma.$queryRaw`
-        SELECT * FROM get_realtime_management_stats(${companyId}::uuid)
-      `;
-      if (result && result.length > 0) {
-        stats = result[0];
-        // Verifica se veio campo válido
-        if (stats.daily_profit !== undefined) {
-          rpcSuccess = true;
-        }
-      }
-    } catch (dbError) {
-      console.warn(
-        "RPC Error (get_realtime_management_stats), falling back to Prisma aggregation:",
-        dbError
-      );
-    }
+    // 1. Definição do Intervalo de Hoje (00:00 em SP)
+    // O trunco 'day' em SP pega "2026-01-18 00:00:00" e depois converte de volta pra UTC.
+    // Assim comparamos maçãs com maçãs (timestamp no banco).
+    const profitQuery = await prisma.$queryRaw`
+      WITH timeframe AS (
+        SELECT 
+          date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo' as start_today,
+          date_trunc('week', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo' - INTERVAL '1 day' as start_week,
+          date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo' as start_month
+      )
+      SELECT 
+        -- Lucro Diário
+        COALESCE(SUM(
+          CASE WHEN s.created_at >= (SELECT start_today FROM timeframe) THEN
+            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
+             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
+              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
+            )
+          ELSE 0 END
+        ), 0) as daily_profit,
 
-    // 2. FALLBACK COMPLETO: Se RPC falhou, calcula TUDO via Node.js
-    // Isso garante que o dashboard NUNCA fique zerado por falta de procedure ou erro
-    if (!rpcSuccess) {
-      // console.log("Using TypeScript fallback for Dashboard calculations...");
+        -- Lucro Semanal
+        COALESCE(SUM(
+          CASE WHEN s.created_at >= (SELECT start_week FROM timeframe) THEN
+            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
+             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
+              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
+            )
+          ELSE 0 END
+        ), 0) as weekly_profit,
 
-      const timeZone = "America/Sao_Paulo";
-      const now = new Date();
-      const nowInSP = toZonedTime(now, timeZone);
+        -- Lucro Mensal
+        COALESCE(SUM(
+          CASE WHEN s.created_at >= (SELECT start_month FROM timeframe) THEN
+            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
+             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
+              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
+            )
+          ELSE 0 END
+        ), 0) as monthly_profit
 
-      // Datas 'visuais' em SP
-      const todaySP = startOfDay(nowInSP);
-      const weekSP = startOfWeek(nowInSP); // Domingo default
-      const monthSP = startOfMonth(nowInSP);
+      FROM sales s
+      WHERE s.company_id = ${companyId}
+        AND s.status = 'COMPLETED'
+        -- Otimização: Só trazer vendas do mês atual pra frente (abrangendo semana e dia)
+        AND s.created_at >= (SELECT start_month FROM timeframe)
+    `;
 
-      // Converte para UTC para consultar o banco
-      const todayUTC = fromZonedTime(todaySP, timeZone);
-      const weekUTC = fromZonedTime(weekSP, timeZone);
-      const monthUTC = fromZonedTime(monthSP, timeZone);
+    // 2. Busca de Estoque
+    // Separado para garantir que não zeramos estoque caso não haja vendas
+    const stockQuery = await prisma.product.findMany({
+      where: { companyId },
+      select: {
+        stock: true,
+        costPrice: true,
+        salePrice: true,
+      },
+    });
 
-      // Busca Vendas do mês (que inclui semana e hoje) a partir da menor data necessária
-      // Usamos timestamp numérico para Math.min
-      const minTime = Math.min(weekUTC.getTime(), monthUTC.getTime());
-      const queryDate = new Date(minTime);
+    const stockValue = stockQuery.reduce(
+      (acc, p) => acc + p.stock * p.costPrice,
+      0
+    );
+    const stockProfitEstimate = stockQuery.reduce(
+      (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
+      0
+    );
+    const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
 
-      const sales = await prisma.sale.findMany({
-        where: {
-          companyId,
-          status: "COMPLETED",
-          createdAt: { gte: queryDate },
-        },
-        include: {
-          items: {
-            include: { product: true },
-          },
-        },
-      });
-
-      // Helpers de filtro
-      const isToday = (date: Date) => date >= todayUTC;
-      const isWeek = (date: Date) => date >= weekUTC;
-      const isMonth = (date: Date) => date >= monthUTC;
-
-      const calculateProfit = (filteredSales: typeof sales) => {
-        return filteredSales.reduce((acc, sale) => {
-          const revenue = sale.netAmount ?? sale.total - (sale.feeAmount || 0);
-          const cost = sale.items.reduce(
-            (c, item) => c + (item.product?.costPrice || 0) * item.quantity,
-            0
-          );
-          return acc + (revenue - cost);
-        }, 0);
-      };
-
-      stats.daily_profit = calculateProfit(
-        sales.filter((s) => isToday(s.createdAt))
-      );
-      stats.weekly_profit = calculateProfit(
-        sales.filter((s) => isWeek(s.createdAt))
-      );
-      stats.monthly_profit = calculateProfit(
-        sales.filter((s) => isMonth(s.createdAt))
-      );
-
-      // Busca Produtos para Estoque
-      const products = await prisma.product.findMany({
-        where: { companyId },
-        select: { stock: true, costPrice: true, salePrice: true },
-      });
-
-      stats.stock_value = products.reduce(
-        (acc, p) => acc + p.stock * p.costPrice,
-        0
-      );
-      stats.stock_profit_estimate = products.reduce(
-        (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
-        0
-      );
-      stats.total_stock_items = products.reduce((acc, p) => acc + p.stock, 0);
-    } else {
-      // Correção específica para estoque zerado mesmo com RPC sucesso (caso raro onde RPC retorna nulls)
-      if (!stats.stock_value || Number(stats.stock_value) === 0) {
-        const products = await prisma.product.findMany({
-          where: { companyId },
-          select: { stock: true, costPrice: true, salePrice: true },
-        });
-        stats.stock_value = products.reduce(
-          (acc, p) => acc + p.stock * p.costPrice,
-          0
-        );
-        stats.stock_profit_estimate = products.reduce(
-          (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
-          0
-        );
-        stats.total_stock_items = products.reduce((acc, p) => acc + p.stock, 0);
-      }
-    }
+    // Casting seguro dos resultados do Raw Query (retorna array de objs)
+    const profitStats: any =
+      Array.isArray(profitQuery) && profitQuery.length > 0
+        ? profitQuery[0]
+        : {};
 
     const response = NextResponse.json({
-      dailyProfit: Number(stats.daily_profit || 0),
-      weeklyProfit: Number(stats.weekly_profit || 0),
-      monthlyProfit: Number(stats.monthly_profit || 0),
-      stockValue: Number(stats.stock_value || 0),
-      stockProfitEstimate: Number(stats.stock_profit_estimate || 0),
-      totalStockItems: Number(stats.total_stock_items || 0),
+      dailyProfit: Number(profitStats.daily_profit || 0),
+      weeklyProfit: Number(profitStats.weekly_profit || 0),
+      monthlyProfit: Number(profitStats.monthly_profit || 0),
+      stockValue: Number(stockValue || 0),
+      stockProfitEstimate: Number(stockProfitEstimate || 0),
+      totalStockItems: Number(totalStockItems || 0),
     });
 
     // Desabilitar cache
