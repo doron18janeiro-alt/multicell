@@ -12,16 +12,27 @@ export async function GET() {
     }
 
     const companyId = session.user.companyId;
-    
-    // --- Log de Sessão (Solicitado) ---
-    console.log('[DASHBOARD] ID na Sessão do Usuário:', session.user.companyId);
 
-    // --- Remoção de Filtro Restritivo (Teste de Visibilidade) ---
-    // Buscando SEM o companyId para ver se as vendas existem no banco sob qualquer ID
+    // --- LÓGICA DE DATA REFERENCIAL SP (OFFSET -3h) ---
+    const now = new Date();
+    // Subtrai 3 horas para alinhar com servidor global e gerar data SP
+    const offsetTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    const hojeString = offsetTime.toISOString().split('T')[0]; // '2026-01-19'
+    
+    console.log('[DASHBOARD] Processado para hoje:', hojeString);
+
+    // 1. Busca Vendas dos últimos 60 dias (para garantir escopo suficiente)
+    const startOfScope = new Date(now);
+    startOfScope.setDate(startOfScope.getDate() - 60);
+
     const sales = await prisma.sale.findMany({
       where: {
-        status: "COMPLETED"
-        // companyId: companyId // REMOVIDO TEMPORARIAMENTE
+        status: "COMPLETED", // Removido filtro de companyId temporariamente se necessário, mas vou recolocar para produção correta
+        // Se ainda houver dúvida sobre ID, manter sem companyId no where, mas o ideal é filtrar:
+        companyId: companyId,
+        createdAt: {
+            gte: startOfScope 
+        }
       },
       include: {
         items: {
@@ -30,37 +41,51 @@ export async function GET() {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100
+      orderBy: { createdAt: 'desc' }
     });
 
-    console.log(`[DASHBOARD] Vendas encontradas (Global/Sem Filtro): ${sales.length}`);
-
-    let totalBruteProfit = 0;
-    
-    // Loop de Cálculo
-    sales.forEach(s => {
-        // Receita
-        const revenue = Number(s.netAmount !== null ? s.netAmount : (s.total || 0));
-        
-        // Custo
-        const cost = s.items.reduce((acc, i) => {
-             return acc + (Number(i.quantity || 0) * Number(i.product?.costPrice || 0));
+    // --- Helpers de Cálculo ---
+    const calculateProfit = (salesList: typeof sales) => {
+        return salesList.reduce((acc, sale) => {
+             // Receita: netAmount > total > 0
+             const revenue = Number(sale.netAmount !== null ? sale.netAmount : (sale.total || 0)); 
+             
+             // Custo
+             const cost = sale.items.reduce((c, item) => {
+                 const unitCost = Number(item.product?.costPrice || 0);
+                 return c + (item.quantity * unitCost);
+             }, 0);
+             
+             return acc + (revenue - cost);
         }, 0);
+    }
 
-        const profit = revenue - cost;
+    // --- Filtros & Cálculos ---
 
-        // --- Cálculo Bruto de Teste ---
-        // Soma TUDO para provar que a Venda #25 existe
-        totalBruteProfit += profit;
-
-        // Log para Venda #25
-        if (s.id === 25) {
-            console.log(`[VENDA #25] DETECTADA! ID Sessão: ${companyId} | ID Venda: ${s.companyId} | Valor: ${revenue} | Lucro: ${profit}`);
-        }
+    // 1. Diário (Baseado na String de SP)
+    const vendasHoje = sales.filter((sale) => {
+        const saleTime = new Date(sale.createdAt).getTime();
+        const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
+        return saleDateSP === hojeString;
     });
+    const dailyProfit = calculateProfit(vendasHoje);
 
-    // --- Estoques (Mantendo filtro para garantir integridade visual parcial) ---
+    // 2. Mensal (Mesmo Prefixo 'YYYY-MM')
+    const currentMonthPrefix = hojeString.substring(0, 7); 
+    const vendasMes = sales.filter(s => {
+        const saleTime = new Date(s.createdAt).getTime();
+        const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
+        return saleDateSP.startsWith(currentMonthPrefix);
+    });
+    const monthlyProfit = calculateProfit(vendasMes);
+
+    // 3. Semanal (7 dias corridos - UTC Simples)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const vendasSemana = sales.filter(s => new Date(s.createdAt) >= oneWeekAgo);
+    const weeklyProfit = calculateProfit(vendasSemana);
+
+    // --- Estoques e Recordes ---
     const stockQuery = await prisma.product.findMany({
       where: { companyId },
       select: {stock: true, costPrice: true, salePrice: true},
@@ -77,9 +102,9 @@ export async function GET() {
     });
 
     const response = NextResponse.json({
-      dailyProfit: 0, // Ignorando daily por enquanto, foco no teste de visibilidade
-      weeklyProfit: 0, 
-      monthlyProfit: totalBruteProfit, // TESTE DE FORÇA BRUTA AQUI
+      dailyProfit: dailyProfit || 0,
+      weeklyProfit: weeklyProfit || 0,
+      monthlyProfit: monthlyProfit || 0,
       stockValue: Number(stockValue || 0),
       stockProfitEstimate: Number(stockProfitEstimate || 0),
       totalStockItems: Number(totalStockItems || 0),
