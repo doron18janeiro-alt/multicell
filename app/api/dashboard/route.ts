@@ -65,7 +65,7 @@ export async function GET() {
         
         // Log para Venda #22 (Xiaomi G 85)
         if (sale.id === 22 || sale.id === 20 || sale.id === 21) {
-            console.log([DEBUG] Venda # () - Data SP:  - É Hoje? );
+            console.log(`[DEBUG] Venda #${sale.id} (${sale.total}) - Data SP: ${saleDateSP.toISOString()} - É Hoje? ${isToday}`);
         }
         
         return isToday;
