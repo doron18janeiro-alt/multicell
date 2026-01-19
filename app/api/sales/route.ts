@@ -35,14 +35,18 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" },
       take: takeAmount, // Limit only if no date filter
       include: {
-        items: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
     return NextResponse.json(sales);
   } catch (error) {
     return NextResponse.json(
       { error: "Erro ao buscar vendas" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -67,8 +71,8 @@ export async function POST(request: Request) {
 
       const rate =
         paymentMethod === "DEBITO"
-          ? config?.debitRate ?? 1.99
-          : config?.creditRate ?? 3.99;
+          ? (config?.debitRate ?? 1.99)
+          : (config?.creditRate ?? 3.99);
 
       feeAmount = (total * rate) / 100;
       netAmount = total - feeAmount;
@@ -123,7 +127,7 @@ export async function POST(request: Request) {
     console.error("Erro ao processar venda:", error);
     return NextResponse.json(
       { error: "Erro ao processar venda" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

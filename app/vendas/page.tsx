@@ -36,6 +36,7 @@ export default function SalesMetrics() {
     taxDebit: 0,
     taxCredit: 0,
     taxTotal: 0,
+    profit: 0,
   });
   const [rates, setRates] = useState({
     taxCash: 0,
@@ -129,14 +130,32 @@ export default function SalesMetrics() {
           if ((sale as any).cardType === "DEBITO") {
             acc.debit += value;
             acc.taxDebit += value * (rates.debitRate / 100);
-          } else if ((sale as any).cardType === "CREDITO") {
-            acc.credit += value;
-            acc.taxCredit += value * (rates.creditRate / 100);
           } else {
             acc.credit += value;
             acc.taxCredit += value * (rates.creditRate / 100);
           }
         }
+
+        // Custo e Lucro
+        const cost =
+          sale.items?.reduce((c, item) => {
+            const unitCost = item?.product?.costPrice || 0;
+            return c + unitCost * item.quantity;
+          }, 0) || 0;
+
+        // Estima a taxa dessa venda específica para deduzir do lucro
+        let currentFee = 0;
+        if (method === "DINHEIRO") currentFee = value * (rates.taxCash / 100);
+        else if (method === "PIX") currentFee = value * (rates.taxPix / 100);
+        else if (
+          method.includes("DEBITO") ||
+          (sale as any).cardType === "DEBITO"
+        )
+          currentFee = value * (rates.debitRate / 100);
+        else currentFee = value * (rates.creditRate / 100);
+
+        const net = value - currentFee;
+        acc.profit += net - cost;
 
         acc.total += value;
         return acc;
@@ -152,7 +171,8 @@ export default function SalesMetrics() {
         taxDebit: 0,
         taxCredit: 0,
         taxTotal: 0,
-      }
+        profit: 0,
+      },
     );
     totals.taxTotal =
       totals.taxMoney + totals.taxPix + totals.taxDebit + totals.taxCredit;
@@ -162,7 +182,7 @@ export default function SalesMetrics() {
   const handleDelete = async (saleId: number) => {
     if (
       !confirm(
-        "ATENÇÃO: Deseja excluir esta venda? O valor será subtraído do caixa."
+        "ATENÇÃO: Deseja excluir esta venda? O valor será subtraído do caixa.",
       )
     )
       return;
@@ -191,14 +211,29 @@ export default function SalesMetrics() {
   const handleCloseCash = async () => {
     if (
       !confirm(
-        "CONFIRMAÇÃO:\nDeseja realizar o Fechamento de Caixa agora?\n\nOs valores atuais serão salvos no histórico financeiro."
+        "CONFIRMAÇÃO:\nDeseja realizar o Fechamento de Caixa agora?\n\nOs valores atuais serão salvos no histórico financeiro.",
       )
     )
       return;
 
     try {
+      const payload = {
+        totalCash: todayTotals.money,
+        totalPix: todayTotals.pix,
+        totalDebit: todayTotals.debit,
+        totalCredit: todayTotals.credit,
+        total_bruto: todayTotals.total,
+        total_taxas: todayTotals.taxTotal,
+        total_liquido: todayTotals.total - todayTotals.taxTotal,
+        total_lucro_diario: todayTotals.profit,
+      };
+
       const res = await fetch("/api/caixa/fechar", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -218,7 +253,7 @@ export default function SalesMetrics() {
   };
 
   const filteredSales = sales.filter((sale) =>
-    sale.id.toString().includes(searchTerm)
+    sale.id.toString().includes(searchTerm),
   );
 
   return (
@@ -440,8 +475,8 @@ export default function SalesMetrics() {
                           sale.paymentMethod === "DINHEIRO"
                             ? "bg-green-500/10 text-green-400 border-green-500/20"
                             : sale.paymentMethod === "PIX"
-                            ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
-                            : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                              ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                              : "bg-blue-500/10 text-blue-400 border-blue-500/20"
                         }`}
                       >
                         {sale.paymentMethod === "DINHEIRO" && (

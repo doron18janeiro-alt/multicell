@@ -14,10 +14,21 @@ const formatCurrency = (value: any) => {
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+interface PerformanceData {
+  closings: any[];
+  bestDay: any;
+  worstDay: any;
+}
+
 export default function RelatoriosPage() {
   const { data, error, isLoading } = useSWR("/api/dashboard", fetcher, {
     refreshInterval: 5000,
   });
+
+  const { data: performanceData } = useSWR<PerformanceData>(
+    "/api/reports/performance",
+    fetcher,
+  );
 
   // Cards de Recordes (Melhor e Pior Dia)
   // Nota: Estes dados devem vir da sua API de fechamento consolidado
@@ -70,15 +81,61 @@ export default function RelatoriosPage() {
           <Calendar className="w-4 h-4 text-emerald-400" /> Histórico de
           Fechamentos
         </h3>
-        <div className="overflow-x-auto text-center py-8">
-          <p className="text-slate-400 mb-2">
-            Nenhum fechamento registrado ainda.
-          </p>
-          <p className="text-xs text-slate-500 italic">
-            Clique em <strong>FECHAR CAIXA</strong> no painel principal para
-            consolidar os dados de hoje e vê-los aqui.
-          </p>
-        </div>
+        {performanceData?.closings && performanceData.closings.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-700 text-slate-400 text-sm">
+                  <th className="py-3 px-4">Data</th>
+                  <th className="py-3 px-4 text-right">Bruto</th>
+                  <th className="py-3 px-4 text-right">Taxas</th>
+                  <th className="py-3 px-4 text-right text-white">Líquido</th>
+                  <th className="py-3 px-4 text-right text-emerald-400">
+                    Lucro
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-sm text-slate-300">
+                {performanceData.closings.map((closing, idx) => (
+                  <tr
+                    key={idx}
+                    className="border-b border-slate-800 hover:bg-slate-800/50"
+                  >
+                    <td className="py-3 px-4">
+                      {new Date(closing.date).toLocaleDateString("pt-BR", {
+                        timeZone: "UTC",
+                      })}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      {formatCurrency(closing.total_bruto || closing.totalNet)}
+                    </td>
+                    <td className="py-3 px-4 text-right text-red-400">
+                      - {formatCurrency(closing.total_taxas)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium text-white">
+                      {formatCurrency(
+                        closing.total_liquido || closing.totalNet,
+                      )}
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold text-emerald-400">
+                      {formatCurrency(closing.total_lucro_diario)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto text-center py-8">
+            <p className="text-slate-400 mb-2">
+              Nenhum fechamento registrado ainda.
+            </p>
+            <p className="text-xs text-slate-500 italic">
+              Clique em <strong>FECHAR CAIXA</strong> no painel principal para
+              consolidar os dados de hoje e vê-los aqui.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
