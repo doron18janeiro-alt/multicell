@@ -70,10 +70,13 @@ export default function RelatoriosPage() {
           <Calendar className="w-4 h-4 text-emerald-400" /> Histórico de
           Fechamentos
         </h3>
-        <div className="overflow-x-auto">
-          {/* Adicione aqui o map do seu histórico de daily_closing */}
-          <p className="text-slate-500 text-sm italic">
-            Sincronizado com o fuso de Brasília.
+        <div className="overflow-x-auto text-center py-8">
+          <p className="text-slate-400 mb-2">
+            Nenhum fechamento registrado ainda.
+          </p>
+          <p className="text-xs text-slate-500 italic">
+            Clique em <strong>FECHAR CAIXA</strong> no painel principal para
+            consolidar os dados de hoje e vê-los aqui.
           </p>
         </div>
       </div>
