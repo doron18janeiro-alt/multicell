@@ -19,14 +19,14 @@ export async function GET() {
     const now = new Date();
     // Pega do início do mês passado para garantir margem
     const startOfScope = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    
+
     const sales = await prisma.sale.findMany({
       where: {
         companyId,
         status: "COMPLETED",
         createdAt: {
-            gte: startOfScope 
-        }
+          gte: startOfScope,
+        },
       },
       include: {
         items: {
@@ -35,63 +35,86 @@ export async function GET() {
           },
         },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     });
 
-    console.log(`[Dashboard] Vendas carregadas (scope=${startOfScope.toISOString()}): ${sales.length}`);
+    // --- Data ISO Reference (Correção solicitada) ---
+    const todayISO = new Date().toLocaleDateString("en-CA", {
+      timeZone: "America/Sao_Paulo",
+    });
+    console.log("[DEBUG] Hoje em SP (ISO):", todayISO);
+    console.log("[DEBUG] Vendas carregadas (scope):", sales.length);
 
-    // Helpers
-    const getSPDateString = (dateInput: Date | string) => {
-        const d = new Date(dateInput);
-        return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-    };
+    // --- Filtros em Memória c/ ISO ---
+    const vendasHoje = sales.filter((sale) => {
+      const saleDateISO = new Date(sale.createdAt).toLocaleDateString("en-CA", {
+        timeZone: "America/Sao_Paulo",
+      });
 
-    const todayString = getSPDateString(new Date());
-    console.log(`[Dashboard] Hoje (SP): ${todayString}`);
+      // Debug específico para Venda #20 (se existir)
+      if (sale.id === 20) {
+        console.log(
+          "[DEBUG] Venda ID #20 casou com hoje?",
+          saleDateISO === todayISO,
+          `(${saleDateISO} vs ${todayISO})`,
+        );
+      }
 
-    // --- Filtros em Memória ---
-    const vendasHoje = sales.filter(s => getSPDateString(s.createdAt) === todayString);
-    console.log(`[Dashboard] Vendas Hoje: ${vendasHoje.length}`);
+      return saleDateISO === todayISO;
+    });
 
-    // --- Calculadora de Lucro ---
+    console.log("[DEBUG] Total Vendas Hoje (filtrado):", vendasHoje.length);
+
+    // --- Helpers de Cálculo Seguro ---
     const calculateProfit = (salesList: typeof sales) => {
-        return salesList.reduce((acc, sale) => {
-             const revenue = sale.netAmount !== null ? sale.netAmount : sale.total; // Receita Real
-             
-             const cost = sale.items.reduce((c, item) => {
-                 const unitCost = item.product?.costPrice || 0;
-                 return c + (item.quantity * unitCost);
-             }, 0);
-             
-             return acc + (revenue - cost);
+      return salesList.reduce((acc, sale) => {
+        // Garante numérico
+        const revenue = Number(
+          sale.netAmount !== null ? sale.netAmount : sale.total || 0,
+        );
+
+        const cost = sale.items.reduce((c, item) => {
+          const unitCost = Number(item.product?.costPrice || 0);
+          return c + item.quantity * unitCost;
         }, 0);
-    }
+
+        return acc + (revenue - cost);
+      }, 0);
+    };
 
     const dailyProfit = calculateProfit(vendasHoje);
 
-    // --- Lucro Mensal ---
-    const currentMonthPrefix = todayString.substring(3); // MM/YYYY
-    const vendasMes = sales.filter(s => getSPDateString(s.createdAt).endsWith(currentMonthPrefix));
+    // --- Lucro Mensal (Month Prefix from ISO: YYYY-MM) ---
+    const currentMonthPrefix = todayISO.substring(0, 7); // 2026-01
+    const vendasMes = sales.filter((s) => {
+      const saleDateISO = new Date(s.createdAt).toLocaleDateString("en-CA", {
+        timeZone: "America/Sao_Paulo",
+      });
+      return saleDateISO.startsWith(currentMonthPrefix);
+    });
     const monthlyProfit = calculateProfit(vendasMes);
 
-    // --- Lucro Semanal (7 dias corridos) ---
+    // --- Lucro Semanal (7 dias corridos - Mantendo lógica simples de timestamp) ---
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const vendasSemana = sales.filter(s => new Date(s.createdAt) >= oneWeekAgo);
+    const vendasSemana = sales.filter(
+      (s) => new Date(s.createdAt) >= oneWeekAgo,
+    );
     const weeklyProfit = calculateProfit(vendasSemana);
 
     // --- 4. ESTOQUE ---
     const stockQuery = await prisma.product.findMany({
       where: { companyId },
-      select: {stock: true, costPrice: true, salePrice: true},
+      select: { stock: true, costPrice: true, salePrice: true },
     });
 
     const stockValue = stockQuery.reduce(
-      (acc, p) => acc + p.stock * p.costPrice,
+      (acc, p) => acc + p.stock * Number(p.costPrice || 0),
       0,
     );
     const stockProfitEstimate = stockQuery.reduce(
-      (acc, p) => acc + p.stock * (p.salePrice - p.costPrice),
+      (acc, p) =>
+        acc + p.stock * (Number(p.salePrice || 0) - Number(p.costPrice || 0)),
       0,
     );
     const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
@@ -115,14 +138,13 @@ export async function GET() {
     });
 
     // Header para evitar cache Vercel
-    response.headers.set('Cache-Control', 'no-store, max-age=0');
+    response.headers.set("Cache-Control", "no-store, max-age=0");
     return response;
-
   } catch (error) {
     console.error("Dashboard Logic Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
