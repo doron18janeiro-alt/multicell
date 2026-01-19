@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR from "swr";
 import Sidebar from "@/components/Sidebar";
 import {
   BarChart3,
@@ -53,58 +54,51 @@ interface PerformanceData {
   worstDay: any;
 }
 
+const fetcher = (url: string) =>
+  fetch(`${url}?t=${Date.now()}`).then((res) => res.json());
+
 export default function RelatoriosPage() {
-  const [data, setData] = useState<ReportData | null>(null);
-  const [abcData, setAbcData] = useState<ABCData | null>(null);
-  const [performanceData, setPerformanceData] =
-    useState<PerformanceData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"cards" | "abc" | "performance">(
-    "performance"
+    "performance",
   );
 
-  useEffect(() => {
-    fetchReport();
-  }, []);
+  const {
+    data: data,
+    mutate: mutateCard,
+    isLoading: cardLoading,
+  } = useSWR<ReportData>("/api/reports/card-sales", fetcher, {
+    refreshInterval: 5000,
+  });
 
-  const fetchReport = async () => {
-    try {
-      const [cardRes, reportRes, perfRes] = await Promise.all([
-        fetch("/api/reports/card-sales"),
-        fetch("/api/reports"),
-        fetch("/api/reports/performance"),
-      ]);
+  const { data: rawReportData, isLoading: reportLoading } = useSWR(
+    "/api/reports",
+    fetcher,
+    { refreshInterval: 5000 },
+  );
 
-      if (cardRes.ok) {
-        const jsonData = await cardRes.json();
-        // Defensive check
-        if (!jsonData.sales) jsonData.sales = [];
-        if (!jsonData.summary)
-          jsonData.summary = { debitTotal: 0, creditTotal: 0 };
-        setData(jsonData);
+  const { data: performanceData, isLoading: perfLoading } =
+    useSWR<PerformanceData>("/api/reports/performance", fetcher, {
+      refreshInterval: 5000,
+    });
+
+  // Derived state
+  const abcData: ABCData | null = rawReportData?.abc || null;
+
+  // Safe data access
+  const safeCardData = data
+    ? {
+        ...data,
+        sales: data.sales || [],
+        summary: data.summary || { debitTotal: 0, creditTotal: 0 },
       }
+    : null;
 
-      if (reportRes.ok) {
-        const reportData = await reportRes.json();
-        if (reportData.abc) {
-          setAbcData(reportData.abc);
-        }
-      }
-
-      if (perfRes.ok) {
-        setPerformanceData(await perfRes.json());
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = cardLoading || reportLoading || perfLoading;
 
   const handleRefund = async (saleId: number) => {
     if (
       !confirm(
-        "Deseja estornar esta venda? O valor será subtraído do lucro de hoje e o item voltará ao estoque."
+        "Deseja estornar esta venda? O valor será subtraído do lucro de hoje e o item voltará ao estoque.",
       )
     )
       return;
@@ -118,7 +112,7 @@ export default function RelatoriosPage() {
 
       if (res.ok) {
         alert("Venda estornada com sucesso!");
-        fetchReport();
+        mutateCard(); // Refresh card data
       } else {
         const error = await res.json();
         alert(error.error || "Erro ao estornar venda");
@@ -130,20 +124,22 @@ export default function RelatoriosPage() {
   };
 
   const calculateNet = (amount: number, type: string) => {
-    if (!data) return amount;
+    if (!safeCardData) return amount;
     const rate =
-      type === "DEBITO" ? data.config.debitRate : data.config.creditRate;
+      type === "DEBITO"
+        ? safeCardData.config.debitRate
+        : safeCardData.config.creditRate;
     return amount - (amount * rate) / 100;
   };
 
   const calculateTotalNet = () => {
-    if (!data) return 0;
-    const debitNet = calculateNet(data.summary.debitTotal, "DEBITO");
-    const creditNet = calculateNet(data.summary.creditTotal, "CREDITO");
+    if (!safeCardData) return 0;
+    const debitNet = calculateNet(safeCardData.summary.debitTotal, "DEBITO");
+    const creditNet = calculateNet(safeCardData.summary.creditTotal, "CREDITO");
     return debitNet + creditNet;
   };
 
-  if (loading) {
+  if (loading && !data && !abcData && !performanceData) {
     return (
       <div className="flex min-h-screen bg-[#0B1120] text-slate-100 font-sans">
         <Sidebar />
@@ -153,9 +149,6 @@ export default function RelatoriosPage() {
       </div>
     );
   }
-
-  // Se falhar o carregamento principal, exibe msg
-  if (!data && !abcData) return null;
 
   return (
     <div className="flex min-h-screen bg-[#0B1120] text-slate-100 font-sans">
@@ -218,7 +211,7 @@ export default function RelatoriosPage() {
                       <p className="text-4xl font-bold text-white mb-2">
                         {(performanceData.bestDay.total || 0).toLocaleString(
                           "pt-BR",
-                          { style: "currency", currency: "BRL" }
+                          { style: "currency", currency: "BRL" },
                         )}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
@@ -227,7 +220,7 @@ export default function RelatoriosPage() {
                         </span>
                         <p className="capitalize">
                           {new Date(
-                            performanceData.bestDay.date
+                            performanceData.bestDay.date,
                           ).toLocaleDateString("pt-BR", {
                             weekday: "long",
                             day: "numeric",
@@ -255,7 +248,7 @@ export default function RelatoriosPage() {
                       <p className="text-4xl font-bold text-white mb-2">
                         {(performanceData.worstDay.total || 0).toLocaleString(
                           "pt-BR",
-                          { style: "currency", currency: "BRL" }
+                          { style: "currency", currency: "BRL" },
                         )}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
@@ -264,7 +257,7 @@ export default function RelatoriosPage() {
                         </span>
                         <p className="capitalize">
                           {new Date(
-                            performanceData.worstDay.date
+                            performanceData.worstDay.date,
                           ).toLocaleDateString("pt-BR", {
                             weekday: "long",
                             day: "numeric",
@@ -316,7 +309,7 @@ export default function RelatoriosPage() {
                             >
                               <td className="py-3 px-4">
                                 {new Date(closing.date).toLocaleDateString(
-                                  "pt-BR"
+                                  "pt-BR",
                                 )}
                               </td>
                               <td className="py-3 px-4 text-right">
@@ -349,7 +342,7 @@ export default function RelatoriosPage() {
                                 </span>
                               </td>
                             </tr>
-                          )
+                          ),
                         )}
                       </tbody>
                     </table>
@@ -480,7 +473,7 @@ export default function RelatoriosPage() {
           </div>
         )}
 
-        {activeTab === "cards" && data && (
+        {activeTab === "cards" && safeCardData && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Dash Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -494,12 +487,15 @@ export default function RelatoriosPage() {
                     <ArrowUpRight size={18} /> Total Débito
                   </h3>
                   <p className="text-3xl font-bold text-white mb-2">
-                    R$ {(data.summary.debitTotal || 0).toFixed(2)}
+                    R$ {(safeCardData.summary.debitTotal || 0).toFixed(2)}
                   </p>
                   <p className="text-sm text-slate-400">
                     Líquido Est.: R${" "}
                     {(
-                      calculateNet(data.summary.debitTotal || 0, "DEBITO") || 0
+                      calculateNet(
+                        safeCardData.summary.debitTotal || 0,
+                        "DEBITO",
+                      ) || 0
                     ).toFixed(2)}
                   </p>
                 </div>
@@ -518,13 +514,15 @@ export default function RelatoriosPage() {
                     <TrendingUp size={18} /> Total Crédito
                   </h3>
                   <p className="text-3xl font-bold text-white mb-2">
-                    R$ {(data.summary.creditTotal || 0).toFixed(2)}
+                    R$ {(safeCardData.summary.creditTotal || 0).toFixed(2)}
                   </p>
                   <p className="text-sm text-slate-400">
                     Líquido Est.: R${" "}
                     {(
-                      calculateNet(data.summary.creditTotal || 0, "CREDITO") ||
-                      0
+                      calculateNet(
+                        safeCardData.summary.creditTotal || 0,
+                        "CREDITO",
+                      ) || 0
                     ).toFixed(2)}
                   </p>
                 </div>
@@ -556,7 +554,7 @@ export default function RelatoriosPage() {
                   Transações do Mês
                 </h2>
                 <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300">
-                  {data.sales.length} registros
+                  {safeCardData.sales.length} registros
                 </span>
               </div>
 
@@ -585,7 +583,7 @@ export default function RelatoriosPage() {
                     </tr>
                   </thead>
                   <tbody className="text-slate-300 text-sm">
-                    {data.sales.length === 0 ? (
+                    {safeCardData.sales.length === 0 ? (
                       <tr>
                         <td
                           colSpan={5}
@@ -595,11 +593,11 @@ export default function RelatoriosPage() {
                         </td>
                       </tr>
                     ) : (
-                      data.sales.map((sale) => {
+                      safeCardData.sales.map((sale) => {
                         const isDebit = sale.cardType === "DEBITO";
                         const rate = isDebit
-                          ? data.config.debitRate
-                          : data.config.creditRate;
+                          ? safeCardData.config.debitRate
+                          : safeCardData.config.creditRate;
                         const net = sale.total - (sale.total * rate) / 100;
 
                         return (
@@ -615,7 +613,7 @@ export default function RelatoriosPage() {
                                   {
                                     hour: "2-digit",
                                     minute: "2-digit",
-                                  }
+                                  },
                                 )}
                               </span>
                             </td>

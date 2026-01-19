@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const today = new Date();
@@ -177,7 +179,7 @@ export async function GET() {
     console.error(error);
     return NextResponse.json(
       { error: "Erro ao gerar relatório" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

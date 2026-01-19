@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const now = new Date();
@@ -32,11 +34,11 @@ export async function GET() {
 
     const debitTotal = debitSales.reduce(
       (acc, curr) => acc + (curr.total || 0),
-      0
+      0,
     );
     const creditTotal = creditSales.reduce(
       (acc, curr) => acc + (curr.total || 0),
-      0
+      0,
     );
 
     return NextResponse.json({
