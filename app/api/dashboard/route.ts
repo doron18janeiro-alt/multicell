@@ -11,98 +11,77 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
-    console.log('[DASHBOARD] Buscando para CompanyId:', companyId);
+    const sessionCompanyId = session.user.companyId;
+    console.log('[FATAL DIAGNOSTIC] User CompanyId:', sessionCompanyId);
 
-    // --- BUSCA TOTAL (SEM FILTRO DE DATA POR ENQUANTO) PARA DIAGNÓSTICO ---
+    // --- BUSCA BRUTA (IGNORANDO COMPANY ID) ---
+    // REMOVIDO where: { companyId } para testar visibilidade global
     const sales = await prisma.sale.findMany({
       where: {
-        companyId,
         status: "COMPLETED"
       },
       include: {
         items: {
           include: {
-            product: true, 
-          },
-        },
+            product: true
+          }
+        }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: 50 // Limite de 50 para não floodar
     });
 
-    console.log(`[DASHBOARD] Encontradas ${sales.length} vendas COMPLETED no total.`);
+    console.log(`[FATAL DIAGNOSTIC] Prisma encontrou ${sales.length} vendas no total (sem filtro de empresa).`);
 
-    let totalDiagnosticProfit = 0; // Vai para 'monthlyProfit' temporariamente
-    let dailyProfit = 0;
-
-    // Lógica de Data Hoje SP (Offset -3h)
-    const now = new Date();
-    const spTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-    const hojeString = spTime.toISOString().split('T')[0];
-    console.log('[DEBUG] Hoje SP (Offset -3h):', hojeString);
-
-    // LOOP DE DIAGNÓSTICO
+    let bruteForceProfit = 0;
+    
     sales.forEach(s => {
-         const rev = Number(s.netAmount !== null ? s.netAmount : (s.total || 0));
-         
-         const cost = s.items.reduce((acc, i) => {
-             const qtd = Number(i.quantity || 0);
-             const unitCost = Number(i.product?.costPrice || 0);
-             return acc + (qtd * unitCost);
-         }, 0);
-         
-         const profit = rev - cost;
-         totalDiagnosticProfit += profit; // Soma TUDO que existir
+        const total = Number(s.total || 0);
+        
+        // Comparação de IDs
+        const isSameCompany = s.companyId === sessionCompanyId;
+        
+        // Tenta calcular custo
+        const cost = s.items.reduce((acc, i) => {
+            return acc + (Number(i.quantity || 0) * Number(i.product?.costPrice || 0));
+        }, 0);
 
-         // Verifica se é hoje
-         const saleTime = new Date(s.createdAt).getTime();
-         const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
+        const profit = total - cost;
+        
+        // Só soma no total bruto se for da mesma empresa OU se quisermos ver TUDO (o prompt pede "ignorar filtros", mas vou somar tudo para garantir que o valor apareça)
+        // O usuário disse: "Se o lucro aparecer, saberemos que o problema é o ID da empresa."
+        // Então vou somar TUDO.
+        bruteForceProfit += profit;
 
-         // Log detalhado para identificar as vendas
-         if (s.id >= 20 || saleDateSP === hojeString) {
-             console.log(`[VENDA #${s.id}] Data: ${saleDateSP} | Receita: ${rev} | Custo: ${cost} | Lucro: ${profit} (É Hoje? ${saleDateSP === hojeString})`);
-         }
-
-         if (saleDateSP === hojeString) {
-             dailyProfit += profit;
-         }
+        console.log(`[FATAL] Venda ID: ${s.id} | CompanyId: ${s.companyId} (Match? ${isSameCompany}) | Total: ${total} | Lucro Calc: ${profit}`);
     });
 
-    console.log(`[RESUMO] Lucro Hoje: ${dailyProfit} | Lucro Total (Diagnóstico): ${totalDiagnosticProfit}`);
+    console.log(`[RESUMO BRUTO] Total Somado: ${bruteForceProfit}`);
 
-    // --- Estoques e Recordes ---
+    // --- MANTER OUTROS DADOS MÍNIMOS ---
+    // O resto segue filtrado para não quebrar a UI
     const stockQuery = await prisma.product.findMany({
-      where: { companyId },
-      select: {stock: true, costPrice: true, salePrice: true},
+        where: { companyId: sessionCompanyId },
+        select: { stock: true, costPrice: true }
     });
-
-    const stockValue = stockQuery.reduce((acc, p) => acc + p.stock * Number(p.costPrice || 0), 0);
-    const stockProfitEstimate = stockQuery.reduce((acc, p) => acc + p.stock * (Number(p.salePrice || 0) - Number(p.costPrice || 0)), 0);
-    const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
-
-    const recordsQuery = await prisma.dailyClosing.aggregate({
-      _max: { totalNet: true },
-      _min: { totalNet: true },
-      where: { companyId, status: "CLOSED" },
-    });
+    const stockValue = stockQuery.reduce((acc, p) => acc + (p.stock * Number(p.costPrice || 0)), 0);
 
     const response = NextResponse.json({
-      dailyProfit: dailyProfit,
+      dailyProfit: 0, 
       weeklyProfit: 0, 
-      monthlyProfit: totalDiagnosticProfit, // RETORNA O TOTAL GERAL PARA PROVAR QUE EXISTE VALOR
-      stockValue: Number(stockValue || 0),
-      stockProfitEstimate: Number(stockProfitEstimate || 0),
-      totalStockItems: Number(totalStockItems || 0),
-      highestValue: Number(recordsQuery._max.totalNet || 0),
-      lowestValue: Number(recordsQuery._min.totalNet || 0),
+      monthlyProfit: bruteForceProfit, // VALOR DE PROVA (Soma de tudo que achou)
+      stockValue: Number(stockValue),
+      stockProfitEstimate: 0,
+      totalStockItems: stockQuery.reduce((acc, p) => acc + p.stock, 0),
+      highestValue: 0,
+      lowestValue: 0,
     });
-
-    // Headers
+    
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
 
   } catch (error) {
-    console.error("Dashboard Logic Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("[FATAL ERROR]", error);
+    return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
