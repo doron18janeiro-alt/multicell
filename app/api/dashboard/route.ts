@@ -13,48 +13,103 @@ export async function GET() {
 
     const companyId = session.user.companyId;
 
-    // --- CÁLCULO DIRETO VIA RAW SQL (CORREÇÃO DE FUSO E DATA) ---
-    // Adaptação para garantir compatibilidade com datas e evitar NaN
-    // 1. Definição do Intervalo de Hoje usando a lógica solicitada
-    const profitQuery = await prisma.$queryRaw`
-      SELECT 
-        -- Lucro Diário
-        COALESCE(SUM(
-          CASE WHEN (s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date = CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo' AS DATE) THEN
-            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
-             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
-              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
-            )
-          ELSE 0 END
-        ), 0) as daily_profit,
+    // --- 1. CONFIGURAÇÃO DE DATAS E FUSO (America/Sao_Paulo) ---
+    // Usamos JS puro para garantir comparação precisa com o horário local
+    const now = new Date();
 
-        -- Lucro Semanal
-        COALESCE(SUM(
-          CASE WHEN (s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date >= (date_trunc('week', CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo' AS DATE)))::date THEN
-            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
-             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
-              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
-            )
-          ELSE 0 END
-        ), 0) as weekly_profit,
+    // Configura o formatador de data para o fuso correto
+    const timeZone = "America/Sao_Paulo";
 
-        -- Lucro Mensal
-        COALESCE(SUM(
-          CASE WHEN (s.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date >= (date_trunc('month', CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo' AS DATE)))::date THEN
-            (COALESCE(s.net_amount, s.total - COALESCE(s.fee_amount, 0)) - 
-             (SELECT COALESCE(SUM(si.quantity * p.cost_price), 0) 
-              FROM sale_items si JOIN products p ON si.product_id = p.id WHERE si.sale_id = s.id)
-            )
-          ELSE 0 END
-        ), 0) as monthly_profit
+    // Função auxiliar para obter objeto Date representando o inicio do dia em SP
+    const getStartOfDaySP = (date: Date) => {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+      }).formatToParts(date);
 
-      FROM sales s
-      WHERE s.company_id = ${companyId}
-        AND s.status = 'COMPLETED'
-    `;
+      const year = parseInt(parts.find((p) => p.type === "year")!.value);
+      const month = parseInt(parts.find((p) => p.type === "month")!.value) - 1;
+      const day = parseInt(parts.find((p) => p.type === "day")!.value);
 
-    // 2. Busca de Estoque
-    // Separado para garantir que não zeramos estoque caso não haja vendas
+      return new Date(year, month, day); // Retorna data 'local' (00:00) correspondente a SP
+    };
+
+    const todaySP = getStartOfDaySP(now);
+
+    // Calcula inicio da semana (Domingo)
+    const startOfWeekSP = new Date(todaySP);
+    startOfWeekSP.setDate(todaySP.getDate() - todaySP.getDay());
+
+    // Calcula inicio do mês
+    const startOfMonthSP = new Date(
+      todaySP.getFullYear(),
+      todaySP.getMonth(),
+      1,
+    );
+
+    // --- 2. BUSCA DE DADOS (PRISMA NATIVE) ---
+    // Buscamos um range seguro (últimos 45 dias) para filtrar em memória
+    // Isso evita problemas complexos de Timezone no Banco de Dados
+    const queryDate = new Date(startOfMonthSP);
+    queryDate.setDate(queryDate.getDate() - 10); // Buffer de segurança
+
+    const sales = await prisma.sale.findMany({
+      where: {
+        companyId,
+        status: "COMPLETED",
+        createdAt: {
+          gte: queryDate,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    // --- 3. PROCESSAMENTO EM MEMÓRIA ---
+    let dailyProfit = 0;
+    let weeklyProfit = 0;
+    let monthlyProfit = 0;
+
+    for (const sale of sales) {
+      // Converte a data da venda (UTC) para a data 'local' de SP
+      const saleDateSP = getStartOfDaySP(new Date(sale.createdAt));
+
+      // Cálculo de Lucro da Venda
+      // Lucro = (Net Amount OU Total - Taxas) - Custo dos Produtos
+      const revenue = sale.netAmount ?? sale.total - (sale.feeAmount ?? 0);
+
+      // Custo total dos itens da venda
+      const cost = sale.items.reduce((acc, item) => {
+        // Usa custo atual se não houver histórico (simplificação comum)
+        const unitCost = item.product?.costPrice ?? 0;
+        return acc + item.quantity * unitCost;
+      }, 0);
+
+      const profit = revenue - cost;
+
+      // Comparação de Datas (ignorando horas)
+      // Dia
+      if (saleDateSP.getTime() === todaySP.getTime()) {
+        dailyProfit += profit;
+      }
+      // Semana
+      if (saleDateSP >= startOfWeekSP) {
+        weeklyProfit += profit;
+      }
+      // Mês
+      if (saleDateSP >= startOfMonthSP) {
+        monthlyProfit += profit;
+      }
+    }
+
+    // --- 4. ESTOQUE (Mantido) ---
     const stockQuery = await prisma.product.findMany({
       where: { companyId },
       select: {
@@ -74,52 +129,25 @@ export async function GET() {
     );
     const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
 
-    // Casting seguro dos resultados do Raw Query (retorna array de objs)
-    const profitStats: any =
-      Array.isArray(profitQuery) && profitQuery.length > 0
-        ? profitQuery[0]
-        : {};
-
-    // 3. Busca de Recordes de Faturamento (Consolidação de Recordes)
-    // Traz o maior e o menor valor de fechamento diário já registrado
+    // --- 5. RECORDES (Para Prevenir NaN) ---
     const recordsQuery = await prisma.dailyClosing.aggregate({
-      _max: {
-        totalNet: true,
-      },
-      _min: {
-        totalNet: true,
-      },
-      where: {
-        companyId,
-        status: "CLOSED", // Apenas dias fechados contam para recorde
-      },
+      _max: { totalNet: true },
+      _min: { totalNet: true },
+      where: { companyId, status: "CLOSED" },
     });
 
-    const highestValue = recordsQuery._max.totalNet || 0;
-    const lowestValue = recordsQuery._min.totalNet || 0;
-
-    const response = NextResponse.json({
-      dailyProfit: Number(profitStats.daily_profit || 0),
-      weeklyProfit: Number(profitStats.weekly_profit || 0),
-      monthlyProfit: Number(profitStats.monthly_profit || 0),
-      stockValue: Number(stockValue || 0),
-      stockProfitEstimate: Number(stockProfitEstimate || 0),
-      totalStockItems: Number(totalStockItems || 0),
-      highestValue: Number(highestValue),
-      lowestValue: Number(lowestValue),
+    return NextResponse.json({
+      dailyProfit, // Valor calculado em JS
+      weeklyProfit,
+      monthlyProfit,
+      stockValue,
+      stockProfitEstimate,
+      totalStockItems,
+      highestValue: recordsQuery._max.totalNet || 0,
+      lowestValue: recordsQuery._min.totalNet || 0,
     });
-
-    // Desabilitar cache
-    response.headers.set(
-      "Cache-Control",
-      "no-store, no-cache, must-revalidate, proxy-revalidate",
-    );
-    response.headers.set("Pragma", "no-cache");
-    response.headers.set("Expires", "0");
-
-    return response;
   } catch (error) {
-    console.error("Dashboard Final Error:", error);
+    console.error("Dashboard Logic Error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
