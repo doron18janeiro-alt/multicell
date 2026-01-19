@@ -12,28 +12,13 @@ export async function GET() {
     }
 
     const companyId = session.user.companyId;
-    
-    // --- LÓGICA MATEMÁTICA DE OFFSET (-3h) ---
-    // Solução para evitar erros de parser de data no servidor Vercel
-    const now = new Date();
-    // Subtrai 3 horas (em milissegundos) do tempo UTC atual para simular SP
-    const spTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
-    const hojeString = spTime.toISOString().split('T')[0]; // Gera 'YYYY-MM-DD' baseada em SP
+    console.log('[DASHBOARD] Buscando para CompanyId:', companyId);
 
-    console.log('[DEBUG] Agora UTC:', now.toISOString());
-    console.log('[DEBUG] Hoje SP (Offset -3h):', hojeString);
-
-    // 1. Busca Vendas dos últimos 60 dias (para garantir)
-    const startOfScope = new Date(now);
-    startOfScope.setDate(startOfScope.getDate() - 60);
-
+    // --- BUSCA TOTAL (SEM FILTRO DE DATA POR ENQUANTO) PARA DIAGNÓSTICO ---
     const sales = await prisma.sale.findMany({
       where: {
         companyId,
-        status: "COMPLETED",
-        createdAt: {
-            gte: startOfScope 
-        }
+        status: "COMPLETED"
       },
       include: {
         items: {
@@ -45,58 +30,47 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log('[DEBUG] Vendas encontradas no banco:', sales.length);
+    console.log(`[DASHBOARD] Encontradas ${sales.length} vendas COMPLETED no total.`);
 
-    // --- Filtros (Offset -3h) ---
-    const vendasHoje = sales.filter((sale) => {
-        // Aplica o mesmo offset na data de criação da venda
-        const saleTime = new Date(sale.createdAt).getTime();
-        const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
-        
-        const isToday = saleDateSP === hojeString;
-        
-        // Debug para vendas recentes
-        if (sale.id >= 20) {
-            console.log(`[DEBUG] Venda #${sale.id} (${sale.total}) -> DataSP: ${saleDateSP} vs Hoje: ${hojeString} -> ${isToday}`);
-        }
-        
-        return isToday;
+    let totalDiagnosticProfit = 0; // Vai para 'monthlyProfit' temporariamente
+    let dailyProfit = 0;
+
+    // Lógica de Data Hoje SP (Offset -3h)
+    const now = new Date();
+    const spTime = new Date(now.getTime() - (3 * 60 * 60 * 1000));
+    const hojeString = spTime.toISOString().split('T')[0];
+    console.log('[DEBUG] Hoje SP (Offset -3h):', hojeString);
+
+    // LOOP DE DIAGNÓSTICO
+    sales.forEach(s => {
+         const rev = Number(s.netAmount !== null ? s.netAmount : (s.total || 0));
+         
+         const cost = s.items.reduce((acc, i) => {
+             const qtd = Number(i.quantity || 0);
+             const unitCost = Number(i.product?.costPrice || 0);
+             return acc + (qtd * unitCost);
+         }, 0);
+         
+         const profit = rev - cost;
+         totalDiagnosticProfit += profit; // Soma TUDO que existir
+
+         // Verifica se é hoje
+         const saleTime = new Date(s.createdAt).getTime();
+         const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
+
+         // Log detalhado para identificar as vendas
+         if (s.id >= 20 || saleDateSP === hojeString) {
+             console.log(`[VENDA #${s.id}] Data: ${saleDateSP} | Receita: ${rev} | Custo: ${cost} | Lucro: ${profit} (É Hoje? ${saleDateSP === hojeString})`);
+         }
+
+         if (saleDateSP === hojeString) {
+             dailyProfit += profit;
+         }
     });
 
-    // --- Calculadora de Lucro ---
-    const calculateProfit = (salesList: typeof sales) => {
-        return salesList.reduce((acc, sale) => {
-             // Receita: netAmount > total > 0
-             const revenue = Number(sale.netAmount !== null ? sale.netAmount : (sale.total || 0)); 
-             
-             // Custo
-             const cost = sale.items.reduce((c, item) => {
-                 const unitCost = Number(item.product?.costPrice || 0);
-                 return c + (item.quantity * unitCost);
-             }, 0);
-             
-             return acc + (revenue - cost);
-        }, 0);
-    }
+    console.log(`[RESUMO] Lucro Hoje: ${dailyProfit} | Lucro Total (Diagnóstico): ${totalDiagnosticProfit}`);
 
-    const dailyProfit = calculateProfit(vendasHoje);
-
-    // --- Lucro Mensal (Offset -3h) ---
-    const currentMonthPrefix = hojeString.substring(0, 7); // 'YYYY-MM'
-    const vendasMes = sales.filter(s => {
-        const saleTime = new Date(s.createdAt).getTime();
-        const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
-        return saleDateSP.startsWith(currentMonthPrefix);
-    });
-    const monthlyProfit = calculateProfit(vendasMes);
-
-    // --- Lucro Semanal (7 dias corridos - UTC Simples) ---
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const vendasSemana = sales.filter(s => new Date(s.createdAt) >= oneWeekAgo);
-    const weeklyProfit = calculateProfit(vendasSemana);
-
-    // --- Estoques e Recordes (Sem alteração) ---
+    // --- Estoques e Recordes ---
     const stockQuery = await prisma.product.findMany({
       where: { companyId },
       select: {stock: true, costPrice: true, salePrice: true},
@@ -113,9 +87,9 @@ export async function GET() {
     });
 
     const response = NextResponse.json({
-      dailyProfit: dailyProfit || 0,
-      weeklyProfit: weeklyProfit || 0,
-      monthlyProfit: monthlyProfit || 0,
+      dailyProfit: dailyProfit,
+      weeklyProfit: 0, 
+      monthlyProfit: totalDiagnosticProfit, // RETORNA O TOTAL GERAL PARA PROVAR QUE EXISTE VALOR
       stockValue: Number(stockValue || 0),
       stockProfitEstimate: Number(stockProfitEstimate || 0),
       totalStockItems: Number(totalStockItems || 0),
