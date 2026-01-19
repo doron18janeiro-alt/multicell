@@ -11,77 +11,88 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sessionCompanyId = session.user.companyId;
-    console.log('[FATAL DIAGNOSTIC] User CompanyId:', sessionCompanyId);
+    const companyId = session.user.companyId;
+    
+    // --- Log de Sessão (Solicitado) ---
+    console.log('[DASHBOARD] ID na Sessão do Usuário:', session.user.companyId);
 
-    // --- BUSCA BRUTA (IGNORANDO COMPANY ID) ---
-    // REMOVIDO where: { companyId } para testar visibilidade global
+    // --- Remoção de Filtro Restritivo (Teste de Visibilidade) ---
+    // Buscando SEM o companyId para ver se as vendas existem no banco sob qualquer ID
     const sales = await prisma.sale.findMany({
       where: {
         status: "COMPLETED"
+        // companyId: companyId // REMOVIDO TEMPORARIAMENTE
       },
       include: {
         items: {
           include: {
-            product: true
-          }
-        }
+            product: true, 
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
-      take: 50 // Limite de 50 para não floodar
+      take: 100
     });
 
-    console.log(`[FATAL DIAGNOSTIC] Prisma encontrou ${sales.length} vendas no total (sem filtro de empresa).`);
+    console.log(`[DASHBOARD] Vendas encontradas (Global/Sem Filtro): ${sales.length}`);
 
-    let bruteForceProfit = 0;
+    let totalBruteProfit = 0;
     
+    // Loop de Cálculo
     sales.forEach(s => {
-        const total = Number(s.total || 0);
+        // Receita
+        const revenue = Number(s.netAmount !== null ? s.netAmount : (s.total || 0));
         
-        // Comparação de IDs
-        const isSameCompany = s.companyId === sessionCompanyId;
-        
-        // Tenta calcular custo
+        // Custo
         const cost = s.items.reduce((acc, i) => {
-            return acc + (Number(i.quantity || 0) * Number(i.product?.costPrice || 0));
+             return acc + (Number(i.quantity || 0) * Number(i.product?.costPrice || 0));
         }, 0);
 
-        const profit = total - cost;
-        
-        // Só soma no total bruto se for da mesma empresa OU se quisermos ver TUDO (o prompt pede "ignorar filtros", mas vou somar tudo para garantir que o valor apareça)
-        // O usuário disse: "Se o lucro aparecer, saberemos que o problema é o ID da empresa."
-        // Então vou somar TUDO.
-        bruteForceProfit += profit;
+        const profit = revenue - cost;
 
-        console.log(`[FATAL] Venda ID: ${s.id} | CompanyId: ${s.companyId} (Match? ${isSameCompany}) | Total: ${total} | Lucro Calc: ${profit}`);
+        // --- Cálculo Bruto de Teste ---
+        // Soma TUDO para provar que a Venda #25 existe
+        totalBruteProfit += profit;
+
+        // Log para Venda #25
+        if (s.id === 25) {
+            console.log(`[VENDA #25] DETECTADA! ID Sessão: ${companyId} | ID Venda: ${s.companyId} | Valor: ${revenue} | Lucro: ${profit}`);
+        }
     });
 
-    console.log(`[RESUMO BRUTO] Total Somado: ${bruteForceProfit}`);
-
-    // --- MANTER OUTROS DADOS MÍNIMOS ---
-    // O resto segue filtrado para não quebrar a UI
+    // --- Estoques (Mantendo filtro para garantir integridade visual parcial) ---
     const stockQuery = await prisma.product.findMany({
-        where: { companyId: sessionCompanyId },
-        select: { stock: true, costPrice: true }
+      where: { companyId },
+      select: {stock: true, costPrice: true, salePrice: true},
     });
-    const stockValue = stockQuery.reduce((acc, p) => acc + (p.stock * Number(p.costPrice || 0)), 0);
+
+    const stockValue = stockQuery.reduce((acc, p) => acc + p.stock * Number(p.costPrice || 0), 0);
+    const stockProfitEstimate = stockQuery.reduce((acc, p) => acc + p.stock * (Number(p.salePrice || 0) - Number(p.costPrice || 0)), 0);
+    const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
+
+    const recordsQuery = await prisma.dailyClosing.aggregate({
+      _max: { totalNet: true },
+      _min: { totalNet: true },
+      where: { companyId, status: "CLOSED" },
+    });
 
     const response = NextResponse.json({
-      dailyProfit: 0, 
+      dailyProfit: 0, // Ignorando daily por enquanto, foco no teste de visibilidade
       weeklyProfit: 0, 
-      monthlyProfit: bruteForceProfit, // VALOR DE PROVA (Soma de tudo que achou)
-      stockValue: Number(stockValue),
-      stockProfitEstimate: 0,
-      totalStockItems: stockQuery.reduce((acc, p) => acc + p.stock, 0),
-      highestValue: 0,
-      lowestValue: 0,
+      monthlyProfit: totalBruteProfit, // TESTE DE FORÇA BRUTA AQUI
+      stockValue: Number(stockValue || 0),
+      stockProfitEstimate: Number(stockProfitEstimate || 0),
+      totalStockItems: Number(totalStockItems || 0),
+      highestValue: Number(recordsQuery._max.totalNet || 0),
+      lowestValue: Number(recordsQuery._min.totalNet || 0),
     });
-    
+
+    // Headers
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
 
   } catch (error) {
-    console.error("[FATAL ERROR]", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("Dashboard Logic Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
