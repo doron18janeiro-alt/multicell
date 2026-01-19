@@ -14,7 +14,10 @@ export async function GET() {
 
     // Fetch all daily closings descending (newest first)
     const closings = await prisma.dailyClosing.findMany({
-      where: { companyId },
+      where: {
+        companyId,
+        status: { in: ["CLOSED", "OPEN"] },
+      },
       orderBy: { date: "desc" },
     });
 
