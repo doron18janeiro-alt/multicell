@@ -13,11 +13,27 @@ export async function GET() {
 
     const companyId = session.user.companyId;
 
-    // 1. Busca TODAS as vendas (últimos 60 dias para garantir)
+    // --- 1. Preparação da Janela de Tempo (Fuso SP) - Lógica Infalível ---
+    // Cria datas onde o valor interno reflete o horário de Brasília
     const now = new Date();
+    
+    // Converte 'agora' para o horário "facial" de SP
+    // Ex: se for 15:00 UTC (12:00 SP), 'nowSP' será uma Date representando 12:00
+    const nowSP = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    
+    const inicioHoje = new Date(nowSP);
+    inicioHoje.setHours(0, 0, 0, 0); // 00:00:00.000 (SP)
+    
+    const fimHoje = new Date(nowSP);
+    fimHoje.setHours(23, 59, 59, 999); // 23:59:59.999 (SP)
+
+    console.log('[DEBUG] Janela SP Definida:', inicioHoje.toISOString(), 'até', fimHoje.toISOString());
+
+    // 2. Busca Vendas (Scope amplo para garantir)
+    // Busca vendas dos últimos 60 dias para memória
     const startOfScope = new Date(now);
     startOfScope.setDate(startOfScope.getDate() - 60);
-    
+
     const sales = await prisma.sale.findMany({
       where: {
         companyId,
@@ -36,64 +52,51 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    // --- Lógica de Janela de Tempo Numérica (Fuso SP) ---
-    // Helper para converter qualquer data para o "Valor Facial" de SP
-    // Ex: 15:00 UTC -> 12:00 SP. Retorna objeto Date com 12:00 UTC (para comparação numérica simples)
-    const getSPTime = (dateInput: Date) => {
-        return new Date(dateInput.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-    };
+    console.log('[DEBUG] Total de vendas trazidas do banco:', sales.length);
 
-    // Define Janela de Hoje em SP
-    const nowSP = getSPTime(new Date());
-    
-    const inicioHoje = new Date(nowSP);
-    inicioHoje.setHours(0, 0, 0, 0);
-    
-    const fimHoje = new Date(nowSP);
-    fimHoje.setHours(23, 59, 59, 999);
-
-    console.log('[DEBUG] Janela SP:', inicioHoje.toISOString(), 'até', fimHoje.toISOString());
-    console.log('[DEBUG] Vendas encontradas no banco:', sales.length);
-
-    // --- Filtro por Timestamp Numérico ---
+    // --- 3. Filtragem "Maçã com Maçã" ---
     const vendasHoje = sales.filter((sale) => {
-        const dataVenda = new Date(sale.createdAt);
-        const dataVendaSP = getSPTime(dataVenda); // Converte venda para tempo SP
+        // Converte a data da venda para o mesmo referencial (SP)
+        const saleDateUTC = new Date(sale.createdAt);
+        const saleDateSP = new Date(saleDateUTC.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
         
-        const saleId = sale.id;
-        // Check simples de range numérico
-        const isInRange = dataVendaSP >= inicioHoje && dataVendaSP <= fimHoje;
+        // Comparação Numérica Simples
+        const isToday = saleDateSP >= inicioHoje && saleDateSP <= fimHoje;
         
-        if (saleId === 22 || saleId === 20) {
-             console.log('[TEMPO] Venda ID:', saleId, 'SP Time:', dataVendaSP.toISOString(), 'In Range:', isInRange);
+        // Log para Venda #22 (Xiaomi G 85)
+        if (sale.id === 22 || sale.id === 20 || sale.id === 21) {
+            console.log([DEBUG] Venda # () - Data SP:  - É Hoje? );
         }
         
-        return isInRange;
+        return isToday;
     });
 
-    console.log('[DEBUG] Vendas de hoje identificadas:', vendasHoje.length);
+    console.log('[DEBUG] Vendas contabilizadas hoje:', vendasHoje.length);
 
-    // --- Calculadora de Lucro (Blindada) ---
+    // --- 4. Cálculo de Lucro (Blindado) ---
     const calculateProfit = (salesList: typeof sales) => {
         return salesList.reduce((acc, sale) => {
+             // Receita: Prioriza netAmount, falha para total, falha para 0. Converte para Number.
              const revenue = Number(sale.netAmount !== null ? sale.netAmount : (sale.total || 0)); 
+             
+             // Custo: Soma custo dos itens
              const cost = sale.items.reduce((c, item) => {
                  const unitCost = Number(item.product?.costPrice || 0);
                  return c + (item.quantity * unitCost);
              }, 0);
+             
              return acc + (revenue - cost);
         }, 0);
     }
 
     const dailyProfit = calculateProfit(vendasHoje);
 
-    // --- Lucro Mensal (Baseado no Mês de SP) ---
+    // --- Lucro Mensal (Mesmo Mês/Ano de SP) ---
     const currentMonth = nowSP.getMonth();
     const currentYear = nowSP.getFullYear();
-    
     const vendasMes = sales.filter(s => {
-        const sSP = getSPTime(new Date(s.createdAt));
-        return sSP.getMonth() === currentMonth && sSP.getFullYear() === currentYear;
+        const sDateSP = new Date(new Date(s.createdAt).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+        return sDateSP.getMonth() === currentMonth && sDateSP.getFullYear() === currentYear;
     });
     const monthlyProfit = calculateProfit(vendasMes);
 
@@ -103,7 +106,7 @@ export async function GET() {
     const vendasSemana = sales.filter(s => new Date(s.createdAt) >= oneWeekAgo);
     const weeklyProfit = calculateProfit(vendasSemana);
 
-    // --- 4. ESTOQUE ---
+    // --- 5. Estoques e Recordes ---
     const stockQuery = await prisma.product.findMany({
       where: { companyId },
       select: {stock: true, costPrice: true, salePrice: true},
@@ -113,7 +116,6 @@ export async function GET() {
     const stockProfitEstimate = stockQuery.reduce((acc, p) => acc + p.stock * (Number(p.salePrice || 0) - Number(p.costPrice || 0)), 0);
     const totalStockItems = stockQuery.reduce((acc, p) => acc + p.stock, 0);
 
-    // --- 5. RECORDES ---
     const recordsQuery = await prisma.dailyClosing.aggregate({
       _max: { totalNet: true },
       _min: { totalNet: true },
@@ -131,6 +133,7 @@ export async function GET() {
       lowestValue: Number(recordsQuery._min.totalNet || 0),
     });
 
+    // Header Anti-Cache Vercel
     response.headers.set('Cache-Control', 'no-store, max-age=0, must-revalidate');
     return response;
 
