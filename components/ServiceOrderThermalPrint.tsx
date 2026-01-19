@@ -90,6 +90,12 @@ export const ServiceOrderThermalPrint = React.forwardRef<
       <div className="border-b border-black mb-2 border-dashed"></div>
 
       <div className="text-center mt-4 text-[10px]">
+        <p className="font-bold mb-1">TERMO DE GARANTIA</p>
+        <p className="text-[9px] text-justify leading-tight mb-2">
+          Garantia de 90 dias para o serviço executado. A garantia será ANULADA
+          em caso de mau uso, quedas, contato com líquidos, oxidação ou selos de
+          segurança rompidos por terceiros.
+        </p>
         <p>
           Data de Entrada:{" "}
           {new Date(data.createdAt || new Date()).toLocaleString()}

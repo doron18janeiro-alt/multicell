@@ -80,6 +80,24 @@ export async function GET() {
         ? profitQuery[0]
         : {};
 
+    // 3. Busca de Recordes de Faturamento (Consolidação de Recordes)
+    // Traz o maior e o menor valor de fechamento diário já registrado
+    const recordsQuery = await prisma.dailyClosing.aggregate({
+      _max: {
+        totalNet: true,
+      },
+      _min: {
+        totalNet: true,
+      },
+      where: {
+        companyId,
+        status: "CLOSED", // Apenas dias fechados contam para recorde
+      },
+    });
+
+    const highestValue = recordsQuery._max.totalNet || 0;
+    const lowestValue = recordsQuery._min.totalNet || 0;
+
     const response = NextResponse.json({
       dailyProfit: Number(profitStats.daily_profit || 0),
       weeklyProfit: Number(profitStats.weekly_profit || 0),
@@ -87,6 +105,8 @@ export async function GET() {
       stockValue: Number(stockValue || 0),
       stockProfitEstimate: Number(stockProfitEstimate || 0),
       totalStockItems: Number(totalStockItems || 0),
+      highestValue: Number(highestValue),
+      lowestValue: Number(lowestValue),
     });
 
     // Desabilitar cache
