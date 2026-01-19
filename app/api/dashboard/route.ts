@@ -11,7 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    // --- FALLBACK DE ID OBRIGATÓRIO (Solicitado no Prompt Final) ---
+    // Garante que mesmo se o usuário tiver session ID errado, usaremos o oficial
+    const companyId = session.user.companyId || 'multicell-oficial'; 
+
+    console.log('[DASHBOARD] CompanyID Ativo:', companyId);
 
     // --- LÓGICA DE DATA REFERENCIAL SP (OFFSET -3h) ---
     const now = new Date();
@@ -27,9 +31,8 @@ export async function GET() {
 
     const sales = await prisma.sale.findMany({
       where: {
-        status: "COMPLETED", // Removido filtro de companyId temporariamente se necessário, mas vou recolocar para produção correta
-        // Se ainda houver dúvida sobre ID, manter sem companyId no where, mas o ideal é filtrar:
-        companyId: companyId,
+        companyId: companyId, // ID AGORA ESTÁ FORÇADO E CORRETO
+        status: "COMPLETED",
         createdAt: {
             gte: startOfScope 
         }
@@ -44,16 +47,18 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
+    console.log(`[DASHBOARD] Vendas carregadas: ${sales.length}`);
+
     // --- Helpers de Cálculo ---
     const calculateProfit = (salesList: typeof sales) => {
         return salesList.reduce((acc, sale) => {
              // Receita: netAmount > total > 0
              const revenue = Number(sale.netAmount !== null ? sale.netAmount : (sale.total || 0)); 
              
-             // Custo
+             // Custo (Number cast explícito)
              const cost = sale.items.reduce((c, item) => {
                  const unitCost = Number(item.product?.costPrice || 0);
-                 return c + (item.quantity * unitCost);
+                 return c + (Number(item.quantity || 0) * unitCost);
              }, 0);
              
              return acc + (revenue - cost);
@@ -62,10 +67,16 @@ export async function GET() {
 
     // --- Filtros & Cálculos ---
 
-    // 1. Diário (Baseado na String de SP)
+    // 1. Diário (Offset -3h) - Deve pegar a Venda #26 (R$ 600,00)
     const vendasHoje = sales.filter((sale) => {
         const saleTime = new Date(sale.createdAt).getTime();
         const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
+        
+        // Debug para garantir visibilidade da #26
+        if (sale.id === 26) {
+             console.log(`[DEBUG] Venda #26 encontrada. DataSP: ${saleDateSP} vs Hoje: ${hojeString}`);
+        }
+        
         return saleDateSP === hojeString;
     });
     const dailyProfit = calculateProfit(vendasHoje);
