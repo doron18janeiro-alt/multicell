@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
+import { RelatorioFechamentoTerminal } from "@/components/RelatorioFechamentoTerminal";
 import {
   Search,
   Trash2,
@@ -25,6 +26,7 @@ export default function SalesMetrics() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [lastClosingTime, setLastClosingTime] = useState<string | null>(null);
   const [todayTotals, setTodayTotals] = useState({
     money: 0,
     pix: 0,
@@ -56,8 +58,12 @@ export default function SalesMetrics() {
 
   useEffect(() => {
     fetchConfig();
+    fetchLastClosing();
     fetchSales();
-    const interval = setInterval(fetchSales, 30000); // Auto-refresh a cada 30s
+    const interval = setInterval(() => {
+      fetchSales();
+      fetchLastClosing();
+    }, 30000); // Auto-refresh a cada 30s
     return () => clearInterval(interval);
   }, []);
 
@@ -72,19 +78,49 @@ export default function SalesMetrics() {
           debitRate: data.debitRate ?? 1.99,
           creditRate: data.creditRate ?? 3.99,
         });
-        // Recalculate totals if sales are already loaded?
-        // It's safer to let the next fetchSales or a dependency effect handle it,
-        // but here we just set rates. We should probably trigger calc if rates change or depend on rates.
-        // For simplicity, we'll let the next render or fetch handle it if we pass rates to calc.
       }
     } catch (e) {
       console.error(e);
     }
   };
 
+  const fetchLastClosing = async () => {
+    try {
+      const res = await fetch("/api/reports/performance");
+      const data = await res.json();
+      if (data && data.closings && data.closings.length > 0) {
+        // Check if there is a closing for TODAY
+        const last = data.closings[0];
+        const todayStr = getTodayString();
+        // last.date is typically YYYY-MM-DDT...
+        const lastDate = new Date(last.date).toISOString().split("T")[0];
+
+        if (lastDate === todayStr && last.closedAt) {
+          setLastClosingTime(last.closedAt);
+        } else {
+          setLastClosingTime(null);
+        }
+      } else {
+        setLastClosingTime(null);
+      }
+    } catch (e) {
+      console.error("Erro ao buscar último fechamento", e);
+    }
+  };
+
   useEffect(() => {
-    if (sales.length > 0) calculateTotals(sales);
-  }, [rates]);
+    if (sales.length >= 0) {
+      // Should trigger even if empty to clear totals
+      const sessionSales = filterSalesByTime(sales);
+      calculateTotals(sessionSales);
+    }
+  }, [rates, sales, lastClosingTime]);
+
+  const filterSalesByTime = (allSales: Sale[]) => {
+    if (!lastClosingTime) return allSales;
+    const closeTime = new Date(lastClosingTime).getTime();
+    return allSales.filter((s) => new Date(s.createdAt).getTime() > closeTime);
+  };
 
   const fetchSales = async () => {
     try {
@@ -95,7 +131,7 @@ export default function SalesMetrics() {
 
       if (Array.isArray(data)) {
         setSales(data);
-        calculateTotals(data);
+        // calculation is handled by useEffect
       }
     } catch (error) {
       console.error("Erro ao buscar vendas:", error);
@@ -209,57 +245,87 @@ export default function SalesMetrics() {
   };
 
   const handleCloseCash = async () => {
+    // 1. Confirmar intenção
     if (
       !confirm(
-        "CONFIRMAÇÃO:\nDeseja realizar o Fechamento de Caixa agora?\n\nOs valores atuais serão salvos no histórico financeiro.",
+        "CONFIRMAÇÃO:\nDeseja iniciar o processo de Fechamento de Caixa?\n\nIsso abrirá a impressão do resumo.",
       )
     )
       return;
 
-    try {
-      const payload = {
-        totalCash: todayTotals.money,
-        totalPix: todayTotals.pix,
-        totalDebit: todayTotals.debit,
-        totalCredit: todayTotals.credit,
-        total_bruto: todayTotals.total,
-        total_taxas: todayTotals.taxTotal,
-        total_liquido: todayTotals.total - todayTotals.taxTotal,
-        total_lucro_diario: todayTotals.profit,
-      };
+    // 2. Imprimir
+    window.print();
 
-      const res = await fetch("/api/caixa/fechar", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        alert("✅ Caixa fechado com sucesso! Dados salvos no histórico.");
-        setSales([]); // Clear local checking view if desired, or just let it be.
-        calculateTotals([]);
-        // Force refresh to get fresh state?
-        // Ideally we just keep showing the data but it's "marked" closed.
-        // For visual "zerar", we clear state.
-      } else {
-        alert("Erro ao fechar caixa.");
+    // 3. Confirmar se a impressão foi ok e prosseguir com fechamento
+    // Pequeno delay para garantir que a janela de print abriu (embora seja síncrono na maioria)
+    setTimeout(async () => {
+      if (
+        !confirm(
+          "A impressão foi concluída corretamente? Clique em OK para salvar o fechamento no banco de dados.",
+        )
+      ) {
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      alert("Erro de conexão.");
-    }
+
+      try {
+        const payload = {
+          totalCash: todayTotals.money,
+          totalPix: todayTotals.pix,
+          totalDebit: todayTotals.debit,
+          totalCredit: todayTotals.credit,
+          total_bruto: todayTotals.total,
+          total_taxas: todayTotals.taxTotal,
+          total_liquido: todayTotals.total - todayTotals.taxTotal,
+          total_lucro_diario: todayTotals.profit,
+        };
+
+        const res = await fetch("/api/caixa/fechar", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          alert(
+            "✅ Caixa fechado com sucesso! A tela será limpa para novas vendas.",
+          );
+          // Fetch last closing again to update the "screen clear" filter immediately
+          fetchLastClosing();
+        } else {
+          alert("Erro ao fechar caixa.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Erro de conexão.");
+      }
+    }, 500);
   };
 
-  const filteredSales = sales.filter((sale) =>
+  // Filter for display table
+  const sessionSales = filterSalesByTime(sales);
+  const filteredSales = sessionSales.filter((sale) =>
     sale.id.toString().includes(searchTerm),
   );
 
   return (
     <div className="flex min-h-screen bg-[#0B1120] text-slate-100 font-sans">
-      <Sidebar />
-      <main className="flex-1 p-6 ml-64">
+      <div className="print:hidden">
+        <Sidebar />
+      </div>
+
+      {/* Componente de Impressão (Invisível exceto na hora de imprimir) */}
+      <div className="hidden print:block fixed top-0 left-0 bg-white w-full h-full z-[9999]">
+        <RelatorioFechamentoTerminal
+          totals={todayTotals}
+          date={new Date().toLocaleString("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+          })}
+        />
+      </div>
+
+      <main className="flex-1 p-6 ml-64 print:hidden">
         {/* Header & Title */}
         <header className="mb-6 flex justify-between items-center">
           <div>
