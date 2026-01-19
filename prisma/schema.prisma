@@ -83,6 +83,7 @@ model Supplier {
   @@map("suppliers")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Sale {
   id             Int        @id @default(autoincrement())
   companyId      String     @default("multicell-oficial") @map("company_id")
@@ -145,7 +146,7 @@ model User {
 model DailyClosing {
   id                  String    @id @default(dbgenerated("uuid_generate_v4()"))
   companyId           String    @default("multicell-oficial") @map("company_id")
-  date                DateTime  @unique
+  date                DateTime  @unique @db.Date
   totalCash           Float     @default(0) @map("total_cash")
   totalPix            Float     @default(0) @map("total_pix")
   totalDebit          Float     @default(0) @map("total_debit")

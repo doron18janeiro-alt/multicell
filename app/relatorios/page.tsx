@@ -57,6 +57,14 @@ interface PerformanceData {
 const fetcher = (url: string) =>
   fetch(`${url}?t=${Date.now()}`).then((res) => res.json());
 
+const formatCurrency = (value: number | string | undefined | null) => {
+  const numValue = Number(value || 0);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(numValue);
+};
+
 export default function RelatoriosPage() {
   const [activeTab, setActiveTab] = useState<"cards" | "abc" | "performance">(
     "performance",
@@ -209,10 +217,7 @@ export default function RelatoriosPage() {
                   {performanceData.bestDay ? (
                     <div>
                       <p className="text-4xl font-bold text-white mb-2">
-                        {(performanceData.bestDay.total || 0).toLocaleString(
-                          "pt-BR",
-                          { style: "currency", currency: "BRL" },
-                        )}
+                        {formatCurrency(performanceData.bestDay.total)}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded text-xs font-bold uppercase border border-emerald-500/20">
@@ -246,10 +251,7 @@ export default function RelatoriosPage() {
                   {performanceData.worstDay ? (
                     <div>
                       <p className="text-4xl font-bold text-white mb-2">
-                        {(performanceData.worstDay.total || 0).toLocaleString(
-                          "pt-BR",
-                          { style: "currency", currency: "BRL" },
-                        )}
+                        {formatCurrency(performanceData.worstDay.total)}
                       </p>
                       <div className="flex items-center gap-2 text-slate-400">
                         <span className="bg-rose-500/10 text-rose-400 px-2 py-1 rounded text-xs font-bold uppercase border border-rose-500/20">
@@ -411,11 +413,7 @@ export default function RelatoriosPage() {
                           <div>
                             <p className="font-medium text-white">{p.name}</p>
                             <p className="text-xs text-slate-500">
-                              Receita Gerada:{" "}
-                              {new Intl.NumberFormat("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              }).format(p.revenue)}
+                              Receita Gerada: {formatCurrency(p.revenue)}
                             </p>
                           </div>
                         </div>
@@ -458,10 +456,7 @@ export default function RelatoriosPage() {
                             Lucro Total
                           </span>
                           <span className="text-lg font-bold text-white">
-                            {new Intl.NumberFormat("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            }).format(p.profit)}
+                            {formatCurrency(p.profit)}
                           </span>
                         </div>
                       </div>
