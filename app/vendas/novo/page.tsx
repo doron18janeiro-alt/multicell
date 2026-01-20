@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation"; // Added import
-import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef, Suspense } from "react"; // Added Suspense
 import { useReactToPrint } from "react-to-print";
 import Sidebar from "@/components/Sidebar";
 import {
@@ -33,7 +33,7 @@ interface Customer {
   name: string;
 }
 
-export default function PDV() {
+function PDVContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
@@ -510,5 +510,19 @@ export default function PDV() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PDV() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-[#0B1120] text-white">
+          Carregando PDV...
+        </div>
+      }
+    >
+      <PDVContent />
+    </Suspense>
   );
 }
