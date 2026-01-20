@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation"; // Added import
 import { useState, useEffect, useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import Sidebar from "@/components/Sidebar";
@@ -44,6 +45,9 @@ export default function PDV() {
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const searchParams = useSearchParams();
+  const clienteIdUrl = searchParams.get("clienteId");
+
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = useReactToPrint({
@@ -69,6 +73,34 @@ export default function PDV() {
       window.removeEventListener("focus", onFocus);
     };
   }, []);
+
+  // Novo Effect: Seleção via URL
+  useEffect(() => {
+    if (clienteIdUrl && customers.length > 0) {
+      // Tenta encontrar o cliente na lista carregada
+      const found = customers.find(
+        (c) => String(c.id) === String(clienteIdUrl),
+      );
+      if (found) {
+        setSelectedCustomerId(found.id);
+      } else {
+        // Se não estiver na lista (ex: lista paginada ou delay), busca individualmente
+        fetch(`/api/customers/${clienteIdUrl}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data && data.id) {
+              // Adiciona nas opções se não existir e seleciona
+              setCustomers((prev) => [
+                ...prev.filter((c) => c.id !== data.id),
+                { id: String(data.id), name: data.name },
+              ]);
+              setSelectedCustomerId(String(data.id));
+            }
+          })
+          .catch((err) => console.error("Erro ao buscar cliente URL:", err));
+      }
+    }
+  }, [clienteIdUrl, customers]); // Depende de 'customers' para rodar logo que carregarem
 
   const fetchCustomers = async () => {
     try {
@@ -118,7 +150,7 @@ export default function PDV() {
   };
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const addToCart = (product: Product) => {
@@ -137,7 +169,7 @@ export default function PDV() {
         return prev.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
+            : item,
         );
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -288,7 +320,7 @@ export default function PDV() {
                         </span>
                       </div>
                     </button>
-                  )
+                  ),
                 )}
               </div>
             )}

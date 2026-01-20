@@ -192,7 +192,7 @@ export default function Clientes() {
           `"${c.phone}"`,
           `"${c.document || ""}"`,
           c._count?.serviceOrders || 0,
-        ].join(",")
+        ].join(","),
       ),
     ].join("\n");
 
@@ -228,7 +228,7 @@ export default function Clientes() {
   const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm)
+      c.phone.includes(searchTerm),
   );
 
   return (
@@ -321,8 +321,8 @@ export default function Clientes() {
                   const hasPending = c.serviceOrders?.some(
                     (os) =>
                       !["FINALIZADO", "ENTREGUE", "CANCELADO"].includes(
-                        os.status
-                      )
+                        os.status,
+                      ),
                   );
                   const statusClass = hasPending
                     ? "border-l-4 border-l-red-500 bg-red-500/5"
@@ -477,8 +477,8 @@ export default function Clientes() {
                                         os.status === "FINALIZADO"
                                           ? "bg-green-500/20 text-green-400"
                                           : os.status === "ABERTO"
-                                          ? "bg-blue-500/20 text-blue-400"
-                                          : "bg-yellow-500/20 text-yellow-400"
+                                            ? "bg-blue-500/20 text-blue-400"
+                                            : "bg-yellow-500/20 text-yellow-400"
                                       }`}
                                     >
                                       {os.status}
@@ -496,7 +496,7 @@ export default function Clientes() {
                                   <span className="text-slate-500 text-xs flex items-center gap-1">
                                     <Clock size={12} />
                                     {new Date(os.createdAt).toLocaleDateString(
-                                      "pt-BR"
+                                      "pt-BR",
                                     )}
                                   </span>
                                 </div>
@@ -540,11 +540,11 @@ export default function Clientes() {
                                   <span className="text-slate-500 text-xs flex items-center gap-1">
                                     <Clock size={12} />
                                     {new Date(
-                                      sale.createdAt
+                                      sale.createdAt,
                                     ).toLocaleDateString("pt-BR")}{" "}
                                     às{" "}
                                     {new Date(
-                                      sale.createdAt
+                                      sale.createdAt,
                                     ).toLocaleTimeString("pt-BR", {
                                       hour: "2-digit",
                                       minute: "2-digit",
@@ -705,7 +705,7 @@ export default function Clientes() {
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() =>
-                    router.push(`/os/novo?customerId=${successCustomer.id}`)
+                    router.push(`/os/novo?clienteId=${successCustomer.id}`)
                   }
                   className="bg-[#112240] border border-slate-600 hover:border-[#FFD700] hover:bg-[#1e293b] text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 group"
                 >
@@ -715,7 +715,7 @@ export default function Clientes() {
 
                 <button
                   onClick={() =>
-                    router.push(`/vendas/novo?customerId=${successCustomer.id}`)
+                    router.push(`/vendas/novo?clienteId=${successCustomer.id}`)
                   }
                   className="bg-green-600 hover:bg-green-500 text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 shadow-lg shadow-green-900/20"
                 >

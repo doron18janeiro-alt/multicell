@@ -60,14 +60,32 @@ function OrderServiceForm() {
     },
   });
 
-  // Effect to populate form data from URL params
+  // Effect to populate form data from URL params (ID or Direct Data)
   React.useEffect(() => {
+    const clienteId = searchParams.get("clienteId");
+
+    // Legacy support (optional)
     const customerId = searchParams.get("customerId");
     const name = searchParams.get("name");
     const phone = searchParams.get("phone");
     const document = searchParams.get("document");
 
-    if (customerId || name) {
+    if (clienteId) {
+      fetch(`/api/customers/${clienteId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data) {
+            setFormData((prev) => ({
+              ...prev,
+              customerId: String(data.id),
+              clientName: data.name || "",
+              clientPhone: data.phone || "",
+              clientDocument: data.document || "",
+            }));
+          }
+        })
+        .catch((err) => console.error("Erro ao buscar cliente:", err));
+    } else if (customerId || name) {
       setFormData((prev) => ({
         ...prev,
         customerId: customerId || prev.customerId,
@@ -95,7 +113,7 @@ function OrderServiceForm() {
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -104,7 +122,7 @@ function OrderServiceForm() {
   const handleChecklistChange = (
     category: "physical" | "tests",
     key: string,
-    value?: any // Allow explicit value
+    value?: any, // Allow explicit value
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -679,7 +697,7 @@ function OrderServiceForm() {
                             handleChecklistChange(
                               "physical",
                               "riscos",
-                              opt === "RISCOS LEVES" || opt === "AMASSADO"
+                              opt === "RISCOS LEVES" || opt === "AMASSADO",
                             )
                           }
                           className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
@@ -702,7 +720,7 @@ function OrderServiceForm() {
                         handleChecklistChange(
                           "physical",
                           "observations",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                     />
