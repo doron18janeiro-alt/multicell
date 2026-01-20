@@ -1,5 +1,7 @@
 "use client";
 
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/Sidebar";
 import { RelatorioFechamentoTerminal } from "@/components/RelatorioFechamentoTerminal";
@@ -288,10 +290,92 @@ export default function SalesMetrics() {
         });
 
         if (res.ok) {
-          alert(
-            "✅ Caixa fechado com sucesso! A tela será limpa para novas vendas.",
-          );
-          // Fetch last closing again to update the "screen clear" filter immediately
+          const data = await res.json();
+
+          // --- 1. Geração do PDF Automática ---
+          try {
+            const doc = new jsPDF();
+            const details = data.details || {};
+
+            // Cabeçalho
+            doc.setFontSize(22);
+            doc.setTextColor(40);
+            doc.text("Relatório de Fechamento - Multicell", 14, 20);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            const dateStr = new Date().toLocaleString("pt-BR", {
+              timeZone: "America/Sao_Paulo",
+            });
+            doc.text(`Gerado em: ${dateStr}`, 14, 28);
+
+            // Box de Resumo
+            doc.setFillColor(241, 245, 249);
+            doc.setDrawColor(200, 200, 200);
+            doc.roundedRect(14, 35, 182, 30, 3, 3, "FD");
+
+            doc.setFontSize(14);
+            doc.setTextColor(0);
+            doc.text("Resumo Financeiro", 20, 48);
+
+            doc.setFontSize(12);
+            doc.text(
+              `Faturamento: R$ ${Number(details.totalGross || 0).toFixed(2)}`,
+              20,
+              58,
+            );
+            doc.text(
+              `Custos: R$ ${Number(details.totalCost || 0).toFixed(2)}`,
+              80,
+              58,
+            );
+
+            doc.setTextColor(22, 163, 74); // Green
+            doc.setFont("helvetica", "bold");
+            doc.text(
+              `Lucro Líquido: R$ ${Number(details.dailyProfit || 0).toFixed(2)}`,
+              140,
+              58,
+            );
+
+            // Tabela
+            const salesRows = (details.sales || []).map((s: any) => [
+              `#${s.id}`,
+              new Date(s.time).toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              s.method,
+              `R$ ${Number(s.total).toFixed(2)}`,
+            ]);
+
+            autoTable(doc, {
+              startY: 75,
+              head: [["ID", "Hora", "Pagamento", "Valor"]],
+              body: salesRows,
+              theme: "striped",
+              headStyles: { fillColor: [15, 23, 42] }, // Dark Slate
+              styles: { fontSize: 10 },
+            });
+
+            doc.save(
+              `fechamento_multicell_${new Date().toISOString().split("T")[0]}.pdf`,
+            );
+
+            // --- 2. WhatsApp ---
+            const whatsappMsg =
+              `*Relatório de Fechamento - Multicell* %0A` +
+              `📅 ${dateStr} %0A%0A` +
+              `💰 Faturamento: R$ ${Number(details.totalGross || 0).toFixed(2)} %0A` +
+              `📉 Custos: R$ ${Number(details.totalCost || 0).toFixed(2)} %0A` +
+              `✅ *Lucro Líquido: R$ ${Number(details.dailyProfit || 0).toFixed(2)}*`;
+
+            window.open(`https://wa.me/?text=${whatsappMsg}`, "_blank");
+          } catch (pdfError) {
+            console.error("Erro ao gerar PDF", pdfError);
+          }
+
+          alert("✅ Caixa fechado! Relatório gerado e enviado.");
           fetchLastClosing();
         } else {
           alert("Erro ao fechar caixa.");

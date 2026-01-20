@@ -34,6 +34,14 @@ export async function POST(req: Request) {
           lte: endOfDayUTC,
         },
       },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
     });
 
     const config = await prisma.companyConfig.findFirst({
@@ -54,12 +62,14 @@ export async function POST(req: Request) {
 
     let totalGross = 0;
     let totalTaxAmount = 0;
+    let totalCost = 0;
 
     for (const sale of salesToday) {
-      const val = sale.total;
+      const val = Number(sale.total);
       totalGross += val;
       let tax = 0;
 
+      // Calculate taxes based on payment method
       const method = sale.paymentMethod.toUpperCase();
       if (method === "DINHEIRO") {
         totalCash += val;
@@ -79,18 +89,23 @@ export async function POST(req: Request) {
         tax = val * (creditRate / 100);
       }
       totalTaxAmount += tax;
+
+      // Calculate Cost
+      const saleCost = sale.items.reduce((acc, item) => {
+        return (
+          acc + Number(item.quantity) * Number(item.product?.costPrice || 0)
+        );
+      }, 0);
+      totalCost += saleCost;
     }
 
     const totalNet = totalGross - totalTaxAmount;
+    const dailyProfit = totalGross - totalCost;
 
     // Upsert DailyClosing
-    // We use the startOfDayUTC as the unique date key (or pure date)
-    // The schema unique constraint is [date, companyId].
-    // Ideally we store the date part only, but DateTime in Prisma includes time.
-    // We should normalize 'date' to start of day for consistency.
+    // We use the startOfDayUTC as the unique date key
     const closingDate = startOfDayUTC;
 
-    // Unlike 'create', upsert allows re-closing (updating)
     const result = await prisma.dailyClosing.upsert({
       where: {
         date_companyId: {
@@ -103,7 +118,7 @@ export async function POST(req: Request) {
         totalPix,
         totalDebit,
         totalCredit,
-        totalNet, // Schema has totalNet
+        totalNet,
         status: "CLOSED",
         closedAt: new Date(),
       },
@@ -120,12 +135,27 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ success: true, closing: result });
+    return NextResponse.json({
+      success: true,
+      closing: result,
+      details: {
+        salesCount: salesToday.length,
+        totalGross,
+        totalCost,
+        dailyProfit,
+        sales: salesToday.map((s) => ({
+          id: s.id,
+          total: s.total,
+          method: s.paymentMethod,
+          time: s.createdAt,
+        })),
+      },
+    });
   } catch (error) {
     console.error("Erro ao fechar caixa:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
