@@ -42,7 +42,7 @@ export default function AdvancedReports() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/reports/full")
+    fetch("/api/reports/stats")
       .then((res) => res.json())
       .then((data) => {
         setStats(data);
