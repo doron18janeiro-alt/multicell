@@ -42,16 +42,19 @@ export default function AdvancedReports() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/reports/stats")
-      .then((res) => res.json())
-      .then((data) => {
+    async function fetchStats() {
+      try {
+        const res = await fetch("/api/reports/stats");
+        if (!res.ok) throw new Error("Falha ao carregar relatórios");
+        const data = await res.json();
         setStats(data);
+      } catch (err) {
+        console.error("Erro no relatório:", err);
+      } finally {
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
-      });
+      }
+    }
+    fetchStats();
   }, []);
 
   if (loading) {
