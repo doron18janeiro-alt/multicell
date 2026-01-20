@@ -360,6 +360,27 @@ export default function Clientes() {
                         </span>
                       </td>
                       <td className="p-4 flex gap-2 justify-center">
+                        {/* New Actions: Sale and OS */}
+                        <button
+                          onClick={() =>
+                            router.push(`/vendas/novo?clienteId=${c.id}`)
+                          }
+                          className="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white p-2 rounded transition-colors border border-green-600/30"
+                          title="Nova Venda"
+                        >
+                          <ShoppingBag size={18} />
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            router.push(`/os/novo?clienteId=${c.id}`)
+                          }
+                          className="bg-yellow-600/20 hover:bg-yellow-500 text-yellow-500 hover:text-black p-2 rounded transition-colors border border-yellow-600/30"
+                          title="Nova Ordem de Serviço"
+                        >
+                          <Wrench size={18} />
+                        </button>
+
                         <button
                           onClick={() => handleViewDetails(c.id)}
                           className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 p-2 rounded transition-colors border border-emerald-500/30 hover:border-emerald-500/50"
