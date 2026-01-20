@@ -38,6 +38,7 @@ export default function Sidebar() {
     { name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" },
     { name: "Clientes", icon: Users, path: "/clientes" },
     { name: "Estoque", icon: Package, path: "/estoque" },
+    { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
     { name: "Configurações", icon: Settings, path: "/configuracoes" },
   ];
 
