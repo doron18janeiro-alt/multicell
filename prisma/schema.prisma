@@ -39,9 +39,23 @@ model Product {
   updatedAt   DateTime   @updatedAt @map("updated_at")
   supplier    Supplier?  @relation(fields: [supplierId], references: [id])
   sales       SaleItem[]
+  batches     ProductBatch[]
 
   @@index([stock, costPrice, salePrice], map: "idx_products_stock_prices")
   @@map("products")
+}
+
+model ProductBatch {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  quantity  Int
+  costPrice Float    @map("cost_price")
+  salePrice Float    @map("sale_price")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("product_batches")
 }
 
 model ServiceOrder {

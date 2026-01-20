@@ -56,6 +56,18 @@ export default function Estoque() {
     catalogUrl: "",
   });
 
+  // Batch state
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchData, setBatchData] = useState({
+    productId: "",
+    productName: "",
+    currentStock: 0,
+    currentCost: 0,
+    addedQuantity: "",
+    newCostPrice: "",
+    newSalePrice: "",
+  });
+
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
@@ -143,7 +155,7 @@ export default function Estoque() {
 
       if (res.ok) {
         alert(
-          editingId ? "Produto atualizado!" : "Produto cadastrado com sucesso!"
+          editingId ? "Produto atualizado!" : "Produto cadastrado com sucesso!",
         );
         setShowForm(false);
         setEditingId(null);
@@ -224,6 +236,50 @@ export default function Estoque() {
     document.body.removeChild(link);
   };
 
+  const handleOpenBatchModal = (product: Product) => {
+    setBatchData({
+      productId: product.id,
+      productName: product.name,
+      currentStock: product.stock,
+      currentCost: product.costPrice,
+      addedQuantity: "",
+      newCostPrice: "",
+      newSalePrice: "",
+    });
+    setShowBatchModal(true);
+  };
+
+  const handleSaveBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!batchData.productId) return;
+
+    try {
+      const res = await fetch(`/api/products/${batchData.productId}/batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          addedQuantity: Number(batchData.addedQuantity),
+          newCostPrice: parseFloat(batchData.newCostPrice.replace(",", ".")),
+          newSalePrice: parseFloat(batchData.newSalePrice.replace(",", ".")),
+        }),
+      });
+
+      if (res.ok) {
+        alert("Remessa adicionada com sucesso!");
+        setShowBatchModal(false);
+        fetchProducts();
+      } else {
+        const errorData = await res.json();
+        alert(
+          `Erro ao adicionar remessa: ${errorData.error || "Erro desconhecido"}`,
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao processar remessa.");
+    }
+  };
+
   const filteredProducts = (Array.isArray(products) ? products : []).filter(
     (p) => {
       const matchesSearch = p.name
@@ -232,7 +288,7 @@ export default function Estoque() {
       const matchesCategory =
         categoryFilter === "TODOS" || p.category === categoryFilter;
       return matchesSearch && matchesCategory;
-    }
+    },
   );
 
   return (
@@ -301,6 +357,7 @@ export default function Estoque() {
             <option value="TODOS">Todas Categorias</option>
             <option value="PECA">Peças</option>
             <option value="ACESSORIO">Acessórios</option>
+            <option value="APARELHO">Aparelhos</option>
           </select>
         </div>
 
@@ -372,6 +429,13 @@ export default function Estoque() {
                     </td>
                     <td className="p-4 flex gap-2">
                       <button
+                        onClick={() => handleOpenBatchModal(product)}
+                        className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
+                        title="Nova Remessa"
+                      >
+                        <Plus className="w-5 h-5" />
+                      </button>
+                      <button
                         onClick={() => handleEdit(product)}
                         className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
                         title="Editar"
@@ -437,7 +501,7 @@ export default function Estoque() {
                     </div>
                     {formData.costPrice &&
                       (isNaN(
-                        parseFloat(formData.costPrice.replace(",", "."))
+                        parseFloat(formData.costPrice.replace(",", ".")),
                       ) ||
                         parseFloat(formData.costPrice.replace(",", ".")) <
                           0) && (
@@ -517,6 +581,7 @@ export default function Estoque() {
                     >
                       <option value="PECA">Peça</option>
                       <option value="ACESSORIO">Acessório</option>
+                      <option value="APARELHO">Aparelho Telefônico</option>
                     </select>
                   </div>
                 </div>
@@ -577,6 +642,104 @@ export default function Estoque() {
             </div>
           </div>
         )}
+        {/* Modal Nova Remessa */}
+        {showBatchModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+            <div className="bg-[#112240] p-8 rounded-xl border border-slate-700 w-full max-w-md">
+              <h2 className="text-2xl font-bold text-white mb-6">
+                Nova Remessa - {batchData.productName}
+              </h2>
+              <form onSubmit={handleSaveBatch} className="space-y-4">
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    Quantidade Adicional
+                  </label>
+                  <input
+                    required
+                    type="number"
+                    min="1"
+                    className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                    value={batchData.addedQuantity}
+                    onChange={(e) =>
+                      setBatchData({
+                        ...batchData,
+                        addedQuantity: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    Custo da Nova Remessa (Unitário)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400">
+                      R$
+                    </span>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
+                      value={batchData.newCostPrice}
+                      onChange={(e) =>
+                        setBatchData({
+                          ...batchData,
+                          newCostPrice: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    Novo Preço de Venda
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400">
+                      R$
+                    </span>
+                    <input
+                      required
+                      type="text"
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
+                      value={batchData.newSalePrice}
+                      onChange={(e) =>
+                        setBatchData({
+                          ...batchData,
+                          newSalePrice: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-slate-800 p-4 rounded text-sm text-slate-300">
+                  <p>Estoque atual: {batchData.currentStock}</p>
+                  <p>
+                    Custo atual: R$ {Number(batchData.currentCost).toFixed(2)}
+                  </p>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchModal(false)}
+                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded font-bold"
+                  >
+                    Confirmar Remessa
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Modal Create Supplier */}
         {showSupplierForm && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
