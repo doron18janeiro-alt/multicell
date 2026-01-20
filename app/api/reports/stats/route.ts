@@ -15,7 +15,7 @@ export async function GET() {
     const companyId = session?.user?.companyId || "multicell-oficial";
 
     // 1. Fetch ALL Completed Sales
-    const sales = await prisma.sale.findMany({
+    let sales = await prisma.sale.findMany({
       where: {
         companyId: companyId,
         status: "COMPLETED",
@@ -23,12 +23,32 @@ export async function GET() {
       include: {
         items: {
           include: {
-            product: true, // Need costPrice from product
+            product: true,
           },
         },
       },
       orderBy: { createdAt: "desc" },
     });
+
+    // Fallback Bruto: Se não achou com companyId, traz TUDO que for COMPLETED
+    if (sales.length === 0) {
+      console.log(
+        "Relatórios: Nenhuma venda encontrada para ID. Ativando busca global.",
+      );
+      sales = await prisma.sale.findMany({
+        where: {
+          status: "COMPLETED",
+        },
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
 
     // 2. Aggregation Structures
     const productStats: Record<

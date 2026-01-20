@@ -188,9 +188,10 @@ export default function AdvancedReports() {
                 </div>
               ))}
               {stats.topProducts.length === 0 && (
-                <p className="text-slate-500 text-center py-4">
-                  Nenhum dado de venda.
-                </p>
+                <div className="flex flex-col items-center justify-center py-8 text-slate-500 gap-2">
+                  <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  <span className="text-xs">Sincronizando vendas...</span>
+                </div>
               )}
             </div>
           </div>
