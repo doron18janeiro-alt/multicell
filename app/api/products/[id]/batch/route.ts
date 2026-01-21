@@ -1,80 +1,72 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function POST(
-  request: Request,
+  req: Request,
   props: { params: Promise<{ id: string }> },
 ) {
   try {
-    const params = await props.params;
-    const { id } = params;
-    const body = await request.json();
+    const session = await getSession();
+    if (!session)
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    // Convert inputs to numbers
-    const addedQuantity = Number(body.addedQuantity);
-    const newCostPrice = Number(body.newCostPrice);
-    const newSalePrice = Number(body.newSalePrice);
+    const { id } = await props.params; // Correção para Next.js 15+
+    const body = await req.json();
 
-    if (isNaN(addedQuantity) || isNaN(newCostPrice) || isNaN(newSalePrice)) {
+    const quantity = Number(body.addedQuantity);
+    const costPrice = Number(body.newCostPrice);
+    const salePrice = Number(body.newSalePrice);
+
+    if (isNaN(quantity) || isNaN(costPrice) || isNaN(salePrice)) {
       return NextResponse.json({ error: "Dados inválidos" }, { status: 400 });
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
+    // 1. Busca dados atuais do produto para o cálculo
+    const currentProduct = await prisma.product.findUnique({ where: { id } });
+    if (!currentProduct)
       return NextResponse.json(
         { error: "Produto não encontrado" },
         { status: 404 },
       );
+
+    const currentStock = Number(currentProduct.stock || 0);
+    const currentCost = Number(currentProduct.costPrice || 0);
+
+    // 2. Cálculo do Custo Médio Ponderado
+    const totalStock = currentStock + quantity;
+    let averageCost = costPrice;
+
+    if (totalStock > 0) {
+      averageCost =
+        (currentStock * currentCost + quantity * costPrice) / totalStock;
     }
 
-    // Weighted Average Cost Calculation
-    const currentStock = Number(product.stock);
-    const currentCost = Number(product.costPrice);
-
-    // Formula: ((CurrentStock * CurrentCost) + (NewQty * NewCost)) / (CurrentStock + NewQty)
-    const numerator = currentStock * currentCost + addedQuantity * newCostPrice;
-    const denominator = currentStock + addedQuantity;
-
-    let weightedAverageCost = newCostPrice;
-
-    // Avoid division by zero
-    if (denominator !== 0) {
-      weightedAverageCost = numerator / denominator;
-    }
-
-    // Transaction to update product and create batch record
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create Batch Record
-      await tx.productBatch.create({
-        data: {
-          productId: id,
-          quantity: addedQuantity,
-          costPrice: newCostPrice,
-          salePrice: newSalePrice,
-        },
-      });
-
-      // 2. Update Product
-      const updatedProduct = await tx.product.update({
+    // 3. Atualização e Registro Histórico em Transação
+    const result = await prisma.$transaction([
+      prisma.product.update({
         where: { id },
         data: {
-          stock: { increment: addedQuantity },
-          costPrice: weightedAverageCost,
-          salePrice: newSalePrice,
+          stock: totalStock,
+          costPrice: averageCost,
+          salePrice: salePrice,
         },
-      });
+      }),
+      prisma.productBatch.create({
+        data: {
+          productId: id,
+          quantity: quantity,
+          costPrice: costPrice,
+          salePrice: salePrice,
+        },
+      }),
+    ]);
 
-      return updatedProduct;
-    });
-
-    return NextResponse.json(result);
+    return NextResponse.json(result[0]);
   } catch (error) {
-    console.error("Error processing batch:", error);
+    console.error("[BATCH_ERROR]", error);
     return NextResponse.json(
-      { error: "Erro ao processar remessa" },
+      { error: "Erro interno no servidor" },
       { status: 500 },
     );
   }
