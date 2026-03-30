@@ -236,7 +236,7 @@ function OrderServiceForm() {
                   checklist={{
                     liga: successData.checklist?.tests?.liga || "N/A",
                     tela: successData.checklist?.tests?.touch || "N/A",
-                    corpo:
+                    carcaca:
                       successData.checklist?.physical?.observations ||
                       (successData.checklist?.physical?.riscos
                         ? "COM RISCOS"
