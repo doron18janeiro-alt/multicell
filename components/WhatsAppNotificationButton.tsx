@@ -8,14 +8,14 @@ interface WhatsAppNotificationProps {
   clientPhone: string;
   deviceModel: string;
   deviceBrand: string;
-  status?: string;
+  problem?: string; // ADICIONADO DE VOLTA PARA NÃO DAR ERRO NO BUILD
+  status?: string; 
   osId?: string | number;
   totalPrice?: number | string;
   disabled?: boolean;
-  // Ajustado para bater com os nomes da sua tela
   checklist?: {
-    liga: string; // SIM, NÃO, SEM CARGA
-    tela: string; // OK, FALHANDO, QUEBRADO
+    liga: string;    // SIM, NÃO, SEM CARGA
+    tela: string;    // OK, FALHANDO, QUEBRADO
     carcaca: string; // OK, RISCOS LEVES, AMASSADO
   };
 }
@@ -27,6 +27,7 @@ export const WhatsAppNotificationButton: React.FC<
   clientPhone,
   deviceModel,
   deviceBrand,
+  problem, // Recebendo o problema
   status = "PENDENTE",
   osId,
   totalPrice,
@@ -37,8 +38,8 @@ export const WhatsAppNotificationButton: React.FC<
     if (!clientPhone || !clientName) return;
 
     const today = new Date();
-    const formattedDate = today.toLocaleDateString("pt-BR");
-    const protocolDate = today.toISOString().split("T")[0].replace(/-/g, "");
+    const formattedDate = today.toLocaleDateString('pt-BR');
+    const protocolDate = today.toISOString().split('T')[0].replace(/-/g, "");
     const cleanPhone = clientPhone.replace(/\D/g, "");
     const last4 = cleanPhone.slice(-4);
     const protocolCode = osId ? `${osId}` : `MC${protocolDate}-${last4}`;
@@ -46,35 +47,36 @@ export const WhatsAppNotificationButton: React.FC<
     const storeHeader = `🏢 *MULTICELL - ASSISTÊNCIA TÉCNICA ESPECIALIZADA*`;
     const storeFooter = `📍 *Unidade:* Av. Paraná, 470 - Cândido de Abreu/PR\n📞 *Suporte:* (43) 99603-1208\n*CNPJ:* 48.002.640.0001/67`;
 
-    // Lógica para garantir que apareça o que foi selecionado
+    // Captura exata do que foi selecionado no App
     const infoLiga = checklist?.liga || "NÃO INFORMADO";
     const infoTela = checklist?.tela || "NÃO INFORMADO";
     const infoCarcaca = checklist?.carcaca || "NÃO INFORMADO";
 
     let message = "";
 
-    if (status === "FINALIZADO") {
+    if (status === "FINALIZADO" || status === "ENTREGUE") {
       message =
         `${storeHeader}\n\n` +
         `Prezado(a) *${clientName}*,\n` +
-        `Seu equipamento está *PRONTO PARA RETIRADA*! ✅\n\n` +
+        `Informamos que o seu equipamento teve os procedimentos técnicos concluídos com sucesso. ✅\n\n` +
         `• *ID O.S.:* #${protocolCode}\n` +
         `• *Aparelho:* ${deviceBrand} ${deviceModel}\n` +
-        `• *Valor:* R$ ${Number(totalPrice || 0).toFixed(2)}\n\n` +
+        `• *Investimento:* R$ ${Number(totalPrice || 0).toFixed(2)}\n\n` +
+        `O item já está disponível para retirada em nossa unidade física.\n\n` +
         `${storeFooter}`;
     } else {
       message =
         `${storeHeader}\n\n` +
         `Olá, *${clientName}*.\n` +
-        `Confirmamos a entrada do seu dispositivo para análise técnica.\n\n` +
+        `Confirmamos a abertura da sua Ordem de Serviço.\n\n` +
         `🆔 *PROTOCOLO:* ${protocolCode}\n` +
         `📅 *ENTRADA:* ${formattedDate}\n` +
         `📱 *EQUIPAMENTO:* ${deviceBrand} ${deviceModel}\n\n` +
-        `🔍 *LAUDO DE RECEBIMENTO:*\n` +
-        `• *Aparelho Liga?* ${infoLiga}\n` +
-        `• *Tela / Touch:* ${infoTela}\n` +
+        `🔍 *LAUDO TÉCNICO DE RECEBIMENTO:*\n` +
+        `• *Alimentação (Liga):* ${infoLiga}\n` +
+        `• *Display/Touch:* ${infoTela}\n` +
         `• *Estado da Carcaça:* ${infoCarcaca}\n\n` +
-        `🛡️ *SEGURANÇA:* Seu patrimônio está protegido por nossos protocolos de laboratório.\n\n` +
+        `🛡️ *SEGURANÇA:* Seu patrimônio está assegurado. Você receberá atualizações sobre o diagnóstico.\n\n` +
         `${storeFooter}`;
     }
 
@@ -87,13 +89,11 @@ export const WhatsAppNotificationButton: React.FC<
       onClick={handleSend}
       disabled={disabled || !clientPhone}
       className={`flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white transition-all w-full justify-center ${
-        disabled
-          ? "bg-gray-500 opacity-50"
-          : "bg-gradient-to-r from-[#25D366] to-[#128C7E] shadow-lg shadow-green-500/30"
+        disabled ? "bg-gray-500 opacity-50" : "bg-gradient-to-r from-[#25D366] to-[#128C7E] shadow-lg shadow-green-500/30"
       }`}
     >
       <MessageCircle size={20} />
-      Emitir Protocolo via WhatsApp
+      {status === "FINALIZADO" ? "Aviso de Retirada" : "Emitir Protocolo via WhatsApp"}
     </button>
   );
 };
