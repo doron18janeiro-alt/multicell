@@ -260,6 +260,28 @@ export default function LoginPage() {
               © {new Date().getFullYear()} Multicell System. Todos os direitos
               reservados.
             </p>
+            <div className="mt-2 flex items-center justify-center gap-2 text-[11px] text-slate-500">
+              <Link
+                href="/privacidade"
+                className="hover:text-slate-300 transition-colors"
+              >
+                Privacidade
+              </Link>
+              <span>|</span>
+              <Link
+                href="/termos"
+                className="hover:text-slate-300 transition-colors"
+              >
+                Termos
+              </Link>
+              <span>|</span>
+              <Link
+                href="/suporte"
+                className="hover:text-slate-300 transition-colors"
+              >
+                Suporte
+              </Link>
+            </div>
           </div>
         </div>
       </motion.div>

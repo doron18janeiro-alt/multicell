@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   DollarSign,
@@ -512,8 +513,32 @@ function DashboardContent() {
         )}
 
         <div className="rounded-lg border border-zinc-700/50 bg-zinc-950/70 p-4 backdrop-blur-sm">
-          <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <span>✅ Dados sincronizados</span>
+          <div className="flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <span>✅ Dados sincronizados</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/privacidade"
+                  className="transition-colors hover:text-slate-300"
+                >
+                  Privacidade
+                </Link>
+                <span>|</span>
+                <Link
+                  href="/termos"
+                  className="transition-colors hover:text-slate-300"
+                >
+                  Termos
+                </Link>
+                <span>|</span>
+                <Link
+                  href="/suporte"
+                  className="transition-colors hover:text-slate-300"
+                >
+                  Suporte
+                </Link>
+              </div>
+            </div>
             <span>Multicell v3.0 • Tier 1 Profissional • Brasil/SP</span>
           </div>
         </div>

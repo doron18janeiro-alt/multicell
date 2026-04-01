@@ -8,6 +8,9 @@ const PUBLIC_PATHS = [
   "/recuperar",
   "/checkout",
   "/consulta",
+  "/privacidade",
+  "/termos",
+  "/suporte",
 ] as const;
 
 const OPERATIONAL_PATHS = [

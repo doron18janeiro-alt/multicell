@@ -26,6 +26,10 @@ export default function ClientLayout({
     pathname === "/recuperar" ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth/reset-password");
+  const isPublicStandalonePage =
+    pathname === "/privacidade" ||
+    pathname === "/termos" ||
+    pathname === "/suporte";
   const isCheckoutPage = pathname.startsWith("/checkout");
 
   return (
@@ -35,6 +39,8 @@ export default function ClientLayout({
         <main className="w-full h-screen flex items-center justify-center">
           {children}
         </main>
+      ) : isPublicStandalonePage ? (
+        <main className="w-full min-h-screen">{children}</main>
       ) : isCheckoutPage ? (
         <main className="w-full min-h-screen">{children}</main>
       ) : (
