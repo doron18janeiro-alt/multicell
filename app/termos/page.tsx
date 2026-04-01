@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 
 const termsSections = [
   {
@@ -37,6 +38,10 @@ export default function TermosPage() {
   return (
     <div className="min-h-screen w-full bg-[#020617] px-4 py-10 text-slate-200 sm:px-6 lg:px-8">
       <div className="mx-auto w-full max-w-4xl rounded-3xl border border-[#1E293B] bg-[#0B1120]/90 p-6 shadow-2xl backdrop-blur-md sm:p-8">
+        <div className="mb-6">
+          <BackButton />
+        </div>
+
         <div className="mb-8 border-b border-[#1E293B] pb-6">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-400/80">
             Multicell System

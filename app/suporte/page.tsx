@@ -1,3 +1,5 @@
+import BackButton from "@/components/BackButton";
+
 const whatsappHref =
   "https://wa.me/5545991291742?text=" +
   encodeURIComponent("Olá Luiz, preciso de suporte no Multicell System");
@@ -7,6 +9,10 @@ export default function SuportePage() {
     <div className="min-h-screen w-full bg-[#020617] px-4 py-10 text-slate-200 sm:px-6 lg:px-8">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-3xl items-center justify-center">
         <div className="w-full rounded-3xl border border-[#1E293B] bg-[#0B1120]/90 p-8 text-center shadow-2xl backdrop-blur-md sm:p-10">
+          <div className="mb-6 flex justify-start">
+            <BackButton />
+          </div>
+
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-400/80">
             Suporte Técnico
           </p>
