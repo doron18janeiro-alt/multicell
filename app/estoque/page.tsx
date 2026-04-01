@@ -16,6 +16,9 @@ import {
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { buildSupplierRestockMessage, formatWhatsAppLink } from "@/lib/whatsapp";
+import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
 
 interface Product {
   id: string;
@@ -23,15 +26,24 @@ interface Product {
   barcode?: string | null;
   salePrice: number;
   costPrice: number;
-  stock: number; // Changed from stockQuantity to match API/Prisma
+  stock: number;
+  minStock?: number;
   minQuantity: number;
   category: string;
   supplierId?: string;
+  supplier?: {
+    id: string;
+    name: string;
+    whatsapp?: string | null;
+    contact?: string | null;
+  } | null;
 }
 
 interface Supplier {
   id: string;
   name: string;
+  contact?: string | null;
+  whatsapp?: string | null;
 }
 
 const createEmptyProductForm = (barcode = "") => ({
@@ -51,9 +63,13 @@ export default function Estoque() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("TODOS");
+  const [activeTab, setActiveTab] = useState<"ALL" | "BUY">("ALL");
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const productsRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -87,6 +103,42 @@ export default function Estoque() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => setUserRole(data?.role || null))
       .catch((error) => console.error(error));
+  }, []);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const scheduleRefresh = () => {
+      if (productsRefreshTimeoutRef.current) {
+        clearTimeout(productsRefreshTimeoutRef.current);
+      }
+
+      productsRefreshTimeoutRef.current = setTimeout(() => {
+        void fetchProducts();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel("products_stock_updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (productsRefreshTimeoutRef.current) {
+        clearTimeout(productsRefreshTimeoutRef.current);
+        productsRefreshTimeoutRef.current = null;
+      }
+
+      void channel.unsubscribe();
+    };
   }, []);
 
   const handleOpenNewProductForm = useCallback((barcode = "") => {
@@ -359,9 +411,23 @@ export default function Estoque() {
         barcodeMatches(p.barcode, normalizedSearch);
       const matchesCategory =
         categoryFilter === "TODOS" || p.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesTab =
+        activeTab === "ALL" ? true : isProductLowStock(p);
+      return matchesSearch && matchesCategory && matchesTab;
     },
   );
+
+  const lowStockProducts = (Array.isArray(products) ? products : []).filter((product) =>
+    isProductLowStock(product),
+  );
+
+  const getSupplierForProduct = (product: Product): Supplier | Product["supplier"] =>
+    product.supplier ||
+    suppliers.find((supplier) => supplier.id === product.supplierId) ||
+    null;
+
+  const getSupplierPhone = (supplier: Supplier | Product["supplier"]) =>
+    supplier?.whatsapp || supplier?.contact || "";
 
   return (
     <div className="min-h-full w-full bg-[#0B1120] text-slate-100">
@@ -416,6 +482,31 @@ export default function Estoque() {
           </div>
         </div>
 
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab("ALL")}
+            className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+              activeTab === "ALL"
+                ? "border-amber-400/30 bg-amber-400/10 text-amber-100"
+                : "border-slate-700 bg-[#112240] text-slate-300 hover:border-slate-500"
+            }`}
+          >
+            Todos os Produtos
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("BUY")}
+            className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+              activeTab === "BUY"
+                ? "border-red-500/30 bg-red-500/10 text-red-100"
+                : "border-slate-700 bg-[#112240] text-slate-300 hover:border-slate-500"
+            }`}
+          >
+            Para Comprar ({lowStockProducts.length})
+          </button>
+        </div>
+
         {/* Filters */}
         <div className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-800 bg-[#112240] p-4 md:flex-row">
           <div className="relative flex-1">
@@ -440,118 +531,193 @@ export default function Estoque() {
           </select>
         </div>
 
-        {/* Product List */}
-        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#112240]">
-          <table className="min-w-[760px] w-full text-left">
-            <thead className="bg-[#0B1120] text-slate-400">
-              <tr>
-                <th className="p-4">Nome</th>
-                <th className="p-4">Categoria</th>
-                <th className="p-4">Preço Custo</th>
-                <th className="p-4">Preço Venda</th>
-                <th className="p-4">Estoque</th>
-                <th className="p-4">Status</th>
-                <th className="p-4">
-                  {userRole === "ATTENDANT" ? "Modo" : "Ações"}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    Carregando...
-                  </td>
-                </tr>
-              ) : filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    Nenhum produto encontrado.
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="hover:bg-[#1e293b] transition-colors"
+        {activeTab === "BUY" && (
+          <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {filteredProducts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-[#112240]/70 px-6 py-8 text-sm text-slate-400 xl:col-span-2">
+                Nenhum item abaixo do mínimo com os filtros atuais.
+              </div>
+            ) : (
+              filteredProducts.map((product) => {
+                const supplier = getSupplierForProduct(product);
+                const supplierHref = formatWhatsAppLink(
+                  getSupplierPhone(supplier),
+                  buildSupplierRestockMessage(product.name),
+                );
+                const effectiveMinStock = resolveProductMinStock(product);
+
+                return (
+                  <div
+                    key={`buy-${product.id}`}
+                    className="rounded-2xl border border-red-500/25 bg-[#112240]/90 p-5 shadow-[0_0_30px_rgba(239,68,68,0.08)]"
                   >
-                    <td className="p-4 font-medium text-white">
-                      <div className="space-y-1">
-                        <p>{product.name}</p>
-                        {product.barcode && (
-                          <p className="text-xs text-slate-500">
-                            {product.barcode}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4 text-slate-300">
-                      <span className="px-2 py-1 rounded bg-slate-800 text-xs">
-                        {product.category}
-                      </span>
-                    </td>
-                    <td className="p-4 text-slate-400">
-                      R$ {(product.costPrice || 0).toFixed(2)}
-                    </td>
-                    <td className="p-4 text-[#FFD700] font-bold">
-                      R$ {(product.salePrice || 0).toFixed(2)}
-                    </td>
-                    <td className="p-4">
-                      <span
-                        className={`font-bold ${
-                          product.stock <= product.minQuantity
-                            ? "text-red-500"
-                            : "text-white"
-                        }`}
-                      >
-                        {product.stock}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {product.stock <= product.minQuantity && (
-                        <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
-                          <AlertTriangle className="w-4 h-4" />
-                          BAIXO ESTOQUE
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-lg font-semibold text-white">
+                          {product.name}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {product.category} • {product.barcode || "Sem código"}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
+                          <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-red-100">
+                            Estoque atual: {product.stock}
+                          </span>
+                          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+                            Mínimo: {effectiveMinStock}
+                          </span>
                         </div>
-                      )}
-                    </td>
-                    <td className="p-4 flex gap-2">
-                      {userRole === "ATTENDANT" ? (
-                        <span className="text-xs font-semibold text-slate-500">
-                          Cadastro liberado
-                        </span>
+                      </div>
+
+                      {supplierHref ? (
+                        <a
+                          href={supplierHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#25D366] px-4 py-2 text-sm font-bold text-[#081c10] transition-colors hover:bg-[#20bd5a]"
+                        >
+                          Pedir ao Fornecedor
+                        </a>
                       ) : (
-                        <>
-                          <button
-                            onClick={() => handleOpenBatchModal(product)}
-                            className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
-                            title="Nova Remessa"
-                          >
-                            <Plus className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(product)}
-                            className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                            title="Editar"
-                          >
-                            <Pencil className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(product.id)}
-                            className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          disabled
+                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-500"
+                        >
+                          Pedir ao Fornecedor
+                        </button>
                       )}
+                    </div>
+
+                    <div className="mt-4 border-t border-slate-800 pt-4 text-sm text-slate-400">
+                      <p>
+                        Fornecedor:{" "}
+                        <span className="text-white">
+                          {supplier?.name || "Não vinculado"}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Product List */}
+        {activeTab === "ALL" && (
+          <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#112240]">
+            <table className="min-w-[760px] w-full text-left">
+              <thead className="bg-[#0B1120] text-slate-400">
+                <tr>
+                  <th className="p-4">Nome</th>
+                  <th className="p-4">Categoria</th>
+                  <th className="p-4">Preço Custo</th>
+                  <th className="p-4">Preço Venda</th>
+                  <th className="p-4">Estoque</th>
+                  <th className="p-4">Status</th>
+                  <th className="p-4">
+                    {userRole === "ATTENDANT" ? "Modo" : "Ações"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                      Carregando...
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                      Nenhum produto encontrado.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="hover:bg-[#1e293b] transition-colors"
+                    >
+                      <td className="p-4 font-medium text-white">
+                        <div className="space-y-1">
+                          <p>{product.name}</p>
+                          {product.barcode && (
+                            <p className="text-xs text-slate-500">
+                              {product.barcode}
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-slate-300">
+                        <span className="px-2 py-1 rounded bg-slate-800 text-xs">
+                          {product.category}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-400">
+                        R$ {(product.costPrice || 0).toFixed(2)}
+                      </td>
+                      <td className="p-4 text-[#FFD700] font-bold">
+                        R$ {(product.salePrice || 0).toFixed(2)}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`font-bold ${
+                            isProductLowStock(product)
+                              ? "text-red-500"
+                              : "text-white"
+                          }`}
+                        >
+                          {product.stock}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {isProductLowStock(product) && (
+                          <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
+                            <AlertTriangle className="w-4 h-4" />
+                            BAIXO ESTOQUE
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 flex gap-2">
+                        {userRole === "ATTENDANT" ? (
+                          <span className="text-xs font-semibold text-slate-500">
+                            Cadastro liberado
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleOpenBatchModal(product)}
+                              className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
+                              title="Nova Remessa"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(product)}
+                              className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Modal Create Product */}
         {showForm && (

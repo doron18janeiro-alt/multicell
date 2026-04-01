@@ -1,66 +1,92 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  createAuditLog,
+  formatAuditCurrency,
+  formatAuditDateTime,
+  getAuditActorName,
+} from "@/lib/audit";
 
-// DELETE: Deletes a sale and refunds stock/financials (Reverse operation)
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
-    const saleId = parseInt(id);
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // 1. Transaction to ensure data integrity
+    const { id } = await params;
+    const saleId = Number.parseInt(id, 10);
+
+    if (!Number.isFinite(saleId)) {
+      return NextResponse.json({ error: "Venda invalida." }, { status: 400 });
+    }
+
+    const actorName = getAuditActorName(currentUser);
+
     await prisma.$transaction(async (tx) => {
-      // Fetch sale with items
-      const sale = await tx.sale.findUnique({
-        where: { id: saleId },
-        include: { items: true },
+      const sale = await tx.sale.findFirst({
+        where: {
+          id: saleId,
+          companyId: currentUser.companyId,
+        },
+        include: {
+          items: true,
+        },
       });
 
       if (!sale) {
         throw new Error("Venda não encontrada");
       }
 
-      // 2. Restore Stock
       for (const item of sale.items) {
-        // Verifica se o produto existe e é válido antes de tentar atualizar
-        if (item.productId) {
-          try {
-            const product = await tx.product.findUnique({
-              where: { id: item.productId },
-            });
+        if (!item.productId) {
+          continue;
+        }
 
-            if (product) {
-              await tx.product.update({
-                where: { id: item.productId },
-                data: {
-                  stock: { increment: item.quantity },
-                },
-              });
-            } else {
-              console.warn(
-                `Produto ID ${item.productId} não encontrado. Ignorando estorno de estoque.`
-              );
-            }
-          } catch (stockError) {
-            console.error(
-              `Erro ao estornar estoque para o item ${item.id}:`,
-              stockError
+        try {
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
+
+          if (!product) {
+            console.warn(
+              `Produto ID ${item.productId} não encontrado. Ignorando estorno de estoque.`,
             );
-            // Não relança o erro, permitindo que a exclusão da venda continue
+            continue;
           }
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: { increment: item.quantity },
+            },
+          });
+        } catch (stockError) {
+          console.error(
+            `Erro ao estornar estoque para o item ${item.id}:`,
+            stockError,
+          );
         }
       }
 
-      // 3. Delete the sale (Cascade delete items usually, but let's be safe)
-      // If schema has onDelete: Cascade, items go with it.
       await tx.saleItem.deleteMany({
-        where: { saleId: saleId },
+        where: { saleId },
       });
 
       await tx.sale.delete({
         where: { id: saleId },
+      });
+
+      await createAuditLog(tx, {
+        companyId: currentUser.companyId,
+        userName: actorName,
+        action: "DELETE",
+        tableName: "sales",
+        description: `${actorName} excluiu a venda #${sale.id} de ${formatAuditCurrency(sale.total)} criada em ${formatAuditDateTime(sale.createdAt)}.`,
       });
     });
 
@@ -71,7 +97,7 @@ export async function DELETE(
     console.error("Erro ao excluir venda:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao excluir venda" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

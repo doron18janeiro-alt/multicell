@@ -1,21 +1,39 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  createAuditLog,
+  formatAuditCurrency,
+  getAuditActorName,
+} from "@/lib/audit";
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
-    const saleId = parseInt(id);
-    const body = await request.json();
-    const { reason } = body;
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // 1. Transaction to ensure atomicity
+    const { id } = await params;
+    const saleId = Number.parseInt(id, 10);
+    const body = await request.json();
+    const reason = String(body.reason || "").trim();
+
+    if (!Number.isFinite(saleId)) {
+      return NextResponse.json({ error: "Venda invalida." }, { status: 400 });
+    }
+
+    const actorName = getAuditActorName(currentUser);
+
     const result = await prisma.$transaction(async (tx) => {
-      // Get the sale and its items
-      const sale = await tx.sale.findUnique({
-        where: { id: saleId },
+      const sale = await tx.sale.findFirst({
+        where: {
+          id: saleId,
+          companyId: currentUser.companyId,
+        },
         include: { items: true },
       });
 
@@ -27,30 +45,38 @@ export async function POST(
         throw new Error("Venda já estornada");
       }
 
-      // Update sale status
-      await tx.sale.update({
+      const updatedSale = await tx.sale.update({
         where: { id: saleId },
         data: {
           status: "REFUNDED",
-          returnReason: reason,
+          returnReason: reason || null,
         },
       });
 
-      // Restore stock for each item
       for (const item of sale.items) {
-        if (item.productId) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
-          });
+        if (!item.productId) {
+          continue;
         }
+
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              increment: item.quantity,
+            },
+          },
+        });
       }
 
-      return sale;
+      await createAuditLog(tx, {
+        companyId: currentUser.companyId,
+        userName: actorName,
+        action: "UPDATE",
+        tableName: "sales",
+        description: `${actorName} alterou a venda #${sale.id} de ${sale.status} para REFUNDED, no valor de ${formatAuditCurrency(sale.total)}${reason ? `. Motivo: ${reason}` : "."}`,
+      });
+
+      return updatedSale;
     });
 
     return NextResponse.json({
@@ -61,7 +87,7 @@ export async function POST(
     console.error("Erro ao estornar venda:", error);
     return NextResponse.json(
       { error: error.message || "Erro ao processar estorno" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

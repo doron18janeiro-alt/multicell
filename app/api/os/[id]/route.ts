@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import {
+  createAuditLog,
+  formatAuditCurrency,
+  getAuditActorName,
+} from "@/lib/audit";
 
 export async function GET(
   request: Request,
@@ -67,14 +73,35 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const osId = parseInt(id);
+    const actorName = getAuditActorName(currentUser);
 
     await prisma.$transaction(async (tx) => {
+      const existingOrder = await tx.serviceOrder.findFirst({
+        where: {
+          id: osId,
+          companyId: currentUser.companyId,
+        },
+        select: { id: true },
+      });
+
+      if (!existingOrder) {
+        throw new Error("Ordem de Serviço não encontrada");
+      }
+
       // 1. Buscar Vendas vinculadas a esta OS (para evitar erro de FK e estornar estoque)
       // O campo serviceOrderId existe no modelo Sale
       const linkedSales = await tx.sale.findMany({
-        where: { serviceOrderId: osId },
+        where: {
+          serviceOrderId: osId,
+          companyId: currentUser.companyId,
+        },
         include: { items: true },
       });
 
@@ -120,12 +147,20 @@ export async function DELETE(
         await tx.sale.delete({
           where: { id: sale.id },
         });
+
+        await createAuditLog(tx, {
+          companyId: currentUser.companyId,
+          userName: actorName,
+          action: "DELETE",
+          tableName: "sales",
+          description: `${actorName} excluiu a venda #${sale.id} de ${formatAuditCurrency(sale.total)} ao remover a O.S. #${osId}.`,
+        });
       }
 
       // 3. Excluir a Ordem de Serviço
       // Removemos validação de status. Exclui direto.
       await tx.serviceOrder.delete({
-        where: { id: osId },
+        where: { id: existingOrder.id },
       });
     });
 

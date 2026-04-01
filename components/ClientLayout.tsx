@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { usePathname } from "next/navigation";
+import AdminStockRealtimeAlerts from "@/components/AdminStockRealtimeAlerts";
 import HeaderMobile from "@/components/HeaderMobile";
 import Sidebar from "@/components/Sidebar";
 
@@ -46,6 +47,7 @@ export default function ClientLayout({
       ) : (
         /* Páginas internas com sidebar */
         <div className="min-h-screen">
+          <AdminStockRealtimeAlerts />
           <HeaderMobile onOpenMenu={handleOpenMobileMenu} />
           <Sidebar
             isMobileOpen={isMobileSidebarOpen}

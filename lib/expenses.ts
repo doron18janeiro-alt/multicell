@@ -89,3 +89,31 @@ export const isExpenseOverdue = (dueDate: string | Date, status: string) => {
 
   return dueEnd.getTime() < Date.now();
 };
+
+export const addOneMonthToExpenseDate = (value: string | Date) => {
+  const current =
+    value instanceof Date ? new Date(value) : parseBrazilDateInput(value);
+
+  const originalDay = current.getDate();
+  const targetYear = current.getFullYear();
+  const targetMonth = current.getMonth() + 1;
+  const lastDayOfTargetMonth = new Date(
+    targetYear,
+    targetMonth + 1,
+    0,
+    12,
+    0,
+    0,
+    0,
+  ).getDate();
+
+  return new Date(
+    targetYear,
+    targetMonth,
+    Math.min(originalDay, lastDayOfTargetMonth),
+    12,
+    0,
+    0,
+    0,
+  );
+};

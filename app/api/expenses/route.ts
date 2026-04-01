@@ -6,6 +6,7 @@ import {
   isExpenseType,
   parseBrazilDateInput,
   isExpenseOverdue,
+  addOneMonthToExpenseDate,
 } from "@/lib/expenses";
 
 const serializeExpense = (expense: {
@@ -14,6 +15,8 @@ const serializeExpense = (expense: {
   category: string;
   amount: { toString(): string } | number;
   dueDate: Date;
+  isRecurring: boolean;
+  nextDueDate: Date | null;
   paidAt: Date | null;
   status: string;
   type: string;
@@ -25,6 +28,8 @@ const serializeExpense = (expense: {
   ...expense,
   amount: Number(expense.amount),
   dueDate: expense.dueDate.toISOString(),
+  isRecurring: expense.isRecurring,
+  nextDueDate: expense.nextDueDate?.toISOString() ?? null,
   paidAt: expense.paidAt?.toISOString() ?? null,
   createdAt: expense.createdAt.toISOString(),
   updatedAt: expense.updatedAt.toISOString(),
@@ -125,6 +130,7 @@ export async function POST(request: Request) {
     const type = String(body.type || "").trim().toUpperCase();
     const amount = Number(body.amount);
     const dueDate = String(body.dueDate || "").trim();
+    const isRecurring = Boolean(body.isRecurring);
 
     if (!description || !dueDate || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
@@ -157,6 +163,10 @@ export async function POST(request: Request) {
         type,
         amount,
         dueDate: parsedDueDate,
+        isRecurring,
+        nextDueDate: isRecurring
+          ? addOneMonthToExpenseDate(parsedDueDate)
+          : null,
         status: "PENDING",
       },
     });

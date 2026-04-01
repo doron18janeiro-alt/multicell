@@ -188,6 +188,8 @@ model Expense {
   category      ExpenseCategory
   amount        Decimal               @db.Decimal(10, 2)
   dueDate       DateTime              @map("due_date")
+  isRecurring   Boolean               @default(false) @map("is_recurring")
+  nextDueDate   DateTime?             @map("next_due_date")
   paidAt        DateTime?             @map("paid_at")
   status        ExpenseStatus         @default(PENDING)
   type          ExpenseType           @default(SHOP)
@@ -198,7 +200,21 @@ model Expense {
 
   @@index([companyId, status, dueDate])
   @@index([companyId, paidAt])
+  @@index([companyId, isRecurring, dueDate])
   @@map("expenses")
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  companyId   String      @default("multicell-oficial") @map("company_id")
+  userName    String      @map("user_name")
+  action      AuditAction
+  tableName   String      @map("table_name")
+  description String
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
 }
 
 model DailyClosing {
@@ -268,4 +284,10 @@ enum ExpensePaymentMethod {
 enum UserRole {
   ADMIN
   ATTENDANT
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
 }

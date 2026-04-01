@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
-import { isExpensePaymentMethod } from "@/lib/expenses";
+import {
+  createAuditLog,
+  formatAuditCurrency,
+  getAuditActorName,
+} from "@/lib/audit";
+import {
+  addOneMonthToExpenseDate,
+  formatExpenseDateInput,
+  isExpensePaymentMethod,
+} from "@/lib/expenses";
 
 const serializeExpense = (expense: {
   id: string;
@@ -9,6 +18,8 @@ const serializeExpense = (expense: {
   category: string;
   amount: { toString(): string } | number;
   dueDate: Date;
+  isRecurring: boolean;
+  nextDueDate: Date | null;
   paidAt: Date | null;
   status: string;
   type: string;
@@ -20,6 +31,8 @@ const serializeExpense = (expense: {
   ...expense,
   amount: Number(expense.amount),
   dueDate: expense.dueDate.toISOString(),
+  isRecurring: expense.isRecurring,
+  nextDueDate: expense.nextDueDate?.toISOString() ?? null,
   paidAt: expense.paidAt?.toISOString() ?? null,
   createdAt: expense.createdAt.toISOString(),
   updatedAt: expense.updatedAt.toISOString(),
@@ -70,16 +83,47 @@ export async function POST(
     const updatedExpense =
       expense.status === "PAID"
         ? expense
-        : await prisma.expense.update({
-            where: { id: expense.id },
-            data: {
-              status: "PAID",
-              paymentMethod,
-              paidAt: new Date(),
-            },
+        : await prisma.$transaction(async (tx) => {
+            const nextExpense = await tx.expense.update({
+              where: { id: expense.id },
+              data: {
+                status: "PAID",
+                paymentMethod,
+                paidAt: new Date(),
+              },
+            });
+
+            const actorName = getAuditActorName(currentUser);
+
+            await createAuditLog(tx, {
+              companyId: currentUser.companyId,
+              userName: actorName,
+              action: "UPDATE",
+              tableName: "expenses",
+              description: `${actorName} alterou a despesa "${expense.description}" de PENDING para PAID via ${paymentMethod}, no valor de ${formatAuditCurrency(expense.amount)}.`,
+            });
+
+            return nextExpense;
           });
 
-    return NextResponse.json(serializeExpense(updatedExpense));
+    const nextDueDate =
+      updatedExpense.nextDueDate || addOneMonthToExpenseDate(updatedExpense.dueDate);
+
+    return NextResponse.json({
+      expense: serializeExpense(updatedExpense),
+      recurringSuggestion:
+        updatedExpense.status === "PAID" && updatedExpense.isRecurring
+          ? {
+              description: updatedExpense.description,
+              category: updatedExpense.category,
+              amount: Number(updatedExpense.amount),
+              dueDate: formatExpenseDateInput(nextDueDate),
+              dueDateIso: nextDueDate.toISOString(),
+              type: updatedExpense.type,
+              isRecurring: true,
+            }
+          : null,
+    });
   } catch (error) {
     console.error("[expenses][pay] Error:", error);
     return NextResponse.json(

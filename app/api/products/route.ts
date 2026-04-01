@@ -37,6 +37,16 @@ export async function GET(request: Request) {
 
     const products = await prisma.product.findMany({
       where,
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            whatsapp: true,
+            contact: true,
+          },
+        },
+      },
       orderBy: {
         name: "asc",
       },
@@ -77,6 +87,7 @@ export async function POST(request: Request) {
       supplierId,
       barcode,
     } = body;
+    const parsedMinQuantity = parseInt(minQuantity?.toString() || "2") || 2;
 
     const normalizedBarcode = normalizeBarcode(barcode);
 
@@ -104,8 +115,8 @@ export async function POST(request: Request) {
         costPrice: parseFloat(costPrice?.toString() || "0") || 0,
         category,
         stock: parseInt(stockQuantity?.toString() || "0") || 0,
-        minQuantity: parseInt(minQuantity?.toString() || "2") || 2,
-        minStock: 5,
+        minQuantity: parsedMinQuantity,
+        minStock: parsedMinQuantity,
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
         companyId: currentUser.companyId,

@@ -35,6 +35,8 @@ type Expense = {
   category: (typeof EXPENSE_CATEGORIES)[number];
   amount: number;
   dueDate: string;
+  isRecurring: boolean;
+  nextDueDate: string | null;
   paidAt: string | null;
   status: "PENDING" | "PAID";
   type: (typeof EXPENSE_TYPES)[number];
@@ -94,6 +96,7 @@ export default function FinanceiroPage() {
     amount: "",
     dueDate: formatExpenseDateInput(new Date()),
     type: "SHOP" as (typeof EXPENSE_TYPES)[number],
+    isRecurring: false,
   });
 
   const resetForm = () => {
@@ -103,6 +106,7 @@ export default function FinanceiroPage() {
       amount: "",
       dueDate: formatExpenseDateInput(new Date()),
       type: "SHOP",
+      isRecurring: false,
     });
     setEditingExpense(null);
   };
@@ -213,8 +217,47 @@ export default function FinanceiroPage() {
       amount: String(expense.amount),
       dueDate: formatExpenseDateInput(expense.dueDate),
       type: expense.type,
+      isRecurring: expense.isRecurring,
     });
     setShowCreateModal(true);
+  };
+
+  const maybeCreateNextRecurringExpense = async (suggestion: {
+    description: string;
+    category: (typeof EXPENSE_CATEGORIES)[number];
+    amount: number;
+    dueDate: string;
+    dueDateIso: string;
+    type: (typeof EXPENSE_TYPES)[number];
+    isRecurring: boolean;
+  }) => {
+    const confirmed = window.confirm(
+      `Conta recorrente quitada. Deseja criar agora a próxima despesa para ${formatDate(suggestion.dueDateIso)}?`,
+    );
+
+    if (!confirmed) {
+      return `Despesa quitada. Próxima parcela sugerida para ${formatDate(suggestion.dueDateIso)}.`;
+    }
+
+    const response = await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: suggestion.description,
+        category: suggestion.category,
+        amount: suggestion.amount,
+        dueDate: suggestion.dueDate,
+        type: suggestion.type,
+        isRecurring: suggestion.isRecurring,
+      }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      return `Despesa quitada, mas a próxima parcela não foi criada: ${payload.error || "erro desconhecido"}.`;
+    }
+
+    return `Despesa quitada e próxima parcela criada para ${formatDate(suggestion.dueDateIso)}.`;
   };
 
   const handleDeleteExpense = async (expense: Expense) => {
@@ -276,7 +319,15 @@ export default function FinanceiroPage() {
 
       setExpenseToPay(null);
       setPaymentMethod("PIX");
-      setMessage("Despesa quitada com sucesso.");
+      let successMessage = "Despesa quitada com sucesso.";
+
+      if (payload.recurringSuggestion) {
+        successMessage = await maybeCreateNextRecurringExpense(
+          payload.recurringSuggestion,
+        );
+      }
+
+      setMessage(successMessage);
       await fetchExpenses();
     } catch (error) {
       console.error(error);
@@ -456,6 +507,11 @@ export default function FinanceiroPage() {
                           <span className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-200">
                             {EXPENSE_TYPE_LABELS[expense.type]}
                           </span>
+                          {expense.isRecurring && (
+                            <span className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1 text-xs font-semibold text-fuchsia-200">
+                              Recorrente mensal
+                            </span>
+                          )}
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold ${
                               expense.status === "PAID"
@@ -481,6 +537,12 @@ export default function FinanceiroPage() {
                               <CalendarDays className="w-4 h-4" />
                               Vence em {formatDate(expense.dueDate)}
                             </span>
+                            {expense.isRecurring && expense.nextDueDate && (
+                              <span className="inline-flex items-center gap-2">
+                                <CalendarDays className="w-4 h-4" />
+                                Proxima em {formatDate(expense.nextDueDate)}
+                              </span>
+                            )}
                             {expense.paidAt && (
                               <span className="inline-flex items-center gap-2">
                                 <CheckCircle2 className="w-4 h-4" />
@@ -771,6 +833,29 @@ export default function FinanceiroPage() {
                   required
                 />
               </div>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-zinc-700 bg-zinc-950/50 px-4 py-4">
+                <input
+                  type="checkbox"
+                  checked={formData.isRecurring}
+                  onChange={(event) =>
+                    setFormData((current) => ({
+                      ...current,
+                      isRecurring: event.target.checked,
+                    }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-900 text-amber-400 focus:ring-amber-400"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Repetir mensalmente?
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    Ao quitar esta conta, o sistema sugere a criação automática
+                    da próxima parcela com vencimento no mês seguinte.
+                  </p>
+                </div>
+              </label>
 
               <div className="flex justify-end gap-3 pt-2">
                 <button

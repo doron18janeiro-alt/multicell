@@ -7,7 +7,6 @@ const PUBLIC_PATHS = [
   "/cadastro",
   "/recuperar",
   "/checkout",
-  "/consulta",
   "/privacidade",
   "/termos",
   "/suporte",
@@ -15,6 +14,7 @@ const PUBLIC_PATHS = [
 
 const OPERATIONAL_PATHS = [
   "/dashboard",
+  "/admin",
   "/os",
   "/vendas",
   "/financeiro",
@@ -22,6 +22,7 @@ const OPERATIONAL_PATHS = [
   "/configuracoes",
   "/estoque",
   "/clientes",
+  "/consulta",
 ] as const;
 
 const ATTENDANT_ALLOWED_PATHS = [
@@ -30,6 +31,7 @@ const ATTENDANT_ALLOWED_PATHS = [
   "/vendas",
   "/estoque",
   "/clientes",
+  "/consulta",
 ] as const;
 
 const matchesPath = (pathname: string, route: string) =>

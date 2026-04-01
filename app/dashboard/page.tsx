@@ -29,6 +29,7 @@ import {
   getDashboardPaymentMethods,
   getCashBalanceSummary,
   getExpenseBreakdownSummary,
+  getRecurringCommitmentsSummary,
 } from "@/app/actions/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -164,6 +165,20 @@ function DashboardContent() {
     shop: 0,
     personal: 0,
   });
+  const [recurringCommitments, setRecurringCommitments] = useState({
+    monthLabel: "",
+    total: 0,
+    count: 0,
+    pendingCount: 0,
+    items: [] as Array<{
+      id: string;
+      description: string;
+      category: string;
+      amount: number;
+      dueDate: string;
+      status: string;
+    }>,
+  });
   const [criticalAlerts, setCriticalAlerts] = useState<{
     count: number;
     items: Array<{
@@ -180,6 +195,8 @@ function DashboardContent() {
   const realtimeRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const stockAlertTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [stockAlertPulse, setStockAlertPulse] = useState(false);
 
   const loadDashboard = useCallback(
     async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
@@ -217,6 +234,13 @@ function DashboardContent() {
             shopExpenses: 0,
           });
           setExpenseBreakdown({ shop: 0, personal: 0 });
+          setRecurringCommitments({
+            monthLabel: "",
+            total: 0,
+            count: 0,
+            pendingCount: 0,
+            items: [],
+          });
 
           if (subscriptionResponse.ok) {
             const subscriptionData = await subscriptionResponse.json();
@@ -239,6 +263,7 @@ function DashboardContent() {
           paymentData,
           cashBalanceData,
           expenseBreakdownData,
+          recurringCommitmentsData,
           subscriptionResponse,
         ] = await Promise.all([
           getDailyProfit(dateRange.startDate, dateRange.endDate),
@@ -249,6 +274,7 @@ function DashboardContent() {
           getDashboardPaymentMethods(dateRange.startDate, dateRange.endDate),
           getCashBalanceSummary(dateRange.startDate, dateRange.endDate),
           getExpenseBreakdownSummary(dateRange.startDate, dateRange.endDate),
+          getRecurringCommitmentsSummary(dateRange.endDate),
           fetch("/api/subscription/status", { cache: "no-store" }),
         ]);
 
@@ -260,6 +286,7 @@ function DashboardContent() {
         setPaymentMethods(paymentData);
         setCashBalance(cashBalanceData);
         setExpenseBreakdown(expenseBreakdownData);
+        setRecurringCommitments(recurringCommitmentsData);
 
         if (subscriptionResponse.ok) {
           const subscriptionData = await subscriptionResponse.json();
@@ -321,6 +348,11 @@ function DashboardContent() {
         { event: "*", schema: "public", table: "os" },
         scheduleDashboardRefresh,
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        scheduleDashboardRefresh,
+      )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           setRealtimeStatus("active");
@@ -348,6 +380,31 @@ function DashboardContent() {
       void channel.unsubscribe();
     };
   }, [loadDashboard]);
+
+  useEffect(() => {
+    const handleStockCriticalAlert = () => {
+      setStockAlertPulse(true);
+
+      if (stockAlertTimeoutRef.current) {
+        clearTimeout(stockAlertTimeoutRef.current);
+      }
+
+      stockAlertTimeoutRef.current = setTimeout(() => {
+        setStockAlertPulse(false);
+        stockAlertTimeoutRef.current = null;
+      }, 12000);
+    };
+
+    window.addEventListener("stock-critical-alert", handleStockCriticalAlert);
+
+    return () => {
+      window.removeEventListener("stock-critical-alert", handleStockCriticalAlert);
+      if (stockAlertTimeoutRef.current) {
+        clearTimeout(stockAlertTimeoutRef.current);
+        stockAlertTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -391,7 +448,9 @@ function DashboardContent() {
           <div className="flex flex-col items-start gap-3 self-start md:items-end">
             <div
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                realtimeStatus === "active"
+                stockAlertPulse
+                  ? "border-red-500/40 bg-red-500/10 text-red-200"
+                  : realtimeStatus === "active"
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
                   : realtimeStatus === "connecting"
                     ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
@@ -400,7 +459,9 @@ function DashboardContent() {
             >
               <span
                 className={`h-2.5 w-2.5 rounded-full ${
-                  realtimeStatus === "active"
+                  stockAlertPulse
+                    ? "bg-red-400 animate-pulse"
+                    : realtimeStatus === "active"
                     ? "bg-emerald-400 animate-pulse"
                     : realtimeStatus === "connecting"
                       ? "bg-amber-400 animate-pulse"
@@ -408,7 +469,9 @@ function DashboardContent() {
                 }`}
               />
               <span>
-                {realtimeStatus === "active"
+                {stockAlertPulse
+                  ? "Estoque Crítico"
+                  : realtimeStatus === "active"
                   ? "Realtime Ativo"
                   : realtimeStatus === "connecting"
                     ? "Realtime Conectando"
@@ -524,6 +587,73 @@ function DashboardContent() {
                 type="stock"
                 alertCount={criticalAlerts.count}
               />
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white">
+                    Compromissos do Mês
+                  </h3>
+                  <p className="text-sm text-slate-400">
+                    Despesas recorrentes previstas para{" "}
+                    {recurringCommitments.monthLabel || "o mês ativo"}, pagas ou
+                    pendentes.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-right">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200">
+                    Total Previsto
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-white">
+                    {formatCurrency(recurringCommitments.total)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {recurringCommitments.count} conta(s) recorrente(s) •{" "}
+                    {recurringCommitments.pendingCount} pendente(s)
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-3">
+                {recurringCommitments.items.length > 0 ? (
+                  recurringCommitments.items.slice(0, 6).map((expense) => (
+                    <div
+                      key={expense.id}
+                      className="rounded-2xl border border-zinc-700/50 bg-[#0B1120]/70 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-white">
+                            {expense.description}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {expense.category} • vence em{" "}
+                            {formatDate(expense.dueDate)}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                            expense.status === "PAID"
+                              ? "border border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                              : "border border-amber-400/20 bg-amber-500/10 text-amber-200"
+                          }`}
+                        >
+                          {expense.status === "PAID" ? "Pago" : "Pendente"}
+                        </span>
+                      </div>
+
+                      <p className="mt-4 text-lg font-bold text-white">
+                        {formatCurrency(expense.amount)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-zinc-700 bg-[#0B1120]/60 px-5 py-6 text-sm text-slate-400 lg:col-span-3">
+                    Nenhum compromisso recorrente cadastrado para este mês.
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

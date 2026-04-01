@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Search,
   LayoutDashboard,
   ShoppingCart,
   Wrench,
@@ -93,6 +94,7 @@ export default function Sidebar({
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
     { name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" },
     { name: "Clientes", icon: Users, path: "/clientes" },
+    { name: "Consulta Garantia", icon: Search, path: "/consulta" },
     { name: "Estoque", icon: Package, path: "/estoque" },
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
 
 interface WeeklyData {
   day: string;
@@ -25,6 +26,21 @@ interface CashBalanceSummary {
 interface ExpenseBreakdownSummary {
   shop: number;
   personal: number;
+}
+
+interface RecurringCommitmentsSummary {
+  monthLabel: string;
+  total: number;
+  count: number;
+  pendingCount: number;
+  items: Array<{
+    id: string;
+    description: string;
+    category: string;
+    amount: number;
+    dueDate: string;
+    status: string;
+  }>;
 }
 
 const BRAZIL_TZ = "America/Sao_Paulo";
@@ -55,6 +71,26 @@ const resolveDateRange = (startDate?: string, endDate?: string) => {
     endDate: endDateString,
     start: new Date(`${startDateString}T00:00:00.000-03:00`),
     end: new Date(`${endDateString}T23:59:59.999-03:00`),
+  };
+};
+
+const resolveMonthRange = (referenceDate?: string) => {
+  const reference = referenceDate
+    ? new Date(`${referenceDate}T12:00:00.000-03:00`)
+    : new Date();
+
+  const year = reference.getFullYear();
+  const month = reference.getMonth();
+  const monthKey = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BRAZIL_TZ,
+    month: "long",
+    year: "numeric",
+  }).format(reference);
+
+  return {
+    monthLabel: monthKey.replace(/^\w/, (char) => char.toUpperCase()),
+    start: new Date(year, month, 1, 0, 0, 0, 0),
+    end: new Date(year, month + 1, 0, 23, 59, 59, 999),
   };
 };
 
@@ -333,11 +369,12 @@ export async function getCriticalStockAlerts(): Promise<{
         name: true,
         stock: true,
         minStock: true,
+        minQuantity: true,
       },
     });
 
     const criticalItems = allProducts.filter((product) => {
-      return product.stock <= product.minStock;
+      return isProductLowStock(product);
     });
 
     return {
@@ -346,8 +383,8 @@ export async function getCriticalStockAlerts(): Promise<{
         id: item.id,
         name: item.name,
         stock: item.stock,
-        minStock: item.minStock,
-        diff: item.minStock - item.stock,
+        minStock: resolveProductMinStock(item),
+        diff: resolveProductMinStock(item) - item.stock,
       })),
     };
   } catch (error) {
@@ -619,6 +656,67 @@ export async function getExpenseBreakdownSummary(
     return {
       shop: 0,
       personal: 0,
+    };
+  }
+}
+
+export async function getRecurringCommitmentsSummary(
+  referenceDate?: string,
+): Promise<RecurringCommitmentsSummary> {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+
+    const companyId = session.user.companyId || "multicell-oficial";
+    const monthRange = resolveMonthRange(referenceDate);
+
+    const recurringExpenses = await prisma.expense.findMany({
+      where: {
+        companyId,
+        isRecurring: true,
+        dueDate: {
+          gte: monthRange.start,
+          lte: monthRange.end,
+        },
+      },
+      orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        description: true,
+        category: true,
+        amount: true,
+        dueDate: true,
+        status: true,
+      },
+    });
+
+    return {
+      monthLabel: monthRange.monthLabel,
+      total: recurringExpenses.reduce(
+        (acc, expense) => acc + Number(expense.amount || 0),
+        0,
+      ),
+      count: recurringExpenses.length,
+      pendingCount: recurringExpenses.filter(
+        (expense) => expense.status === "PENDING",
+      ).length,
+      items: recurringExpenses.map((expense) => ({
+        id: expense.id,
+        description: expense.description,
+        category: expense.category,
+        amount: Number(expense.amount || 0),
+        dueDate: expense.dueDate.toISOString(),
+        status: expense.status,
+      })),
+    };
+  } catch (error) {
+    console.error("[getRecurringCommitmentsSummary] Error:", error);
+    return {
+      monthLabel: "",
+      total: 0,
+      count: 0,
+      pendingCount: 0,
+      items: [],
     };
   }
 }

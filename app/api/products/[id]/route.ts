@@ -30,6 +30,7 @@ export async function PUT(
       supplierId,
       barcode,
     } = body;
+    const parsedMinQuantity = parseInt(String(minQuantity) || "2") || 2;
     const normalizedBarcode = normalizeBarcode(barcode);
 
     const existingProduct = await prisma.product.findFirst({
@@ -75,7 +76,8 @@ export async function PUT(
         costPrice: parseFloat(String(costPrice).replace(",", ".") || "0") || 0,
         category,
         stock: parseInt(String(stockQuantity) || "0"),
-        minQuantity: parseInt(String(minQuantity) || "2") || 2,
+        minQuantity: parsedMinQuantity,
+        minStock: parsedMinQuantity,
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
       },

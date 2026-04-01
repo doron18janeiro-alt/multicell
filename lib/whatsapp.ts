@@ -67,6 +67,10 @@ export function resolveServiceOrderButtonLabel(status?: string) {
     : "Notificar Entrada";
 }
 
+export function buildSupplierRestockMessage(productName: string) {
+  return `Olá, preciso repor o item ${productName}. Temos em estoque?`;
+}
+
 export function buildWhatsAppMessage(
   kind: WhatsAppMessageKind,
   payload: WhatsAppMessagePayload,

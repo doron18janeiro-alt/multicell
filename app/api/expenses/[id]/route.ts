@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import {
+  createAuditLog,
+  formatAuditCurrency,
+  formatAuditDate,
+  getAuditActorName,
+} from "@/lib/audit";
+import {
   isExpenseCategory,
   isExpenseType,
   parseBrazilDateInput,
+  addOneMonthToExpenseDate,
 } from "@/lib/expenses";
 
 const serializeExpense = (expense: {
@@ -13,6 +20,8 @@ const serializeExpense = (expense: {
   category: string;
   amount: { toString(): string } | number;
   dueDate: Date;
+  isRecurring: boolean;
+  nextDueDate: Date | null;
   paidAt: Date | null;
   status: string;
   type: string;
@@ -24,10 +33,76 @@ const serializeExpense = (expense: {
   ...expense,
   amount: Number(expense.amount),
   dueDate: expense.dueDate.toISOString(),
+  isRecurring: expense.isRecurring,
+  nextDueDate: expense.nextDueDate?.toISOString() ?? null,
   paidAt: expense.paidAt?.toISOString() ?? null,
   createdAt: expense.createdAt.toISOString(),
   updatedAt: expense.updatedAt.toISOString(),
 });
+
+const describeExpenseChanges = (
+  actorName: string,
+  previousExpense: {
+    description: string;
+    category: string;
+    type: string;
+    amount: { toString(): string } | number;
+    dueDate: Date;
+    isRecurring: boolean;
+  },
+  nextExpense: {
+    description: string;
+    category: string;
+    type: string;
+    amount: { toString(): string } | number;
+    dueDate: Date;
+    isRecurring: boolean;
+  },
+) => {
+  const changes: string[] = [];
+
+  if (previousExpense.description !== nextExpense.description) {
+    changes.push(
+      `descricao de "${previousExpense.description}" para "${nextExpense.description}"`,
+    );
+  }
+
+  if (previousExpense.category !== nextExpense.category) {
+    changes.push(
+      `categoria de ${previousExpense.category} para ${nextExpense.category}`,
+    );
+  }
+
+  if (previousExpense.type !== nextExpense.type) {
+    changes.push(`tipo de ${previousExpense.type} para ${nextExpense.type}`);
+  }
+
+  if (Number(previousExpense.amount) !== Number(nextExpense.amount)) {
+    changes.push(
+      `valor de ${formatAuditCurrency(previousExpense.amount)} para ${formatAuditCurrency(nextExpense.amount)}`,
+    );
+  }
+
+  if (previousExpense.dueDate.getTime() !== nextExpense.dueDate.getTime()) {
+    changes.push(
+      `vencimento de ${formatAuditDate(previousExpense.dueDate)} para ${formatAuditDate(nextExpense.dueDate)}`,
+    );
+  }
+
+  if (previousExpense.isRecurring !== nextExpense.isRecurring) {
+    changes.push(
+      nextExpense.isRecurring
+        ? "ativou a recorrencia mensal"
+        : "removeu a recorrencia mensal",
+    );
+  }
+
+  if (changes.length === 0) {
+    return `${actorName} atualizou a despesa "${nextExpense.description}" sem alterar campos monitorados.`;
+  }
+
+  return `${actorName} alterou a despesa "${nextExpense.description}": ${changes.join("; ")}.`;
+};
 
 export async function PATCH(
   request: Request,
@@ -50,6 +125,7 @@ export async function PATCH(
     const type = String(body.type || "").trim().toUpperCase();
     const amount = Number(body.amount);
     const dueDate = String(body.dueDate || "").trim();
+    const isRecurring = Boolean(body.isRecurring);
 
     if (!description || !dueDate || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
@@ -88,15 +164,33 @@ export async function PATCH(
       );
     }
 
-    const updatedExpense = await prisma.expense.update({
-      where: { id: existingExpense.id },
-      data: {
-        description,
-        category,
-        type,
-        amount,
-        dueDate: parsedDueDate,
-      },
+    const actorName = getAuditActorName(currentUser);
+
+    const updatedExpense = await prisma.$transaction(async (tx) => {
+      const nextExpense = await tx.expense.update({
+        where: { id: existingExpense.id },
+        data: {
+          description,
+          category,
+          type,
+          amount,
+          dueDate: parsedDueDate,
+          isRecurring,
+          nextDueDate: isRecurring
+            ? addOneMonthToExpenseDate(parsedDueDate)
+            : null,
+        },
+      });
+
+      await createAuditLog(tx, {
+        companyId: currentUser.companyId,
+        userName: actorName,
+        action: "UPDATE",
+        tableName: "expenses",
+        description: describeExpenseChanges(actorName, existingExpense, nextExpense),
+      });
+
+      return nextExpense;
     });
 
     return NextResponse.json(serializeExpense(updatedExpense));
@@ -130,7 +224,12 @@ export async function DELETE(
         id,
         companyId: currentUser.companyId || "multicell-oficial",
       },
-      select: { id: true },
+      select: {
+        id: true,
+        description: true,
+        amount: true,
+        dueDate: true,
+      },
     });
 
     if (!existingExpense) {
@@ -140,8 +239,20 @@ export async function DELETE(
       );
     }
 
-    await prisma.expense.delete({
-      where: { id: existingExpense.id },
+    const actorName = getAuditActorName(currentUser);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.expense.delete({
+        where: { id: existingExpense.id },
+      });
+
+      await createAuditLog(tx, {
+        companyId: currentUser.companyId,
+        userName: actorName,
+        action: "DELETE",
+        tableName: "expenses",
+        description: `${actorName} excluiu a despesa "${existingExpense.description}" de ${formatAuditCurrency(existingExpense.amount)} com vencimento em ${formatAuditDate(existingExpense.dueDate)}.`,
+      });
     });
 
     return NextResponse.json({ success: true });

@@ -22,6 +22,9 @@ export type AuthenticatedUser = {
   birthDate: Date | null;
 };
 
+const normalizeEmail = (value: string | null | undefined) =>
+  String(value || "").trim().toLowerCase();
+
 const logAuth = (label: string, details?: Record<string, unknown>) => {
   console.log(`[Auth] ${label}`, details || {});
 };
@@ -131,3 +134,12 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
 export const isAdminUser = (
   user: Pick<AuthenticatedUser, "role"> | null | undefined,
 ) => user?.role === "ADMIN";
+
+export const getResponsibleEngineerEmail = () =>
+  normalizeEmail(process.env.ADMIN_EMAIL) || "admin@multicellsystem.com.br";
+
+export const isResponsibleEngineerUser = (
+  user: Pick<AuthenticatedUser, "email" | "role"> | null | undefined,
+) =>
+  user?.role === "ADMIN" &&
+  normalizeEmail(user?.email) === getResponsibleEngineerEmail();
