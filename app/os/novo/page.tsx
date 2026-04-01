@@ -20,6 +20,41 @@ import { ServiceOrderThermalPrint } from "@/components/ServiceOrderThermalPrint"
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
 
+type CarcacaStatus = "OK" | "RISCOS LEVES" | "AMASSADO";
+
+const createInitialFormData = () => ({
+  customerId: "",
+  clientName: "",
+  clientPhone: "",
+  clientDocument: "",
+  deviceModel: "",
+  deviceBrand: "",
+  imei: "",
+  passcode: "",
+  clientReport: "",
+  totalPrice: "",
+  checklist: {
+    physical: {
+      riscos: false,
+      trincas: false,
+      marcasQueda: false,
+      faltaParafusos: false,
+      marcasUmidade: false,
+      carcacaStatus: "OK" as CarcacaStatus,
+      observations: "",
+    },
+    tests: {
+      liga: "SIM",
+      touch: "OK",
+      cameras: "OK",
+      wifi: "OK",
+      som: "OK",
+      carregamento: "OK",
+      biometria: "NÃO TESTADO",
+    },
+  },
+});
+
 function OrderServiceForm() {
   const searchParams = useSearchParams();
   const [isSaving, setIsSaving] = useState(false);
@@ -28,37 +63,7 @@ function OrderServiceForm() {
   const printRef = useRef<HTMLDivElement>(null);
   const thermalPrintRef = useRef<HTMLDivElement>(null);
 
-  const [formData, setFormData] = useState({
-    customerId: "",
-    clientName: "",
-    clientPhone: "",
-    clientDocument: "",
-    deviceModel: "",
-    deviceBrand: "",
-    imei: "",
-    passcode: "",
-    clientReport: "",
-    totalPrice: "",
-    checklist: {
-      physical: {
-        riscos: false,
-        trincas: false,
-        marcasQueda: false,
-        faltaParafusos: false,
-        marcasUmidade: false,
-        observations: "", // New field
-      },
-      tests: {
-        liga: "SIM", // Changed to string/select
-        touch: "OK",
-        cameras: "OK",
-        wifi: "OK",
-        som: "OK",
-        carregamento: "OK",
-        biometria: "NÃO TESTADO",
-      },
-    },
-  });
+  const [formData, setFormData] = useState(createInitialFormData);
 
   // Effect to populate form data from URL params (ID or Direct Data)
   React.useEffect(() => {
@@ -237,10 +242,7 @@ function OrderServiceForm() {
                     liga: successData.checklist?.tests?.liga || "N/A",
                     tela: successData.checklist?.tests?.touch || "N/A",
                     carcaca:
-                      successData.checklist?.physical?.observations ||
-                      (successData.checklist?.physical?.riscos
-                        ? "COM RISCOS"
-                        : "OK"),
+                      successData.checklist?.physical?.carcacaStatus || "OK",
                   }}
                 />
               </div>
@@ -256,37 +258,7 @@ function OrderServiceForm() {
               <button
                 onClick={() => {
                   setSuccessData(null);
-                  setFormData({
-                    customerId: "",
-                    clientName: "",
-                    clientPhone: "",
-                    clientDocument: "",
-                    deviceModel: "",
-                    deviceBrand: "",
-                    imei: "",
-                    passcode: "",
-                    clientReport: "",
-                    totalPrice: "",
-                    checklist: {
-                      physical: {
-                        riscos: false,
-                        trincas: false,
-                        marcasQueda: false,
-                        faltaParafusos: false,
-                        marcasUmidade: false,
-                        observations: "",
-                      },
-                      tests: {
-                        liga: "SIM",
-                        touch: "OK",
-                        cameras: "OK",
-                        wifi: "OK",
-                        som: "OK",
-                        carregamento: "OK",
-                        biometria: "NÃO TESTADO",
-                      },
-                    },
-                  });
+                  setFormData(createInitialFormData());
                 }}
                 className="w-full text-slate-400 hover:text-white pt-2 text-sm"
               >
@@ -690,20 +662,14 @@ function OrderServiceForm() {
                       Estado da Carcaça
                     </span>
                     <div className="flex gap-2">
-                      {["OK", "RISCOS LEVES", "AMASSADO"].map((opt) => (
+                      {(["OK", "RISCOS LEVES", "AMASSADO"] as CarcacaStatus[]).map((opt) => (
                         <div
                           key={opt}
                           onClick={() =>
-                            handleChecklistChange(
-                              "physical",
-                              "riscos",
-                              opt === "RISCOS LEVES" || opt === "AMASSADO",
-                            )
+                            handleChecklistChange("physical", "carcacaStatus", opt)
                           }
                           className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border transition-colors ${
-                            (opt === "OK" &&
-                              !formData.checklist.physical.riscos) ||
-                            (opt !== "OK" && formData.checklist.physical.riscos)
+                            formData.checklist.physical.carcacaStatus === opt
                               ? "bg-amber-400 text-black border-amber-400 hover:bg-amber-500"
                               : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
                           }`}
