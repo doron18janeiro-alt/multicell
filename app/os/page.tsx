@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Search, Plus, FileText } from "lucide-react";
+import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function ServiceOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/os");
       const data = await res.json();
@@ -23,7 +22,47 @@ export default function ServiceOrders() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const scheduleRefresh = () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        void fetchOrders();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel("service_orders_updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "os" },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+
+      void channel.unsubscribe();
+    };
+  }, [fetchOrders]);
 
   const filteredOrders = orders.filter(
     (os) =>
@@ -140,12 +179,32 @@ export default function ServiceOrders() {
                         : "A verificar"}
                     </td>
                     <td className="p-4 text-right">
-                      <Link
-                        href={`/os/${os.id}`}
-                        className="text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors"
-                      >
-                        Detalhes
-                      </Link>
+                      <div className="flex justify-end gap-2">
+                        <div className="w-[190px]">
+                          <WhatsAppNotificationButton
+                            clientName={os.customer?.name || os.clientName || ""}
+                            clientPhone={os.customer?.phone || os.clientPhone || ""}
+                            deviceBrand={os.deviceBrand}
+                            deviceModel={os.deviceModel}
+                            problem={os.problem}
+                            status={os.status}
+                            osId={os.id}
+                            totalPrice={os.totalPrice}
+                            checklist={{
+                              liga: os.checklist?.tests?.liga,
+                              tela: os.checklist?.tests?.touch,
+                              carcaca: os.checklist?.physical?.carcacaStatus,
+                            }}
+                            className="px-3 py-2 text-sm"
+                          />
+                        </div>
+                        <Link
+                          href={`/os/${os.id}`}
+                          className="inline-flex items-center text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors"
+                        >
+                          Detalhes
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))

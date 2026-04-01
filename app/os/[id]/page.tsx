@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -34,6 +34,7 @@ export default function OrderDetails() {
 
   const [os, setOs] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -42,13 +43,7 @@ export default function OrderDetails() {
   const [partsCost, setPartsCost] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchOrder();
-    }
-  }, [id]);
-
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       const res = await fetch(`/api/os/${id}`);
       if (!res.ok) throw new Error("Falha ao carregar");
@@ -60,7 +55,58 @@ export default function OrderDetails() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (id) {
+      void fetchOrder();
+    }
+  }, [fetchOrder, id]);
+
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const scheduleRefresh = () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        void fetchOrder();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel(`service_order_${id}_updates`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "os",
+          filter: `id=eq.${id}`,
+        },
+        scheduleRefresh,
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+
+      void channel.unsubscribe();
+    };
+  }, [fetchOrder, id]);
 
   const handleFinalizar = () => {
     setFinalPrice(os.totalPrice?.toString() || "0");
@@ -238,6 +284,11 @@ export default function OrderDetails() {
                 status={os.status}
                 osId={os.id}
                 totalPrice={os.totalPrice}
+                checklist={{
+                  liga: os.checklist?.tests?.liga,
+                  tela: os.checklist?.tests?.touch,
+                  carcaca: os.checklist?.physical?.carcacaStatus,
+                }}
               />
             </div>
           </div>
