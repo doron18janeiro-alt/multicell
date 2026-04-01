@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -19,6 +19,7 @@ import { WeeklyRevenueChart } from "@/components/WeeklyRevenueChart";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
 import { PaymentMethodsChart } from "@/components/ReportsCharts";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getDailyProfit,
   getWeeklyEvolution,
@@ -135,6 +136,9 @@ const StatCard = ({
 function DashboardContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    "connecting" | "active" | "inactive"
+  >("connecting");
   const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
   const [trialStatus, setTrialStatus] = useState<{
     subscriptionStatus: string;
@@ -173,11 +177,17 @@ function DashboardContent() {
     count: 0,
     items: [],
   });
+  const realtimeRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  useEffect(() => {
-    const loadDashboard = async () => {
+  const loadDashboard = useCallback(
+    async ({ showLoading = true }: { showLoading?: boolean } = {}) => {
       try {
-        setLoading(true);
+        if (showLoading) {
+          setLoading(true);
+        }
+
         const sessionResponse = await fetch("/api/auth/session", {
           cache: "no-store",
         });
@@ -262,12 +272,82 @@ function DashboardContent() {
       } catch (error) {
         console.error("[Dashboard] Error:", error);
       } finally {
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       }
+    },
+    [dateRange.endDate, dateRange.startDate],
+  );
+
+  useEffect(() => {
+    void loadDashboard();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setRealtimeStatus("inactive");
+      return;
+    }
+
+    const scheduleDashboardRefresh = () => {
+      if (realtimeRefreshTimeoutRef.current) {
+        clearTimeout(realtimeRefreshTimeoutRef.current);
+      }
+
+      realtimeRefreshTimeoutRef.current = setTimeout(() => {
+        void loadDashboard({ showLoading: false });
+      }, 350);
     };
 
-    loadDashboard();
-  }, [dateRange.startDate, dateRange.endDate]);
+    setRealtimeStatus("connecting");
+
+    const channel = supabase
+      .channel("dashboard_updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sales" },
+        scheduleDashboardRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "expenses" },
+        scheduleDashboardRefresh,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "os" },
+        scheduleDashboardRefresh,
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeStatus("active");
+          return;
+        }
+
+        if (
+          status === "CHANNEL_ERROR" ||
+          status === "TIMED_OUT" ||
+          status === "CLOSED"
+        ) {
+          setRealtimeStatus("inactive");
+          return;
+        }
+
+        setRealtimeStatus("connecting");
+      });
+
+    return () => {
+      if (realtimeRefreshTimeoutRef.current) {
+        clearTimeout(realtimeRefreshTimeoutRef.current);
+        realtimeRefreshTimeoutRef.current = null;
+      }
+
+      void channel.unsubscribe();
+    };
+  }, [loadDashboard]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -308,14 +388,43 @@ function DashboardContent() {
               {formatDate(dateRange.endDate)}
             </p>
           </div>
-          <DateRangePickerGlass
-            startDate={dateRange.startDate}
-            endDate={dateRange.endDate}
-            defaultFromDays={7}
-            onDateRangeChange={(startDate, endDate) =>
-              setDateRange({ startDate, endDate })
-            }
-          />
+          <div className="flex flex-col items-start gap-3 self-start md:items-end">
+            <div
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                realtimeStatus === "active"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                  : realtimeStatus === "connecting"
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                    : "border-slate-700 bg-slate-800/70 text-slate-300"
+              }`}
+            >
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  realtimeStatus === "active"
+                    ? "bg-emerald-400 animate-pulse"
+                    : realtimeStatus === "connecting"
+                      ? "bg-amber-400 animate-pulse"
+                      : "bg-slate-500"
+                }`}
+              />
+              <span>
+                {realtimeStatus === "active"
+                  ? "Realtime Ativo"
+                  : realtimeStatus === "connecting"
+                    ? "Realtime Conectando"
+                    : "Realtime Inativo"}
+              </span>
+            </div>
+
+            <DateRangePickerGlass
+              startDate={dateRange.startDate}
+              endDate={dateRange.endDate}
+              defaultFromDays={7}
+              onDateRangeChange={(startDate, endDate) =>
+                setDateRange({ startDate, endDate })
+              }
+            />
+          </div>
         </div>
 
         {trialStatus?.subscriptionStatus === "unpaid" &&
