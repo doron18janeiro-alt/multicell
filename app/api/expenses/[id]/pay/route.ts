@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { isExpensePaymentMethod } from "@/lib/expenses";
 
 const serializeExpense = (expense: {
@@ -30,9 +30,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await request.json();
@@ -52,7 +56,7 @@ export async function POST(
     const expense = await prisma.expense.findFirst({
       where: {
         id,
-        companyId: session.user.companyId || "multicell-oficial",
+        companyId: currentUser.companyId || "multicell-oficial",
       },
     });
 

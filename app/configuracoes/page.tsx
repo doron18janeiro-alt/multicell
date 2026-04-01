@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { formatCpf } from "@/lib/cpf";
 import Sidebar from "@/components/Sidebar";
 import {
   Settings,
@@ -10,6 +11,9 @@ import {
   Store,
   CreditCard,
   TriangleAlert,
+  Users,
+  UserPlus,
+  Trash2,
 } from "lucide-react";
 
 interface CompanyConfig {
@@ -22,6 +26,15 @@ interface CompanyConfig {
   creditRate: number;
   taxPix: number;
   taxCash: number;
+}
+
+interface TeamMember {
+  id: string;
+  fullName: string;
+  email: string;
+  cpf: string | null;
+  birthDate: string | null;
+  role: "ATTENDANT";
 }
 
 export default function Configuracoes() {
@@ -40,21 +53,23 @@ export default function Configuracoes() {
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamSaving, setTeamSaving] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamForm, setTeamForm] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    cpf: "",
+    birthDate: "",
+    role: "ATTENDANT" as const,
+  });
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
     fetchConfig();
-    fetchUser();
+    fetchTeam();
   }, []);
-
-  const fetchUser = async () => {
-    // Assuming we have an endpoint or we can get it from session/settings?
-    // Since we don't have a dedicated get user endpoint showing email in previous context,
-    // I'll skip fetching the current email for now or assume the user knows it.
-    // Or better, let's fetch it if possible. The session has it.
-    // But client components don't have direct access to server session without props provider.
-    // I'll leave the email field empty for "New Email" to change it, or just showing placeholder.
-  };
 
   const fetchConfig = async () => {
     try {
@@ -148,6 +163,26 @@ export default function Configuracoes() {
     }
   };
 
+  const fetchTeam = async () => {
+    try {
+      setTeamLoading(true);
+      const response = await fetch("/api/team", { cache: "no-store" });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMsg(payload.error || "❌ Erro ao carregar equipe.");
+        return;
+      }
+
+      setTeamMembers(Array.isArray(payload) ? payload : []);
+    } catch (error) {
+      console.error(error);
+      setMsg("❌ Erro ao carregar equipe.");
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
   const handleCancelSubscription = async () => {
     const confirmed = window.confirm(
       "Deseja cancelar sua assinatura agora? O logout sera feito imediatamente.",
@@ -177,6 +212,70 @@ export default function Configuracoes() {
       setMsg("❌ Erro de conexão ao cancelar assinatura.");
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleCreateEmployee = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setTeamSaving(true);
+    setMsg("");
+
+    try {
+      const response = await fetch("/api/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(teamForm),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMsg(payload.error || "❌ Erro ao cadastrar funcionário.");
+        return;
+      }
+
+      setTeamForm({
+        fullName: "",
+        email: "",
+        password: "",
+        cpf: "",
+        birthDate: "",
+        role: "ATTENDANT",
+      });
+      setMsg("✅ Funcionário cadastrado com sucesso!");
+      await fetchTeam();
+    } catch (error) {
+      console.error(error);
+      setMsg("❌ Erro ao cadastrar funcionário.");
+    } finally {
+      setTeamSaving(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (member: TeamMember) => {
+    const confirmed = window.confirm(
+      `Excluir o funcionário ${member.fullName}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/team/${member.id}`, {
+        method: "DELETE",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMsg(payload.error || "❌ Erro ao excluir funcionário.");
+        return;
+      }
+
+      setMsg("✅ Funcionário excluído com sucesso!");
+      await fetchTeam();
+    } catch (error) {
+      console.error(error);
+      setMsg("❌ Erro ao excluir funcionário.");
     }
   };
 
@@ -426,6 +525,185 @@ export default function Configuracoes() {
             )}
           </div>
         </div>
+
+        <section className="mt-8 max-w-6xl bg-[#112240]/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between mb-6 border-b border-slate-700 pb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-[#D4AF37] flex items-center gap-2">
+                <Users size={20} />
+                Gerenciar Equipe
+              </h2>
+              <p className="text-sm text-slate-400 mt-1">
+                Cadastre atendentes com acesso restrito ao atendimento.
+              </p>
+            </div>
+            <span className="text-xs text-slate-500">
+              Proprietário mantém o controle administrativo.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-8">
+            <form onSubmit={handleCreateEmployee} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Nome Completo
+                  </label>
+                  <input
+                    type="text"
+                    value={teamForm.fullName}
+                    onChange={(e) =>
+                      setTeamForm({ ...teamForm, fullName: e.target.value })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    placeholder="Nome do atendente"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    E-mail
+                  </label>
+                  <input
+                    type="email"
+                    value={teamForm.email}
+                    onChange={(e) =>
+                      setTeamForm({ ...teamForm, email: e.target.value })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    placeholder="funcionario@email.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Senha
+                  </label>
+                  <input
+                    type="password"
+                    value={teamForm.password}
+                    onChange={(e) =>
+                      setTeamForm({ ...teamForm, password: e.target.value })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    placeholder="Minimo 6 caracteres"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    CPF
+                  </label>
+                  <input
+                    type="text"
+                    value={teamForm.cpf}
+                    onChange={(e) =>
+                      setTeamForm({
+                        ...teamForm,
+                        cpf: formatCpf(e.target.value),
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    placeholder="000.000.000-00"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Data de Nascimento
+                  </label>
+                  <input
+                    type="date"
+                    value={teamForm.birthDate}
+                    onChange={(e) =>
+                      setTeamForm({ ...teamForm, birthDate: e.target.value })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Função
+                  </label>
+                  <select
+                    value={teamForm.role}
+                    onChange={(e) =>
+                      setTeamForm({
+                        ...teamForm,
+                        role: e.target.value as "ATTENDANT",
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                  >
+                    <option value="ATTENDANT">Atendente</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={teamSaving}
+                className="w-full bg-linear-to-r from-amber-400 to-yellow-500 text-black font-semibold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2"
+              >
+                <UserPlus size={20} />
+                {teamSaving ? "Cadastrando..." : "Cadastrar Funcionário"}
+              </button>
+            </form>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">
+                Funcionários Cadastrados
+              </h3>
+
+              {teamLoading ? (
+                <div className="rounded-xl border border-slate-700 bg-[#0B1120] p-6 text-center text-slate-400">
+                  Carregando equipe...
+                </div>
+              ) : teamMembers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B1120] p-6 text-center text-slate-400">
+                  Nenhum atendente cadastrado.
+                </div>
+              ) : (
+                teamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="rounded-xl border border-slate-700 bg-[#0B1120] p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div>
+                      <p className="font-semibold text-white">
+                        {member.fullName}
+                      </p>
+                      <p className="text-sm text-slate-400">{member.email}</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        CPF: {member.cpf || "--"} | Nascimento:{" "}
+                        {member.birthDate
+                          ? new Date(member.birthDate).toLocaleDateString(
+                              "pt-BR",
+                            )
+                          : "--"}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteEmployee(member)}
+                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-red-300 hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Excluir
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   );

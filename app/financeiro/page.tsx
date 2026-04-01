@@ -8,9 +8,11 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  Pencil,
   Plus,
   Search,
   Store,
+  Trash2,
   User,
   Wallet,
   X,
@@ -78,6 +80,7 @@ export default function FinanceiroPage() {
   const [paying, setPaying] = useState(false);
   const [message, setMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseToPay, setExpenseToPay] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -92,6 +95,17 @@ export default function FinanceiroPage() {
     dueDate: formatExpenseDateInput(new Date()),
     type: "SHOP" as (typeof EXPENSE_TYPES)[number],
   });
+
+  const resetForm = () => {
+    setFormData({
+      category: "OUTROS",
+      description: "",
+      amount: "",
+      dueDate: formatExpenseDateInput(new Date()),
+      type: "SHOP",
+    });
+    setEditingExpense(null);
+  };
 
   const fetchExpenses = async () => {
     try {
@@ -144,39 +158,98 @@ export default function FinanceiroPage() {
       });
   }, [expenses, searchTerm, statusFilter, typeFilter]);
 
-  const handleCreateExpense = async (event: React.FormEvent) => {
+  const handleSaveExpense = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
     setMessage("");
 
     try {
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const isEditing = Boolean(editingExpense);
+      const response = await fetch(
+        isEditing ? `/api/expenses/${editingExpense?.id}` : "/api/expenses",
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        },
+      );
       const payload = await response.json();
 
       if (!response.ok) {
-        setMessage(payload.error || "Erro ao criar despesa.");
+        setMessage(
+          payload.error ||
+            (isEditing
+              ? "Erro ao atualizar despesa."
+              : "Erro ao criar despesa."),
+        );
         return;
       }
 
       setShowCreateModal(false);
-      setFormData({
-        category: "OUTROS",
-        description: "",
-        amount: "",
-        dueDate: formatExpenseDateInput(new Date()),
-        type: "SHOP",
-      });
-      setMessage("Despesa cadastrada com sucesso.");
+      resetForm();
+      setMessage(
+        isEditing
+          ? "Despesa atualizada com sucesso."
+          : "Despesa cadastrada com sucesso.",
+      );
       await fetchExpenses();
     } catch (error) {
       console.error(error);
-      setMessage("Erro ao salvar despesa.");
+      setMessage(
+        editingExpense
+          ? "Erro ao atualizar despesa."
+          : "Erro ao salvar despesa.",
+      );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setFormData({
+      category: expense.category,
+      description: expense.description,
+      amount: String(expense.amount),
+      dueDate: formatExpenseDateInput(expense.dueDate),
+      type: expense.type,
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleDeleteExpense = async (expense: Expense) => {
+    const confirmed = window.confirm(
+      "Tem certeza que deseja apagar esta despesa?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setMessage("");
+
+    try {
+      const response = await fetch(`/api/expenses/${expense.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMessage(payload.error || "Erro ao excluir despesa.");
+        return;
+      }
+
+      if (editingExpense?.id === expense.id) {
+        setShowCreateModal(false);
+        resetForm();
+      }
+
+      setMessage("Despesa excluida com sucesso.");
+      await fetchExpenses();
+    } catch (error) {
+      console.error(error);
+      setMessage("Erro ao excluir despesa.");
     }
   };
 
@@ -239,7 +312,10 @@ export default function FinanceiroPage() {
 
         <button
           type="button"
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowCreateModal(true);
+          }}
           className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] transition-transform hover:scale-[1.01]"
         >
           <Plus className="w-5 h-5" />
@@ -429,22 +505,44 @@ export default function FinanceiroPage() {
                           {formatCurrency(expense.amount)}
                         </p>
 
-                        {expense.status === "PENDING" ? (
+                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                          {expense.status === "PENDING" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpenseToPay(expense);
+                                setPaymentMethod("PIX");
+                              }}
+                              className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                            >
+                              Pagar
+                            </button>
+                          ) : (
+                            <span className="rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-sm font-semibold text-slate-300">
+                              Quitada
+                            </span>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() => {
-                              setExpenseToPay(expense);
-                              setPaymentMethod("PIX");
-                            }}
-                            className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                            onClick={() => handleEditExpense(expense)}
+                            className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-2 text-amber-200 transition-colors hover:bg-amber-400/20"
+                            aria-label={`Editar despesa ${expense.description}`}
+                            title="Editar"
                           >
-                            Pagar
+                            <Pencil className="h-4 w-4" />
                           </button>
-                        ) : (
-                          <span className="rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-sm font-semibold text-slate-300">
-                            Quitada
-                          </span>
-                        )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExpense(expense)}
+                            className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-red-200 transition-colors hover:bg-red-500/20"
+                            aria-label={`Excluir despesa ${expense.description}`}
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -536,22 +634,27 @@ export default function FinanceiroPage() {
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  Nova Despesa
+                  {editingExpense ? "Editar Despesa" : "Nova Despesa"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-400">
-                  Cadastre uma conta da loja ou um gasto pessoal.
+                  {editingExpense
+                    ? "Ajuste os dados da despesa selecionada."
+                    : "Cadastre uma conta da loja ou um gasto pessoal."}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  resetForm();
+                }}
                 className="rounded-xl border border-zinc-700 p-2 text-slate-400 transition-colors hover:border-red-400 hover:text-red-300"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateExpense} className="space-y-5">
+            <form onSubmit={handleSaveExpense} className="space-y-5">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {EXPENSE_TYPES.map((expenseType) => {
                   const active = formData.type === expenseType;
@@ -670,7 +773,10 @@ export default function FinanceiroPage() {
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    resetForm();
+                  }}
                   className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold text-slate-300 transition-colors hover:border-zinc-500"
                 >
                   Cancelar
@@ -680,7 +786,11 @@ export default function FinanceiroPage() {
                   disabled={saving}
                   className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 px-5 py-3 font-bold text-black transition-opacity disabled:opacity-60"
                 >
-                  {saving ? "Salvando..." : "Salvar despesa"}
+                  {saving
+                    ? "Salvando..."
+                    : editingExpense
+                      ? "Salvar alteracoes"
+                      : "Salvar despesa"}
                 </button>
               </div>
             </form>

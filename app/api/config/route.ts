@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    let config = await prisma.companyConfig.findFirst();
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    let config = await prisma.companyConfig.findFirst({
+      where: { companyId: currentUser.companyId },
+    });
 
     if (!config) {
       config = await prisma.companyConfig.create({
         data: {
           name: "Multicell",
+          companyId: currentUser.companyId,
         },
       });
     }
@@ -25,8 +38,19 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const data = await req.json();
-    let config = await prisma.companyConfig.findFirst();
+    let config = await prisma.companyConfig.findFirst({
+      where: { companyId: currentUser.companyId },
+    });
 
     if (config) {
       config = await prisma.companyConfig.update({
@@ -46,6 +70,7 @@ export async function PUT(req: Request) {
     } else {
       config = await prisma.companyConfig.create({
         data: {
+          companyId: currentUser.companyId,
           name: data.name,
           document: data.document,
           phone: data.phone,

@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { cancelCompanySubscription } from "@/lib/subscription";
 import { sendSubscriptionCancelledEmail } from "@/lib/email";
 
 export async function POST() {
   try {
-    const session = await getSession();
+    const currentUser = await getCurrentUser();
 
-    if (!session) {
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId || "multicell-oficial";
-    const email = session.user.email;
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const companyId = currentUser.companyId || "multicell-oficial";
+    const email = currentUser.email;
 
     await cancelCompanySubscription(companyId);
     await sendSubscriptionCancelledEmail({ to: email }).catch((mailError) => {

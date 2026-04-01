@@ -21,6 +21,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<{
+    fullName: string | null;
+    role: "ADMIN" | "ATTENDANT";
+  } | null>(null);
 
   useEffect(() => {
     const checkAlerts = () => {
@@ -33,6 +37,19 @@ export default function Sidebar() {
     checkAlerts();
     const interval = setInterval(checkAlerts, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setCurrentUser({
+          fullName: data.fullName,
+          role: data.role,
+        });
+      })
+      .catch((error) => console.error(error));
   }, []);
 
   const handleLogout = async () => {
@@ -59,6 +76,32 @@ export default function Sidebar() {
     { name: "Configurações", icon: Settings, path: "/configuracoes" },
   ];
 
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (
+      currentUser?.role === "ATTENDANT" &&
+      (
+        item.path === "/financeiro" ||
+        item.path === "/configuracoes" ||
+        item.path === "/relatorios"
+      )
+    ) {
+      return false;
+    }
+
+    if (
+      !currentUser &&
+      (
+        item.path === "/financeiro" ||
+        item.path === "/configuracoes" ||
+        item.path === "/relatorios"
+      )
+    ) {
+      return false;
+    }
+
+    return true;
+  });
+
   return (
     <aside className="w-64 h-screen bg-[#0B1121]/95 backdrop-blur-md border-r border-[#1E293B]/50 flex flex-col fixed left-0 top-0 z-50 shadow-2xl transition-all duration-300">
       {/* Logo Area */}
@@ -75,7 +118,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const isActive =
             pathname === item.path ||
             (item.path !== "/dashboard" && pathname.startsWith(item.path));
@@ -129,10 +172,12 @@ export default function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-white truncate group-hover:text-[#D4AF37] transition-colors">
-              Admin
+              {currentUser?.fullName || "Usuário"}
             </p>
             <p className="text-[10px] text-slate-400 truncate">
-              Multicell System
+              {currentUser?.role === "ATTENDANT"
+                ? "Atendente"
+                : "Administrador"}
             </p>
           </div>
           <button

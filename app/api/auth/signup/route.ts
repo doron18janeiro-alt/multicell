@@ -98,9 +98,11 @@ export async function POST(request: Request) {
       return tx.user.create({
         data: {
           name,
+          fullName: name,
           email,
           cpf,
           birthDate,
+          role: "ADMIN",
           password: hashedPassword,
           companyId,
         },
@@ -112,6 +114,8 @@ export async function POST(request: Request) {
       id: user.id,
       email: user.email,
       companyId,
+      role: user.role,
+      fullName: user.fullName || user.name || null,
     });
 
     cookieStore.set("auth_token", sessionData, {

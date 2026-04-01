@@ -5,7 +5,6 @@ import {
   isExpenseCategory,
   isExpenseType,
   parseBrazilDateInput,
-  isExpenseOverdue,
 } from "@/lib/expenses";
 
 const serializeExpense = (expense: {
@@ -30,7 +29,10 @@ const serializeExpense = (expense: {
   updatedAt: expense.updatedAt.toISOString(),
 });
 
-export async function GET() {
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -41,84 +43,7 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const companyId = currentUser.companyId || "multicell-oficial";
-
-    const [sales, expenses] = await Promise.all([
-      prisma.sale.findMany({
-        where: {
-          companyId,
-          status: "COMPLETED",
-        },
-        select: {
-          netAmount: true,
-          total: true,
-        },
-      }),
-      prisma.expense.findMany({
-        where: { companyId },
-        orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
-      }),
-    ]);
-
-    let totalSales = 0;
-    let shopPaidTotal = 0;
-    let personalPaidTotal = 0;
-    let pendingTotal = 0;
-    let overdueCount = 0;
-
-    sales.forEach((sale) => {
-      totalSales += Number(sale.netAmount ?? sale.total ?? 0);
-    });
-
-    expenses.forEach((expense) => {
-      const amount = Number(expense.amount);
-
-      if (expense.status === "PAID") {
-        if (expense.type === "SHOP") {
-          shopPaidTotal += amount;
-        } else {
-          personalPaidTotal += amount;
-        }
-      } else {
-        pendingTotal += amount;
-
-        if (isExpenseOverdue(expense.dueDate, expense.status)) {
-          overdueCount += 1;
-        }
-      }
-    });
-
-    return NextResponse.json({
-      expenses: expenses.map(serializeExpense),
-      summary: {
-        totalSales,
-        shopPaidTotal,
-        personalPaidTotal,
-        pendingTotal,
-        overdueCount,
-        cashBalance: totalSales - shopPaidTotal,
-      },
-    });
-  } catch (error) {
-    console.error("[expenses][GET] Error:", error);
-    return NextResponse.json(
-      { error: "Erro ao buscar despesas." },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (!isAdminUser(currentUser)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const { id } = await params;
     const body = await request.json();
     const description = String(body.description || "").trim();
     const category = String(body.category || "").trim().toUpperCase();
@@ -149,23 +74,81 @@ export async function POST(request: Request) {
       );
     }
 
-    const expense = await prisma.expense.create({
-      data: {
+    const existingExpense = await prisma.expense.findFirst({
+      where: {
+        id,
         companyId: currentUser.companyId || "multicell-oficial",
+      },
+    });
+
+    if (!existingExpense) {
+      return NextResponse.json(
+        { error: "Despesa nao encontrada." },
+        { status: 404 },
+      );
+    }
+
+    const updatedExpense = await prisma.expense.update({
+      where: { id: existingExpense.id },
+      data: {
         description,
         category,
         type,
         amount,
         dueDate: parsedDueDate,
-        status: "PENDING",
       },
     });
 
-    return NextResponse.json(serializeExpense(expense), { status: 201 });
+    return NextResponse.json(serializeExpense(updatedExpense));
   } catch (error) {
-    console.error("[expenses][POST] Error:", error);
+    console.error("[expenses][PATCH] Error:", error);
     return NextResponse.json(
-      { error: "Erro ao criar despesa." },
+      { error: "Erro ao atualizar despesa." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = await params;
+
+    const existingExpense = await prisma.expense.findFirst({
+      where: {
+        id,
+        companyId: currentUser.companyId || "multicell-oficial",
+      },
+      select: { id: true },
+    });
+
+    if (!existingExpense) {
+      return NextResponse.json(
+        { error: "Despesa nao encontrada." },
+        { status: 404 },
+      );
+    }
+
+    await prisma.expense.delete({
+      where: { id: existingExpense.id },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[expenses][DELETE] Error:", error);
+    return NextResponse.json(
+      { error: "Erro ao excluir despesa." },
       { status: 500 },
     );
   }

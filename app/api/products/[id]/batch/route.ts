@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export async function POST(
   req: Request,
   props: { params: Promise<{ id: string }> },
 ) {
   try {
-    const session = await getSession();
-    if (!session)
+    const currentUser = await getCurrentUser();
+    if (!currentUser)
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const { id } = await props.params; // Correção para Next.js 15+
     const body = await req.json();
@@ -23,7 +27,12 @@ export async function POST(
     }
 
     // 1. Busca dados atuais do produto para o cálculo
-    const currentProduct = await prisma.product.findUnique({ where: { id } });
+    const currentProduct = await prisma.product.findFirst({
+      where: {
+        id,
+        companyId: currentUser.companyId,
+      },
+    });
     if (!currentProduct)
       return NextResponse.json(
         { error: "Produto não encontrado" },

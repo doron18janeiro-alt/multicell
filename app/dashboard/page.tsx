@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   DollarSign,
   TrendingUp,
@@ -129,7 +130,9 @@ const StatCard = ({
 };
 
 export default function Dashboard() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
   const [trialStatus, setTrialStatus] = useState<{
     subscriptionStatus: string;
     daysRemaining: number;
@@ -172,6 +175,48 @@ export default function Dashboard() {
     const loadDashboard = async () => {
       try {
         setLoading(true);
+        const sessionResponse = await fetch("/api/auth/session", {
+          cache: "no-store",
+        });
+        const sessionData = sessionResponse.ok
+          ? await sessionResponse.json()
+          : null;
+        const role = sessionData?.role === "ATTENDANT" ? "ATTENDANT" : "ADMIN";
+        setUserRole(role);
+
+        if (role === "ATTENDANT") {
+          const [criticalData, totalItemsData, subscriptionResponse] =
+            await Promise.all([
+              getCriticalStockAlerts(),
+              getTotalStockItems(),
+              fetch("/api/subscription/status", { cache: "no-store" }),
+            ]);
+
+          setCriticalAlerts(criticalData);
+          setTotalItems(totalItemsData);
+          setDailyProfit({ value: 0, formatted: "R$ 0,00", itemsCount: 0 });
+          setWeeklyEvolution([]);
+          setStockValue(0);
+          setPaymentMethods([]);
+          setCashBalance({
+            cashBalance: 0,
+            totalSales: 0,
+            shopExpenses: 0,
+          });
+          setExpenseBreakdown({ shop: 0, personal: 0 });
+
+          if (subscriptionResponse.ok) {
+            const subscriptionData = await subscriptionResponse.json();
+            setTrialStatus({
+              subscriptionStatus: subscriptionData.subscriptionStatus,
+              daysRemaining: subscriptionData.daysRemaining,
+              isTrialActive: subscriptionData.isTrialActive,
+            });
+          }
+
+          return;
+        }
+
         const [
           profitData,
           evolutionData,
@@ -238,6 +283,14 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0B1120] p-6 space-y-8 animate-in fade-in duration-500">
+      {searchParams.get("access") === "denied" && (
+        <div className="rounded-2xl border border-red-500/35 bg-red-500/10 px-5 py-4 text-red-100">
+          <p className="text-sm font-semibold">
+            Acesso negado. Esta area e restrita ao administrador.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -271,130 +324,161 @@ export default function Dashboard() {
           </div>
         )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard
-          title="💰 Lucro do Período"
-          value={dailyProfit.formatted}
-          subtitle={`${dailyProfit.itemsCount} transações`}
-          icon={DollarSign}
-          type="profit"
-        />
-        <StatCard
-          title="📈 Evolução do Período"
-          value={formatCurrency(
-            weeklyEvolution.reduce((acc, point) => acc + point.lucro, 0),
-          )}
-          subtitle="Lucro acumulado"
-          icon={TrendingUp}
-          type="profit"
-        />
-        <StatCard
-          title="📅 Ticket de Lucro Médio"
-          value={formatCurrency(
-            dailyProfit.itemsCount > 0
-              ? dailyProfit.value / dailyProfit.itemsCount
-              : 0,
-          )}
-          subtitle="Lucro médio por transação"
-          icon={CalendarCheck}
-          type="profit"
-        />
-        <StatCard
-          title="💼 Saldo em Caixa"
-          value={formatCurrency(cashBalance.cashBalance)}
-          subtitle={`${formatCurrency(cashBalance.totalSales)} em vendas - ${formatCurrency(cashBalance.shopExpenses)} em despesas da loja`}
-          icon={Wallet}
-          type="profit"
-        />
-
-        <StatCard
-          title="📦 Valor de Estoque"
-          value={formatCurrency(stockValue)}
-          subtitle="Custo total investido"
-          icon={Package}
-          type="stock"
-        />
-        <StatCard
-          title="📊 Total de Itens"
-          value={totalItems}
-          subtitle="Unidades físicas em estoque"
-          icon={Layers}
-          type="stock"
-        />
-        <StatCard
-          title="🚨 Itens Críticos"
-          value={criticalAlerts.count}
-          subtitle="Stock baixo/crítico"
-          icon={AlertTriangle}
-          type="stock"
-          alertCount={criticalAlerts.count}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <WeeklyRevenueChart data={weeklyEvolution} loading={false} />
-        <PaymentMethodsChart data={paymentMethods} />
-      </div>
-
-      <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-6 backdrop-blur-md">
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white">
-              Gastos Loja vs Gastos Pessoais
-            </h3>
-            <p className="text-sm text-slate-400">
-              Comparativo de despesas pagas no periodo selecionado.
-            </p>
-          </div>
-          <p className="text-sm text-slate-500">
-            Total pago: {formatCurrency(totalPaidExpenses)}
-          </p>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-2xl border border-amber-500/20 bg-[#0B1120]/70 p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-amber-200">
-                <Store className="w-4 h-4 text-amber-400" />
-                Despesas da Loja
-              </span>
-              <span className="text-sm font-semibold text-white">
-                {shopPercent.toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-500"
-                style={{ width: `${shopPercent}%` }}
-              />
-            </div>
-            <p className="mt-3 text-sm text-slate-400">
-              {formatCurrency(expenseBreakdown.shop)}
+      {userRole === "ATTENDANT" ? (
+        <>
+          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-cyan-100">
+            <p className="text-sm font-semibold">
+              Visão operacional ativa. Custos, lucros e despesas ficam visíveis
+              apenas para o administrador.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-cyan-500/20 bg-[#0B1120]/70 p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200">
-                <User className="w-4 h-4 text-cyan-400" />
-                Despesas Pessoais
-              </span>
-              <span className="text-sm font-semibold text-white">
-                {personalPercent.toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
-                style={{ width: `${personalPercent}%` }}
-              />
-            </div>
-            <p className="mt-3 text-sm text-slate-400">
-              {formatCurrency(expenseBreakdown.personal)}
-            </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <StatCard
+              title="📊 Total de Itens"
+              value={totalItems}
+              subtitle="Unidades físicas em estoque"
+              icon={Layers}
+              type="stock"
+            />
+            <StatCard
+              title="🚨 Itens Críticos"
+              value={criticalAlerts.count}
+              subtitle="Estoque baixo ou crítico"
+              icon={AlertTriangle}
+              type="stock"
+              alertCount={criticalAlerts.count}
+            />
           </div>
-        </div>
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StatCard
+              title="💰 Lucro do Período"
+              value={dailyProfit.formatted}
+              subtitle={`${dailyProfit.itemsCount} transações`}
+              icon={DollarSign}
+              type="profit"
+            />
+            <StatCard
+              title="📈 Evolução do Período"
+              value={formatCurrency(
+                weeklyEvolution.reduce((acc, point) => acc + point.lucro, 0),
+              )}
+              subtitle="Lucro acumulado"
+              icon={TrendingUp}
+              type="profit"
+            />
+            <StatCard
+              title="📅 Ticket de Lucro Médio"
+              value={formatCurrency(
+                dailyProfit.itemsCount > 0
+                  ? dailyProfit.value / dailyProfit.itemsCount
+                  : 0,
+              )}
+              subtitle="Lucro médio por transação"
+              icon={CalendarCheck}
+              type="profit"
+            />
+            <StatCard
+              title="💼 Saldo em Caixa"
+              value={formatCurrency(cashBalance.cashBalance)}
+              subtitle={`${formatCurrency(cashBalance.totalSales)} em vendas - ${formatCurrency(cashBalance.shopExpenses)} em despesas da loja`}
+              icon={Wallet}
+              type="profit"
+            />
+
+            <StatCard
+              title="📦 Valor de Estoque"
+              value={formatCurrency(stockValue)}
+              subtitle="Custo total investido"
+              icon={Package}
+              type="stock"
+            />
+            <StatCard
+              title="📊 Total de Itens"
+              value={totalItems}
+              subtitle="Unidades físicas em estoque"
+              icon={Layers}
+              type="stock"
+            />
+            <StatCard
+              title="🚨 Itens Críticos"
+              value={criticalAlerts.count}
+              subtitle="Stock baixo/crítico"
+              icon={AlertTriangle}
+              type="stock"
+              alertCount={criticalAlerts.count}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <WeeklyRevenueChart data={weeklyEvolution} loading={false} />
+            <PaymentMethodsChart data={paymentMethods} />
+          </div>
+
+          <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-6 backdrop-blur-md">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  Gastos Loja vs Gastos Pessoais
+                </h3>
+                <p className="text-sm text-slate-400">
+                  Comparativo de despesas pagas no periodo selecionado.
+                </p>
+              </div>
+              <p className="text-sm text-slate-500">
+                Total pago: {formatCurrency(totalPaidExpenses)}
+              </p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-2xl border border-amber-500/20 bg-[#0B1120]/70 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-amber-200">
+                    <Store className="w-4 h-4 text-amber-400" />
+                    Despesas da Loja
+                  </span>
+                  <span className="text-sm font-semibold text-white">
+                    {shopPercent.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-500"
+                    style={{ width: `${shopPercent}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-sm text-slate-400">
+                  {formatCurrency(expenseBreakdown.shop)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-500/20 bg-[#0B1120]/70 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200">
+                    <User className="w-4 h-4 text-cyan-400" />
+                    Despesas Pessoais
+                  </span>
+                  <span className="text-sm font-semibold text-white">
+                    {personalPercent.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                    style={{ width: `${personalPercent}%` }}
+                  />
+                </div>
+                <p className="mt-3 text-sm text-slate-400">
+                  {formatCurrency(expenseBreakdown.personal)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {criticalAlerts.count > 0 && (
         <div className="bg-linear-to-r from-red-950/50 to-orange-950/50 backdrop-blur-md rounded-2xl border border-red-700/30 p-6 shadow-lg">

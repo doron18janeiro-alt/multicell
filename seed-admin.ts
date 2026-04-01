@@ -60,11 +60,16 @@
     await prisma.user.upsert({
       where: { email: adminEmail },
       update: {
+        name: "Administrador",
+        fullName: "Administrador",
+        role: "ADMIN",
         password: hashedPassword,
         companyId: "multicell-oficial",
       },
       create: {
         name: "Administrador",
+        fullName: "Administrador",
+        role: "ADMIN",
         email: adminEmail,
         password: hashedPassword,
         companyId: "multicell-oficial",
@@ -75,11 +80,16 @@
       await prisma.user.upsert({
         where: { email: secondaryEmail },
         update: {
+          name: "Administrador",
+          fullName: "Administrador",
+          role: "ADMIN",
           password: hashedPassword,
           companyId: "multicell-oficial",
         },
         create: {
           name: "Administrador",
+          fullName: "Administrador",
+          role: "ADMIN",
           email: secondaryEmail,
           password: hashedPassword,
           companyId: "multicell-oficial",

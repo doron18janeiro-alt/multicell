@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Assinatura cancelada. Para voltar ao ecossistema, realize um novo pagamento.",
+            "Assinatura cancelada. Realize um novo pagamento para reativar seu acesso.",
         },
         { status: 403 },
       );
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
       id: user.id, // Add ID to session
       email: user.email,
       companyId: companyId,
+      role: user.role,
+      fullName: user.fullName || user.name || null,
     });
 
     cookieStore.set("auth_token", sessionData, {

@@ -35,6 +35,7 @@ export default function Estoque() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("TODOS");
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -71,6 +72,10 @@ export default function Estoque() {
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setUserRole(data?.role || null))
+      .catch((error) => console.error(error));
   }, []);
 
   const fetchSuppliers = async () => {
@@ -295,6 +300,13 @@ export default function Estoque() {
     <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
       <Sidebar />
       <main className="flex-1 p-8">
+        {userRole === "ATTENDANT" && (
+          <div className="mb-6 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100">
+            Modo leitura ativo. Atendentes podem consultar o estoque, mas não
+            podem alterar produtos.
+          </div>
+        )}
+
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <Package className="text-[#FFD700]" />
@@ -308,32 +320,36 @@ export default function Estoque() {
               <Download className="w-5 h-5" />
               Exportar
             </button>
-            <button
-              onClick={() => setShowSupplierForm(true)}
-              className="bg-[#112240] text-white border border-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-[#1e293b] transition-colors flex items-center gap-2"
-            >
-              <Truck className="w-5 h-5" />
-              Fornecedores
-            </button>
-            <button
-              onClick={() => {
-                setEditingId(null);
-                setFormData({
-                  name: "",
-                  price: "",
-                  costPrice: "",
-                  stockQuantity: "",
-                  minQuantity: "2",
-                  category: "PECA",
-                  supplierId: "",
-                });
-                setShowForm(true);
-              }}
-              className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              Novo Produto
-            </button>
+            {userRole !== "ATTENDANT" && (
+              <>
+                <button
+                  onClick={() => setShowSupplierForm(true)}
+                  className="bg-[#112240] text-white border border-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-[#1e293b] transition-colors flex items-center gap-2"
+                >
+                  <Truck className="w-5 h-5" />
+                  Fornecedores
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingId(null);
+                    setFormData({
+                      name: "",
+                      price: "",
+                      costPrice: "",
+                      stockQuantity: "",
+                      minQuantity: "2",
+                      category: "PECA",
+                      supplierId: "",
+                    });
+                    setShowForm(true);
+                  }}
+                  className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Novo Produto
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -372,7 +388,9 @@ export default function Estoque() {
                 <th className="p-4">Preço Venda</th>
                 <th className="p-4">Estoque</th>
                 <th className="p-4">Status</th>
-                <th className="p-4">Ações</th>
+                <th className="p-4">
+                  {userRole === "ATTENDANT" ? "Modo" : "Ações"}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -428,27 +446,35 @@ export default function Estoque() {
                       )}
                     </td>
                     <td className="p-4 flex gap-2">
-                      <button
-                        onClick={() => handleOpenBatchModal(product)}
-                        className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
-                        title="Nova Remessa"
-                      >
-                        <Plus className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      {userRole === "ATTENDANT" ? (
+                        <span className="text-xs font-semibold text-slate-500">
+                          Somente leitura
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => handleOpenBatchModal(product)}
+                            className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
+                            title="Nova Remessa"
+                          >
+                            <Plus className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(product)}
+                            className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))

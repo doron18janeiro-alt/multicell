@@ -5,6 +5,7 @@ import { shouldBlockSubscriptionAccess } from "@/lib/billing-mode";
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get("auth_token");
   const { pathname } = request.nextUrl;
+  const adminOnlyPages = ["/financeiro", "/configuracoes", "/relatorios"];
 
   // Rotas públicas
   if (
@@ -23,6 +24,35 @@ export async function proxy(request: NextRequest) {
   // Redireciona para o login se não houver token
   if (!token) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  try {
+    const sessionResponse = await fetch(new URL("/api/auth/session", request.url), {
+      method: "GET",
+      headers: {
+        cookie: request.headers.get("cookie") || "",
+      },
+      cache: "no-store",
+    });
+
+    if (sessionResponse.status === 401) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    if (sessionResponse.ok) {
+      const session = await sessionResponse.json();
+      const isAdminOnlyPage = adminOnlyPages.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`),
+      );
+
+      if (session.role === "ATTENDANT" && isAdminOnlyPage) {
+        return NextResponse.redirect(
+          new URL("/dashboard?access=denied", request.url),
+        );
+      }
+    }
+  } catch (error) {
+    console.error("[proxy] Falha ao validar sessao:", error);
   }
 
   // Escudo de assinatura: bloqueia acesso ao dashboard sem assinatura ativa
