@@ -29,8 +29,18 @@ export default function Sidebar() {
   useEffect(() => {
     const checkAlerts = () => {
       fetch("/api/stock/alerts")
-        .then((res) => res.json())
-        .then((data) => setAlertCount(data.count))
+        .then(async (res) => {
+          if (!res.ok) {
+            setAlertCount(0);
+            return null;
+          }
+
+          return res.json();
+        })
+        .then((data) => {
+          if (!data) return;
+          setAlertCount(Number(data.count || 0));
+        })
         .catch((err) => console.error(err));
     };
 

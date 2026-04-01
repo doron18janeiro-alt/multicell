@@ -22,14 +22,27 @@ export type AuthenticatedUser = {
   birthDate: Date | null;
 };
 
+const logAuth = (label: string, details?: Record<string, unknown>) => {
+  console.log(`[Auth] ${label}`, details || {});
+};
+
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
   const token = cookieStore.get("auth_token");
 
-  if (!token) return null;
+  if (!token) {
+    logAuth("No auth token");
+    return null;
+  }
 
   try {
     const sessionData = JSON.parse(token.value);
+    logAuth("Session parsed", {
+      id: sessionData.id || null,
+      email: sessionData.email || null,
+      companyId: sessionData.companyId || null,
+      role: sessionData.role || null,
+    });
     return {
       user: {
         id: sessionData.id, // Try to get ID from token
@@ -40,6 +53,9 @@ export async function getSession(): Promise<Session> {
       },
     };
   } catch (e) {
+    logAuth("Session parse failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
     return null;
   }
 }
@@ -62,18 +78,43 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     birthDate: true,
   } as const;
 
-  const user = session.user.id
+  const userById = session.user.id
     ? await prisma.user.findUnique({
         where: { id: session.user.id },
         select: baseSelect,
       })
-    : await prisma.user.findUnique({
-        where: { email: session.user.email },
-        select: baseSelect,
-      });
+    : null;
+
+  if (userById) {
+    logAuth("Current user resolved by id", {
+      id: userById.id,
+      email: userById.email,
+      role: userById.role,
+    });
+  }
+
+  const user =
+    userById ||
+    (await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: baseSelect,
+    }));
 
   if (!user) {
+    logAuth("Current user not found", {
+      sessionId: session.user.id || null,
+      sessionEmail: session.user.email,
+    });
     return null;
+  }
+
+  if (!userById && session.user.id) {
+    logAuth("Current user resolved by email fallback", {
+      previousId: session.user.id,
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    });
   }
 
   return {

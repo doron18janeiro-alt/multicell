@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session)
+    const currentUser = await getCurrentUser();
+    if (!currentUser)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const companyId = session.user.companyId;
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const companyId = currentUser.companyId;
 
     // Fetch all daily closings descending (newest first)
     const closings = await prisma.dailyClosing.findMany({

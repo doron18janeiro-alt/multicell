@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getCompanySubscriptionState } from "@/lib/subscription";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId || "multicell-oficial";
+    const companyId = currentUser.companyId || "multicell-oficial";
     const subscription = await getCompanySubscriptionState(companyId);
 
     return NextResponse.json({

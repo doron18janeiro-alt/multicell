@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const companyId = session.user.companyId;
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const companyId = currentUser.companyId;
 
     // Ajuste de Fuso Horário (Brasil UTC-3)
     const brazilOffset = -3; // UTC-3
@@ -79,7 +82,9 @@ export async function GET() {
       },
     });
 
-    const config = await prisma.companyConfig.findFirst();
+    const config = await prisma.companyConfig.findFirst({
+      where: { companyId },
+    });
 
     return NextResponse.json({
       totalCash: totalCash || 0,

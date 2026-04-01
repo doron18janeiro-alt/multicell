@@ -6,8 +6,11 @@ export async function GET() {
     const user = await getCurrentUser();
 
     if (!user) {
+      console.log("[Auth Session] Check:", null, "/api/auth/session", false);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    console.log("[Auth Session] Check:", user.role, "/api/auth/session", true);
 
     return NextResponse.json({
       id: user.id,

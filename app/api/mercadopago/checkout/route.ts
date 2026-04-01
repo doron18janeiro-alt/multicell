@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { ensureCompanySubscription } from "@/lib/subscription";
 import {
   mercadoPagoRequest,
@@ -33,12 +33,16 @@ const extractCheckoutUrl = (payload: any) =>
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId || "multicell-oficial";
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const companyId = currentUser.companyId || "multicell-oficial";
     await ensureCompanySubscription(companyId);
 
     const { plan } = (await request.json()) as { plan?: PlanType };
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
         reason: "Multicell SaaS - Plano Mensal",
         external_reference: externalReference,
         metadata: getMetadata(companyId, plan),
-        payer_email: session.user.email,
+        payer_email: currentUser.email,
         auto_recurring: {
           free_trial: {
             frequency: MONTHLY_TRIAL_DAYS,
@@ -110,10 +114,10 @@ export async function POST(request: Request) {
       ],
       metadata: {
         ...getMetadata(companyId, plan),
-        payer_email: session.user.email,
+        payer_email: currentUser.email,
       },
       payer: {
-        email: session.user.email,
+        email: currentUser.email,
       },
       external_reference: externalReference,
       notification_url: notificationUrl,

@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    // Allow access without session for testing or internal dashboard if needed,
-    // but preferably protect it. For now, strictly following prompt about companyId
-    // implies a session exists, but we can be safe.
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Fallback companyId logic
-    const companyId = session?.user?.companyId || "multicell-oficial";
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const companyId = currentUser.companyId || "multicell-oficial";
 
     // 1. Fetch ALL Completed Sales
     let sales = await prisma.sale.findMany({
@@ -29,23 +32,6 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
     });
-
-    // Fallback Bruto: Se não achou com companyId, traz TUDO que for COMPLETED
-    if (sales.length === 0) {
-      sales = await prisma.sale.findMany({
-        where: {
-          status: "COMPLETED",
-        },
-        include: {
-          items: {
-            include: {
-              product: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-    }
 
     // 2. Aggregation Structures
     const productStats: Record<

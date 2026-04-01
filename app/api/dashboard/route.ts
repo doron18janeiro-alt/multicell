@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser, isAdminUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. FILTRO DE SEGURANÇA FLEXÍVEL
-    const companyId = session.user.companyId || "multicell-oficial";
+    if (!isAdminUser(currentUser)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const companyId = currentUser.companyId || "multicell-oficial";
 
     // 2. LÓGICA DE DATA REFERENCIAL (BRASÍLIA -3h)
     const now = new Date();
@@ -38,21 +41,6 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' }
     });
-
-    // 4. BUSCA SEM ERRO (FALLBACK GLOBAL - EMERGÊNCIA)
-    // Se não achou nada com o ID, tenta busca global para garantir números
-    if (sales.length === 0) {
-        sales = await prisma.sale.findMany({
-            where: {
-                status: "COMPLETED",
-                createdAt: { gte: startOfScope }
-            },
-            include: {
-                items: { include: { product: true } },
-            },
-            orderBy: { createdAt: 'desc' }
-        });
-    }
 
     // --- CÁLCULO DE LUCRO ---
     const calculateProfit = (salesList: typeof sales) => {

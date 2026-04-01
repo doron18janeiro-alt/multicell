@@ -2,20 +2,45 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { shouldBlockSubscriptionAccess } from "@/lib/billing-mode";
 
+const PUBLIC_PATHS = [
+  "/login",
+  "/cadastro",
+  "/recuperar",
+  "/checkout",
+  "/consulta",
+] as const;
+
+const OPERATIONAL_PATHS = [
+  "/dashboard",
+  "/os",
+  "/vendas",
+  "/financeiro",
+  "/relatorios",
+  "/configuracoes",
+  "/estoque",
+  "/clientes",
+] as const;
+
+const ATTENDANT_ALLOWED_PATHS = [
+  "/dashboard",
+  "/os",
+  "/vendas",
+  "/estoque",
+  "/clientes",
+] as const;
+
+const matchesPath = (pathname: string, route: string) =>
+  pathname === route || pathname.startsWith(`${route}/`);
+
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get("auth_token");
   const { pathname } = request.nextUrl;
-  const adminOnlyPages = ["/financeiro", "/configuracoes", "/relatorios"];
 
   // Rotas públicas
   if (
-    pathname === "/login" ||
-    pathname === "/cadastro" ||
-    pathname === "/recuperar" ||
+    PUBLIC_PATHS.some((route) => matchesPath(pathname, route)) ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth/reset-password") ||
-    pathname.startsWith("/checkout") ||
-    pathname.startsWith("/consulta") ||
     pathname.startsWith("/api/auth")
   ) {
     return NextResponse.next();
@@ -26,14 +51,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  let role: string | null = null;
+  let sessionAuthorized = false;
+  const isOperationalPath = OPERATIONAL_PATHS.some((route) =>
+    matchesPath(pathname, route),
+  );
+
   try {
-    const sessionResponse = await fetch(new URL("/api/auth/session", request.url), {
-      method: "GET",
-      headers: {
-        cookie: request.headers.get("cookie") || "",
+    const sessionResponse = await fetch(
+      new URL("/api/auth/session", request.url),
+      {
+        method: "GET",
+        headers: {
+          cookie: request.headers.get("cookie") || "",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    });
+    );
 
     if (sessionResponse.status === 401) {
       return NextResponse.redirect(new URL("/login", request.url));
@@ -41,15 +75,22 @@ export async function proxy(request: NextRequest) {
 
     if (sessionResponse.ok) {
       const session = await sessionResponse.json();
-      const isAdminOnlyPage = adminOnlyPages.some(
-        (route) => pathname === route || pathname.startsWith(`${route}/`),
-      );
+      role = session.role || null;
+      sessionAuthorized =
+        !isOperationalPath ||
+        role === "ADMIN" ||
+        (role === "ATTENDANT" &&
+          ATTENDANT_ALLOWED_PATHS.some((route) => matchesPath(pathname, route)));
 
-      if (session.role === "ATTENDANT" && isAdminOnlyPage) {
+      console.log("[Auth Proxy] Check:", role, pathname, sessionAuthorized);
+
+      if (!sessionAuthorized) {
         return NextResponse.redirect(
           new URL("/dashboard?access=denied", request.url),
         );
       }
+    } else {
+      console.log("[Auth Proxy] Check:", role, pathname, true);
     }
   } catch (error) {
     console.error("[proxy] Falha ao validar sessao:", error);
@@ -69,7 +110,8 @@ export async function proxy(request: NextRequest) {
     );
 
     if (subscriptionResponse.status === 401) {
-      return NextResponse.redirect(new URL("/login", request.url));
+      console.log("[Auth Proxy] Subscription:", role, pathname, "session-mismatch");
+      return NextResponse.next();
     }
 
     if (subscriptionResponse.ok) {
@@ -84,6 +126,12 @@ export async function proxy(request: NextRequest) {
       const mustBlock = shouldBlockSubscriptionAccess({
         subscriptionStatus: subscription.subscriptionStatus,
         isTrialExpired: subscription.isTrialExpired === true,
+      });
+
+      console.log("[Auth Proxy] Subscription:", role, pathname, {
+        status: subscription.subscriptionStatus,
+        isTrialExpired: subscription.isTrialExpired === true,
+        mustBlock,
       });
 
       if (mustBlock) {
