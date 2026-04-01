@@ -16,6 +16,17 @@ interface PaymentMethodSummary {
   percentage: number;
 }
 
+interface CashBalanceSummary {
+  cashBalance: number;
+  totalSales: number;
+  shopExpenses: number;
+}
+
+interface ExpenseBreakdownSummary {
+  shop: number;
+  personal: number;
+}
+
 const BRAZIL_TZ = "America/Sao_Paulo";
 
 const getBrazilDateString = (date: Date) =>
@@ -494,5 +505,120 @@ export async function getMonthlyEvolution(): Promise<
   } catch (error) {
     console.error("[getMonthlyEvolution] Error:", error);
     return [];
+  }
+}
+
+export async function getCashBalanceSummary(
+  startDate?: string,
+  endDate?: string,
+): Promise<CashBalanceSummary> {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+
+    const companyId = session.user.companyId || "multicell-oficial";
+    const range = resolveDateRange(startDate, endDate);
+
+    const [sales, paidShopExpenses] = await Promise.all([
+      prisma.sale.findMany({
+        where: {
+          companyId,
+          status: "COMPLETED",
+          createdAt: {
+            gte: range.start,
+            lte: range.end,
+          },
+        },
+        select: {
+          netAmount: true,
+          total: true,
+        },
+      }),
+      prisma.expense.findMany({
+        where: {
+          companyId,
+          status: "PAID",
+          type: "SHOP",
+          paidAt: {
+            gte: range.start,
+            lte: range.end,
+          },
+        },
+        select: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    const totalSales = sales.reduce(
+      (acc, sale) => acc + Number(sale.netAmount ?? sale.total ?? 0),
+      0,
+    );
+    const shopExpenses = paidShopExpenses.reduce(
+      (acc, expense) => acc + Number(expense.amount || 0),
+      0,
+    );
+
+    return {
+      totalSales,
+      shopExpenses,
+      cashBalance: totalSales - shopExpenses,
+    };
+  } catch (error) {
+    console.error("[getCashBalanceSummary] Error:", error);
+    return {
+      totalSales: 0,
+      shopExpenses: 0,
+      cashBalance: 0,
+    };
+  }
+}
+
+export async function getExpenseBreakdownSummary(
+  startDate?: string,
+  endDate?: string,
+): Promise<ExpenseBreakdownSummary> {
+  try {
+    const session = await getSession();
+    if (!session) throw new Error("Unauthorized");
+
+    const companyId = session.user.companyId || "multicell-oficial";
+    const range = resolveDateRange(startDate, endDate);
+
+    const paidExpenses = await prisma.expense.findMany({
+      where: {
+        companyId,
+        status: "PAID",
+        paidAt: {
+          gte: range.start,
+          lte: range.end,
+        },
+      },
+      select: {
+        amount: true,
+        type: true,
+      },
+    });
+
+    return paidExpenses.reduce(
+      (acc, expense) => {
+        const amount = Number(expense.amount || 0);
+
+        if (expense.type === "SHOP") {
+          acc.shop += amount;
+        } else {
+          acc.personal += amount;
+        }
+
+        return acc;
+      },
+      { shop: 0, personal: 0 },
+    );
+  } catch (error) {
+    console.error("[getExpenseBreakdownSummary] Error:", error);
+    return {
+      shop: 0,
+      personal: 0,
+    };
   }
 }

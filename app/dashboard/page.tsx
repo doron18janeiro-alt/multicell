@@ -9,6 +9,9 @@ import {
   Activity,
   CalendarCheck,
   AlertTriangle,
+  Wallet,
+  Store,
+  User,
 } from "lucide-react";
 import { WeeklyRevenueChart } from "@/components/WeeklyRevenueChart";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
@@ -21,6 +24,8 @@ import {
   getStockValue,
   getTotalStockItems,
   getDashboardPaymentMethods,
+  getCashBalanceSummary,
+  getExpenseBreakdownSummary,
 } from "@/app/actions/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -140,6 +145,15 @@ export default function Dashboard() {
   const [stockValue, setStockValue] = useState(0);
   const [totalItems, setTotalItems] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [cashBalance, setCashBalance] = useState({
+    cashBalance: 0,
+    totalSales: 0,
+    shopExpenses: 0,
+  });
+  const [expenseBreakdown, setExpenseBreakdown] = useState({
+    shop: 0,
+    personal: 0,
+  });
   const [criticalAlerts, setCriticalAlerts] = useState<{
     count: number;
     items: Array<{
@@ -165,6 +179,8 @@ export default function Dashboard() {
           stockValueData,
           totalItemsData,
           paymentData,
+          cashBalanceData,
+          expenseBreakdownData,
           subscriptionResponse,
         ] = await Promise.all([
           getDailyProfit(dateRange.startDate, dateRange.endDate),
@@ -173,6 +189,8 @@ export default function Dashboard() {
           getStockValue(),
           getTotalStockItems(),
           getDashboardPaymentMethods(dateRange.startDate, dateRange.endDate),
+          getCashBalanceSummary(dateRange.startDate, dateRange.endDate),
+          getExpenseBreakdownSummary(dateRange.startDate, dateRange.endDate),
           fetch("/api/subscription/status", { cache: "no-store" }),
         ]);
 
@@ -182,6 +200,8 @@ export default function Dashboard() {
         setStockValue(stockValueData);
         setTotalItems(totalItemsData);
         setPaymentMethods(paymentData);
+        setCashBalance(cashBalanceData);
+        setExpenseBreakdown(expenseBreakdownData);
 
         if (subscriptionResponse.ok) {
           const subscriptionData = await subscriptionResponse.json();
@@ -204,6 +224,17 @@ export default function Dashboard() {
   if (loading) {
     return <DashboardSkeleton />;
   }
+
+  const totalPaidExpenses =
+    expenseBreakdown.shop + expenseBreakdown.personal;
+  const shopPercent =
+    totalPaidExpenses > 0
+      ? (expenseBreakdown.shop / totalPaidExpenses) * 100
+      : 0;
+  const personalPercent =
+    totalPaidExpenses > 0
+      ? (expenseBreakdown.personal / totalPaidExpenses) * 100
+      : 0;
 
   return (
     <div className="min-h-screen bg-[#0B1120] p-6 space-y-8 animate-in fade-in duration-500">
@@ -268,6 +299,13 @@ export default function Dashboard() {
           icon={CalendarCheck}
           type="profit"
         />
+        <StatCard
+          title="💼 Saldo em Caixa"
+          value={formatCurrency(cashBalance.cashBalance)}
+          subtitle={`${formatCurrency(cashBalance.totalSales)} em vendas - ${formatCurrency(cashBalance.shopExpenses)} em despesas da loja`}
+          icon={Wallet}
+          type="profit"
+        />
 
         <StatCard
           title="📦 Valor de Estoque"
@@ -296,6 +334,66 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <WeeklyRevenueChart data={weeklyEvolution} loading={false} />
         <PaymentMethodsChart data={paymentMethods} />
+      </div>
+
+      <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-6 backdrop-blur-md">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-white">
+              Gastos Loja vs Gastos Pessoais
+            </h3>
+            <p className="text-sm text-slate-400">
+              Comparativo de despesas pagas no periodo selecionado.
+            </p>
+          </div>
+          <p className="text-sm text-slate-500">
+            Total pago: {formatCurrency(totalPaidExpenses)}
+          </p>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-amber-500/20 bg-[#0B1120]/70 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-amber-200">
+                <Store className="w-4 h-4 text-amber-400" />
+                Despesas da Loja
+              </span>
+              <span className="text-sm font-semibold text-white">
+                {shopPercent.toFixed(1)}%
+              </span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-500"
+                style={{ width: `${shopPercent}%` }}
+              />
+            </div>
+            <p className="mt-3 text-sm text-slate-400">
+              {formatCurrency(expenseBreakdown.shop)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/20 bg-[#0B1120]/70 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200">
+                <User className="w-4 h-4 text-cyan-400" />
+                Despesas Pessoais
+              </span>
+              <span className="text-sm font-semibold text-white">
+                {personalPercent.toFixed(1)}%
+              </span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                style={{ width: `${personalPercent}%` }}
+              />
+            </div>
+            <p className="mt-3 text-sm text-slate-400">
+              {formatCurrency(expenseBreakdown.personal)}
+            </p>
+          </div>
+        </div>
       </div>
 
       {criticalAlerts.count > 0 && (

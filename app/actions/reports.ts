@@ -14,6 +14,9 @@ export interface ReportMetrics {
     totalCost: number;
     totalProfit: number;
     marginPercent: number;
+    operatingProfit: number;
+    shopExpensesPaid: number;
+    personalExpensesPaid: number;
   };
   ticketMetrics: {
     averageTicket: number;
@@ -135,7 +138,7 @@ export async function getReportMetrics(
     const companyId = session.user.companyId || "multicell-oficial";
     const range = resolveDateRange(startDate, endDate);
 
-    const [sales, serviceOrders, soldItems, paymentMethodsRaw] =
+    const [sales, serviceOrders, soldItems, paymentMethodsRaw, paidExpenses] =
       await Promise.all([
         prisma.sale.findMany({
           where: {
@@ -185,11 +188,25 @@ export async function getReportMetrics(
           _count: true,
           _sum: { netAmount: true, total: true },
         }),
+        prisma.expense.findMany({
+          where: {
+            companyId,
+            status: "PAID",
+            paidAt: {
+              gte: range.start,
+              lte: range.end,
+            },
+          },
+          select: {
+            amount: true,
+            type: true,
+          },
+        }),
       ]);
 
     let totalRevenue = 0;
     let totalCost = 0;
-    let totalProfit = 0;
+    let operatingProfit = 0;
 
     sales.forEach((sale) => {
       const revenue = Number(sale.netAmount ?? sale.total ?? 0);
@@ -200,7 +217,7 @@ export async function getReportMetrics(
 
       totalRevenue += revenue;
       totalCost += cost;
-      totalProfit += revenue - cost;
+      operatingProfit += revenue - cost;
     });
 
     serviceOrders.forEach((os) => {
@@ -209,9 +226,21 @@ export async function getReportMetrics(
 
       totalRevenue += revenue;
       totalCost += cost;
-      totalProfit += revenue - cost;
+      operatingProfit += revenue - cost;
     });
 
+    const shopExpensesPaid = paidExpenses.reduce((acc, expense) => {
+      if (expense.type !== "SHOP") return acc;
+      return acc + Number(expense.amount || 0);
+    }, 0);
+
+    const personalExpensesPaid = paidExpenses.reduce((acc, expense) => {
+      if (expense.type !== "PERSONAL") return acc;
+      return acc + Number(expense.amount || 0);
+    }, 0);
+
+    totalCost += shopExpensesPaid;
+    const totalProfit = operatingProfit - shopExpensesPaid;
     const marginPercent =
       totalRevenue > 0
         ? Math.round((totalProfit / totalRevenue) * 100 * 100) / 100
@@ -348,7 +377,7 @@ export async function getReportMetrics(
     });
 
     const productRevenue = totalRevenue - serviceRevenue;
-    const productProfit = totalProfit - serviceProfit;
+    const productProfit = operatingProfit - serviceProfit;
 
     const categoryMap: Record<
       string,
@@ -388,6 +417,9 @@ export async function getReportMetrics(
         totalCost,
         totalProfit,
         marginPercent,
+        operatingProfit,
+        shopExpensesPaid,
+        personalExpensesPaid,
       },
       ticketMetrics: {
         averageTicket,
@@ -463,7 +495,7 @@ export async function getDailyRevenueData(
     const companyId = session.user.companyId || "multicell-oficial";
     const range = resolveDateRange(startDate, endDate);
 
-    const [sales, serviceOrders] = await Promise.all([
+    const [sales, serviceOrders, paidShopExpenses] = await Promise.all([
       prisma.sale.findMany({
         where: {
           companyId,
@@ -485,6 +517,21 @@ export async function getDailyRevenueData(
             gte: range.start,
             lte: range.end,
           },
+        },
+      }),
+      prisma.expense.findMany({
+        where: {
+          companyId,
+          status: "PAID",
+          type: "SHOP",
+          paidAt: {
+            gte: range.start,
+            lte: range.end,
+          },
+        },
+        select: {
+          amount: true,
+          paidAt: true,
         },
       }),
     ]);
@@ -512,6 +559,14 @@ export async function getDailyRevenueData(
       if (!dailyData[dateKey]) dailyData[dateKey] = { revenue: 0, cost: 0 };
       dailyData[dateKey].revenue += revenue;
       dailyData[dateKey].cost += cost;
+    });
+
+    paidShopExpenses.forEach((expense) => {
+      if (!expense.paidAt) return;
+
+      const dateKey = getBrazilDateString(new Date(expense.paidAt));
+      if (!dailyData[dateKey]) dailyData[dateKey] = { revenue: 0, cost: 0 };
+      dailyData[dateKey].cost += Number(expense.amount || 0);
     });
 
     return Object.entries(dailyData)
@@ -582,7 +637,8 @@ export async function getMonthlyEvolution(
         999,
       );
 
-      const [monthSales, monthServiceOrders] = await Promise.all([
+      const [monthSales, monthServiceOrders, monthShopExpenses] =
+        await Promise.all([
         prisma.sale.findMany({
           where: {
             companyId,
@@ -606,6 +662,20 @@ export async function getMonthlyEvolution(
             },
           },
         }),
+        prisma.expense.findMany({
+          where: {
+            companyId,
+            status: "PAID",
+            type: "SHOP",
+            paidAt: {
+              gte: monthStart,
+              lte: monthEnd,
+            },
+          },
+          select: {
+            amount: true,
+          },
+        }),
       ]);
 
       let revenue = 0;
@@ -624,6 +694,10 @@ export async function getMonthlyEvolution(
       monthServiceOrders.forEach((os) => {
         revenue += Number(os.totalPrice || 0);
         cost += Number(os.costPrice || 0);
+      });
+
+      monthShopExpenses.forEach((expense) => {
+        cost += Number(expense.amount || 0);
       });
 
       monthlyData.push({

@@ -75,7 +75,19 @@ export async function generatePDFReport(metrics: ReportMetrics) {
       ["Métrica", "Valor"],
       ["Faturamento Total", formatCurrency(metrics.financials.totalRevenue)],
       ["Custo Total", formatCurrency(metrics.financials.totalCost)],
-      ["Lucro Líquido", formatCurrency(metrics.financials.totalProfit)],
+      [
+        "Lucro Operacional",
+        formatCurrency(metrics.financials.operatingProfit),
+      ],
+      [
+        "Despesas Loja Pagas",
+        formatCurrency(metrics.financials.shopExpensesPaid),
+      ],
+      [
+        "Despesas Pessoais Pagas",
+        formatCurrency(metrics.financials.personalExpensesPaid),
+      ],
+      ["Lucro Liquido Real", formatCurrency(metrics.financials.totalProfit)],
       ["Margem de Lucro", `${metrics.financials.marginPercent}%`],
       ["Ticket Médio", formatCurrency(metrics.ticketMetrics.averageTicket)],
       ["Total de Transações", `${metrics.ticketMetrics.totalTransactions}`],
@@ -279,7 +291,10 @@ export function generateWhatsAppMessage(metrics: ReportMetrics): string {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💰 *FATURAMENTO:* ${formatCurrency(metrics.financials.totalRevenue)}
-📈 *LUCRO LÍQUIDO:* ${formatCurrency(metrics.financials.totalProfit)}
+⚙️ *LUCRO OPERACIONAL:* ${formatCurrency(metrics.financials.operatingProfit)}
+🏬 *DESPESAS DA LOJA PAGAS:* ${formatCurrency(metrics.financials.shopExpensesPaid)}
+👤 *DESPESAS PESSOAIS PAGAS:* ${formatCurrency(metrics.financials.personalExpensesPaid)}
+📈 *LUCRO LIQUIDO REAL:* ${formatCurrency(metrics.financials.totalProfit)}
    Margem: ${metrics.financials.marginPercent}%
 
 🎯 *TICKET MÉDIO:* ${formatCurrency(metrics.ticketMetrics.averageTicket)}

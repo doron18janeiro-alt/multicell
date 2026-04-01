@@ -208,7 +208,7 @@ export default function AdvancedReports() {
             {formatCurrency(metrics.financials.totalProfit)}
           </h3>
           <p className="text-xs text-green-400 mt-2">
-            Margem: {metrics.financials.marginPercent}%
+            Margem real: {metrics.financials.marginPercent}%
           </p>
         </div>
 
@@ -239,6 +239,44 @@ export default function AdvancedReports() {
           </h3>
           <p className="text-xs text-blue-400 mt-2">
             {formatCurrency(metrics.performance.bestDay.revenue)}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-zinc-950/70 backdrop-blur-md rounded-2xl border border-amber-600/20 p-6 shadow-lg">
+          <p className="text-sm font-medium text-slate-400">
+            Lucro Operacional
+          </p>
+          <h3 className="mt-3 text-2xl font-bold text-white">
+            {formatCurrency(metrics.financials.operatingProfit)}
+          </h3>
+          <p className="mt-2 text-xs text-slate-500">
+            Antes das despesas pagas da loja.
+          </p>
+        </div>
+
+        <div className="bg-zinc-950/70 backdrop-blur-md rounded-2xl border border-red-600/20 p-6 shadow-lg">
+          <p className="text-sm font-medium text-slate-400">
+            Despesas da Loja Pagas
+          </p>
+          <h3 className="mt-3 text-2xl font-bold text-white">
+            {formatCurrency(metrics.financials.shopExpensesPaid)}
+          </h3>
+          <p className="mt-2 text-xs text-red-400">
+            Ja abatidas do lucro liquido real.
+          </p>
+        </div>
+
+        <div className="bg-zinc-950/70 backdrop-blur-md rounded-2xl border border-cyan-600/20 p-6 shadow-lg">
+          <p className="text-sm font-medium text-slate-400">
+            Despesas Pessoais Pagas
+          </p>
+          <h3 className="mt-3 text-2xl font-bold text-white">
+            {formatCurrency(metrics.financials.personalExpensesPaid)}
+          </h3>
+          <p className="mt-2 text-xs text-cyan-400">
+            Controle separado, sem impactar o lucro da loja.
           </p>
         </div>
       </div>
