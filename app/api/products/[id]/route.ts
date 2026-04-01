@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { normalizeBarcode } from "@/lib/barcode";
 
 export async function PUT(
   request: Request,
@@ -27,7 +28,9 @@ export async function PUT(
       stockQuantity,
       minQuantity,
       supplierId,
+      barcode,
     } = body;
+    const normalizedBarcode = normalizeBarcode(barcode);
 
     const existingProduct = await prisma.product.findFirst({
       where: {
@@ -44,6 +47,26 @@ export async function PUT(
       );
     }
 
+    if (normalizedBarcode) {
+      const duplicateBarcode = await prisma.product.findFirst({
+        where: {
+          companyId: currentUser.companyId,
+          barcode: normalizedBarcode,
+          NOT: {
+            id: existingProduct.id,
+          },
+        },
+        select: { id: true },
+      });
+
+      if (duplicateBarcode) {
+        return NextResponse.json(
+          { error: "Já existe um produto com este código de barras." },
+          { status: 409 },
+        );
+      }
+    }
+
     const product = await prisma.product.update({
       where: { id: existingProduct.id },
       data: {
@@ -54,6 +77,7 @@ export async function PUT(
         stock: parseInt(String(stockQuantity) || "0"),
         minQuantity: parseInt(String(minQuantity) || "2") || 2,
         supplierId: supplierId || null,
+        barcode: normalizedBarcode || null,
       },
     });
 

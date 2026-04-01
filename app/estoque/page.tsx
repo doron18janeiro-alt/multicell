@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Package,
@@ -10,11 +11,16 @@ import {
   Download,
   Pencil,
   Trash2,
+  ScanBarcode,
 } from "lucide-react";
+import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { useBarcodeListener } from "@/hooks/useBarcodeListener";
+import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 
 interface Product {
   id: string;
   name: string;
+  barcode?: string | null;
   salePrice: number;
   costPrice: number;
   stock: number; // Changed from stockQuantity to match API/Prisma
@@ -28,26 +34,31 @@ interface Supplier {
   name: string;
 }
 
+const createEmptyProductForm = (barcode = "") => ({
+  name: "",
+  barcode,
+  price: "",
+  costPrice: "",
+  stockQuantity: "",
+  minQuantity: "2",
+  category: "PECA",
+  supplierId: "",
+});
+
 export default function Estoque() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("TODOS");
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    price: "",
-    costPrice: "",
-    stockQuantity: "",
-    minQuantity: "2",
-    category: "PECA",
-    supplierId: "",
-  });
+  const [formData, setFormData] = useState(createEmptyProductForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [supplierData, setSupplierData] = useState({
     name: "",
@@ -67,6 +78,7 @@ export default function Estoque() {
     newCostPrice: "",
     newSalePrice: "",
   });
+  const handledQueryBarcodeRef = useRef("");
 
   useEffect(() => {
     fetchProducts();
@@ -76,6 +88,62 @@ export default function Estoque() {
       .then((data) => setUserRole(data?.role || null))
       .catch((error) => console.error(error));
   }, []);
+
+  const handleOpenNewProductForm = useCallback((barcode = "") => {
+    setEditingId(null);
+    setFormData(createEmptyProductForm(barcode));
+    setShowForm(true);
+  }, []);
+
+  const handleBarcodePrefill = useCallback(
+    (barcode: string) => {
+      const normalized = normalizeBarcode(barcode);
+
+      if (!normalized) {
+        return;
+      }
+
+      if (showForm) {
+        setFormData((current) => ({
+          ...current,
+          barcode: normalized,
+        }));
+        return;
+      }
+
+      handleOpenNewProductForm(normalized);
+    },
+    [handleOpenNewProductForm, showForm],
+  );
+
+  useBarcodeListener({
+    enabled: userRole === "ADMIN" && !scannerOpen,
+    onScan: handleBarcodePrefill,
+  });
+
+  useEffect(() => {
+    if (userRole !== "ADMIN") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const barcodeFromQuery = normalizeBarcode(params.get("barcode"));
+    const shouldOpen = params.get("novo") === "1";
+    const signature = `${shouldOpen ? "1" : "0"}:${barcodeFromQuery}`;
+
+    if (!barcodeFromQuery || handledQueryBarcodeRef.current === signature) {
+      return;
+    }
+
+    handledQueryBarcodeRef.current = signature;
+    handleBarcodePrefill(barcodeFromQuery);
+
+    if (shouldOpen) {
+      setShowForm(true);
+    }
+
+    router.replace("/estoque");
+  }, [handleBarcodePrefill, router, userRole]);
 
   const fetchSuppliers = async () => {
     try {
@@ -109,6 +177,7 @@ export default function Estoque() {
     setEditingId(product.id);
     setFormData({
       name: product.name,
+      barcode: product.barcode || "",
       price: product.salePrice.toString(),
       costPrice: product.costPrice.toString(),
       stockQuantity: product.stock.toString(),
@@ -147,6 +216,7 @@ export default function Estoque() {
 
       const payload = {
         ...formData,
+        barcode: normalizeBarcode(formData.barcode),
         price: formData.price.replace(",", "."),
         costPrice: formData.costPrice.replace(",", "."),
       };
@@ -161,20 +231,13 @@ export default function Estoque() {
         alert(
           editingId ? "Produto atualizado!" : "Produto cadastrado com sucesso!",
         );
-        setShowForm(false);
         setEditingId(null);
-        setFormData({
-          name: "",
-          price: "",
-          costPrice: "",
-          stockQuantity: "",
-          minQuantity: "2",
-          category: "PECA",
-          supplierId: "",
-        });
+        setFormData(createEmptyProductForm());
+        setShowForm(false);
         fetchProducts();
       } else {
-        alert("Erro ao salvar produto.");
+        const payload = await res.json().catch(() => null);
+        alert(payload?.error || "Erro ao salvar produto.");
       }
     } catch (error) {
       console.error(error);
@@ -209,6 +272,7 @@ export default function Estoque() {
   const handleExportCSV = () => {
     const headers = [
       "Nome",
+      "Código de Barras",
       "Categoria",
       "Preço Venda",
       "Preço Custo",
@@ -221,6 +285,7 @@ export default function Estoque() {
         suppliers.find((s) => s.id === p.supplierId)?.name || "N/A";
       return [
         `"${p.name}"`,
+        `"${p.barcode || ""}"`,
         p.category,
         p.salePrice,
         p.costPrice,
@@ -286,9 +351,12 @@ export default function Estoque() {
 
   const filteredProducts = (Array.isArray(products) ? products : []).filter(
     (p) => {
-      const matchesSearch = p.name
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
+      const normalizedSearch = normalizeBarcode(searchTerm);
+      const lowercaseSearch = searchTerm.toLowerCase();
+      const matchesSearch =
+        p.name.toLowerCase().includes(lowercaseSearch) ||
+        String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
+        barcodeMatches(p.barcode, normalizedSearch);
       const matchesCategory =
         categoryFilter === "TODOS" || p.category === categoryFilter;
       return matchesSearch && matchesCategory;
@@ -328,18 +396,15 @@ export default function Estoque() {
                   Fornecedores
                 </button>
                 <button
+                  onClick={() => setScannerOpen(true)}
+                  className="bg-sky-500/10 text-sky-200 border border-sky-400/40 px-4 py-2 rounded-lg font-bold hover:bg-sky-500/20 transition-colors flex items-center gap-2"
+                >
+                  <ScanBarcode className="w-5 h-5" />
+                  Ler Código
+                </button>
+                <button
                   onClick={() => {
-                    setEditingId(null);
-                    setFormData({
-                      name: "",
-                      price: "",
-                      costPrice: "",
-                      stockQuantity: "",
-                      minQuantity: "2",
-                      category: "PECA",
-                      supplierId: "",
-                    });
-                    setShowForm(true);
+                    handleOpenNewProductForm();
                   }}
                   className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
                 >
@@ -411,7 +476,14 @@ export default function Estoque() {
                     className="hover:bg-[#1e293b] transition-colors"
                   >
                     <td className="p-4 font-medium text-white">
-                      {product.name}
+                      <div className="space-y-1">
+                        <p>{product.name}</p>
+                        {product.barcode && (
+                          <p className="text-xs text-slate-500">
+                            {product.barcode}
+                          </p>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 text-slate-300">
                       <span className="px-2 py-1 rounded bg-slate-800 text-xs">
@@ -500,6 +572,33 @@ export default function Estoque() {
                       setFormData({ ...formData, name: e.target.value })
                     }
                   />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">
+                    Código de Barras
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                      value={formData.barcode}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          barcode: e.target.value,
+                        })
+                      }
+                      placeholder="Bipe o leitor ou use a câmera"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setScannerOpen(true)}
+                      className="inline-flex items-center justify-center rounded border border-sky-400/40 bg-sky-500/10 px-3 text-sky-200 transition-colors hover:bg-sky-500/20"
+                      title="Escanear código de barras"
+                    >
+                      <ScanBarcode className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -832,6 +931,14 @@ export default function Estoque() {
           </div>
         )}
       </main>
+
+      <BarcodeScannerModal
+        open={scannerOpen}
+        title="Ler código de barras"
+        description="Aponte a câmera para o código do produto. O campo será preenchido automaticamente."
+        onClose={() => setScannerOpen(false)}
+        onDetected={handleBarcodePrefill}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState, useEffect, useRef, Suspense } from "react"; // Added Suspense
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, useRef, Suspense, useCallback } from "react";
 import { useReactToPrint } from "react-to-print";
 import {
   Search,
@@ -13,7 +13,11 @@ import {
   Plus,
   ArrowLeft,
   User,
+  ScanBarcode,
 } from "lucide-react";
+import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { useBarcodeListener } from "@/hooks/useBarcodeListener";
+import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 
 interface Product {
   id: string;
@@ -21,6 +25,7 @@ interface Product {
   price: number;
   stockQuantity: number;
   category: string;
+  barcode?: string | null;
 }
 
 interface CartItem extends Product {
@@ -33,6 +38,7 @@ interface Customer {
 }
 
 function PDVContent() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
@@ -42,6 +48,8 @@ function PDVContent() {
   const [loading, setLoading] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [barcodeMessage, setBarcodeMessage] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -125,6 +133,7 @@ function PDVContent() {
           price: Number(p.salePrice) || 0, // Garante que seja número
           stockQuantity: Number(p.stock) || 0,
           category: p.category,
+          barcode: p.barcode,
         }));
         setProducts(mappedProducts);
       }
@@ -148,11 +157,7 @@ function PDVContent() {
     }
   };
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-
-  const addToCart = (product: Product) => {
+  const addToCart = useCallback((product: Product) => {
     if (product.stockQuantity <= 0) {
       alert("Produto sem estoque!");
       return;
@@ -175,13 +180,97 @@ function PDVContent() {
     });
     setSearchTerm("");
     searchInputRef.current?.focus();
-  };
+  }, []);
+
+  const findProductByBarcode = useCallback(
+    (barcode: string) =>
+      products.find((product) => barcodeMatches(product.barcode, barcode)),
+    [products],
+  );
+
+  const handleUnknownBarcode = useCallback(
+    (barcode: string) => {
+      const shouldCreate = window.confirm(
+        "Produto não cadastrado. Deseja cadastrar agora?",
+      );
+
+      if (shouldCreate) {
+        router.push(`/estoque?novo=1&barcode=${encodeURIComponent(barcode)}`);
+      }
+    },
+    [router],
+  );
+
+  const handleBarcodeDetected = useCallback(
+    (barcode: string) => {
+      const matchedProduct = findProductByBarcode(barcode);
+
+      if (!matchedProduct) {
+        setBarcodeMessage("");
+        handleUnknownBarcode(barcode);
+        return;
+      }
+
+      addToCart(matchedProduct);
+      setBarcodeMessage(
+        `Código ${barcode} lido. ${matchedProduct.name} adicionado ao carrinho.`,
+      );
+    },
+    [addToCart, findProductByBarcode, handleUnknownBarcode],
+  );
+
+  useBarcodeListener({
+    enabled: !scannerOpen,
+    onScan: handleBarcodeDetected,
+  });
+
+  useEffect(() => {
+    if (!barcodeMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setBarcodeMessage(""), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [barcodeMessage]);
+
+  const filteredProducts = products.filter((p) => {
+    const normalizedSearch = normalizeBarcode(searchTerm);
+    const lowercaseSearch = searchTerm.toLowerCase();
+
+    return (
+      p.name.toLowerCase().includes(lowercaseSearch) ||
+      p.category.toLowerCase().includes(lowercaseSearch) ||
+      String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
+      barcodeMatches(p.barcode, normalizedSearch)
+    );
+  });
 
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.id !== productId));
   };
 
   const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    const normalized = normalizeBarcode(searchTerm);
+
+    if (!normalized) {
+      return;
+    }
+
+    const matchedProduct = findProductByBarcode(normalized);
+
+    if (!matchedProduct) {
+      return;
+    }
+
+    event.preventDefault();
+    handleBarcodeDetected(normalized);
+  };
 
   const handleFinalize = async () => {
     setLoading(true);
@@ -265,18 +354,36 @@ function PDVContent() {
             </select>
           </div>
 
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
-            <input
-              ref={searchInputRef}
-              autoFocus
-              type="text"
-              placeholder="Buscar produto (Nome ou Código)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#112240] border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-all text-lg"
-            />
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+              <input
+                ref={searchInputRef}
+                autoFocus
+                type="text"
+                placeholder="Buscar produto por nome ou código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                className="w-full bg-[#112240] border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-all text-lg"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 font-semibold text-sky-200 transition-colors hover:bg-sky-500/20 sm:w-12 sm:px-0"
+              title="Ler código de barras"
+            >
+              <ScanBarcode className="h-5 w-5" />
+              <span className="sm:hidden">Ler código</span>
+            </button>
           </div>
+
+          {barcodeMessage && (
+            <div className="mb-6 rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3 text-sm font-medium text-sky-100">
+              {barcodeMessage}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
             {searchTerm && filteredProducts.length === 0 ? (
@@ -306,7 +413,10 @@ function PDVContent() {
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-400">
-                        <span className="capitalize">{product.category}</span>
+                        <span className="capitalize">
+                          {product.category}
+                          {product.barcode ? ` • ${product.barcode}` : ""}
+                        </span>
                         <span
                           className={
                             product.stockQuantity < 5
@@ -458,6 +568,14 @@ function PDVContent() {
           </div>
         </div>
       </main>
+
+      <BarcodeScannerModal
+        open={scannerOpen}
+        title="Ler código de barras"
+        description="Aponte a câmera para o código do produto para adicionar ao carrinho."
+        onClose={() => setScannerOpen(false)}
+        onDetected={handleBarcodeDetected}
+      />
 
       {/* Hidden Receipt for Printing */}
       <div style={{ display: "none" }}>

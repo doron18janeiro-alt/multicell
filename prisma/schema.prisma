@@ -26,6 +26,7 @@ model Customer {
 model Product {
   id          String         @id @default(cuid())
   name        String
+  barcode     String?        @map("barcode")
   stock       Int            @default(0)
   minStock    Int            @default(5) @map("min_stock")
   category    String
@@ -41,6 +42,7 @@ model Product {
   supplier    Supplier?      @relation(fields: [supplierId], references: [id])
   sales       SaleItem[]
 
+  @@unique([companyId, barcode])
   @@index([stock, costPrice, salePrice], map: "idx_products_stock_prices")
   @@map("products")
 }
