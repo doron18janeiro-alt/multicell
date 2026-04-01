@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -17,6 +18,7 @@ import {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
@@ -32,6 +34,19 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  };
+
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
@@ -45,10 +60,13 @@ export default function Sidebar() {
   return (
     <aside className="w-64 h-screen bg-[#0B1121]/95 backdrop-blur-md border-r border-[#1E293B]/50 flex flex-col fixed left-0 top-0 z-50 shadow-2xl transition-all duration-300">
       {/* Logo Area */}
-      <div className="p-6 mb-2 flex justify-center border-b border-[#1E293B]/50 bg-gradient-to-b from-[#0F172A] to-transparent">
-        <img
+      <div className="p-6 mb-2 flex justify-center border-b border-[#1E293B]/50 bg-linear-to-b from-[#0F172A] to-transparent">
+        <Image
           src="/logo.png"
           alt="Multicell"
+          width={180}
+          height={56}
+          priority
           className="h-14 w-auto drop-shadow-md"
         />
       </div>
@@ -91,7 +109,7 @@ export default function Sidebar() {
               )}
 
               {/* Glass shine effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
 
               {isActive && (
                 <div className="absolute right-3 w-1.5 h-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]" />
@@ -115,12 +133,13 @@ export default function Sidebar() {
               Multicell System
             </p>
           </div>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={handleLogout}
             className="text-slate-500 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all"
           >
             <LogOut size={16} strokeWidth={1.5} />
-          </Link>
+          </button>
         </div>
       </div>
     </aside>

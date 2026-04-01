@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
 import {
   Search,
   Users,
@@ -228,13 +227,14 @@ export default function Clientes() {
   const filteredCustomers = customers.filter(
     (c) =>
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.includes(searchTerm),
+      c.phone.includes(searchTerm) ||
+      (c.document || "").replace(/\D/g, "").includes(searchTerm.replace(/\D/g, "")) ||
+      c.id.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
-      <Sidebar />
-      <main className="flex-1 p-8">
+    <div className="min-h-screen bg-[#0B1120] text-slate-100">
+      <div className="p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <Users className="text-[#FFD700]" />
@@ -268,13 +268,13 @@ export default function Clientes() {
         </div>
 
         {/* Search */}
-        <div className="bg-[#112240] p-4 rounded-xl border border-slate-800 mb-6">
+        <div className="bg-amber-400/5 p-4 rounded-xl border border-amber-400/30 mb-6 backdrop-blur-sm">
           <div className="relative">
-            <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+            <Search className="absolute left-3 top-3 text-amber-300 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por nome ou telefone..."
-              className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:border-[#FFD700]"
+              placeholder="Buscar por nome, CPF ou protocolo..."
+              className="w-full bg-[#0B1120] border border-amber-400/40 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -754,7 +754,7 @@ export default function Clientes() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

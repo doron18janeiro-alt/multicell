@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "@/components/ClientLayout";
@@ -11,9 +11,15 @@ export const metadata: Metadata = {
   title: "MULTICELL - Sistema de Gestão",
   description: "Sistema de gestão para assistência técnica e vendas",
   manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  minimumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
   themeColor: "#0A192F",
-  viewport:
-    "minimum-scale=1, initial-scale=1, width=device-width, shrink-to-fit=no, user-scalable=no, viewport-fit=cover",
 };
 
 export default function RootLayout({

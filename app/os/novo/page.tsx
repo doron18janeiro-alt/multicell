@@ -606,7 +606,7 @@ function OrderServiceForm() {
                           onChange={() =>
                             handleChecklistChange("physical", item.id)
                           }
-                          className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-500 checked:border-[#D4AF37] checked:bg-[#D4AF37] transition-all"
+                          className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-slate-500 checked:border-amber-400 checked:bg-amber-400 transition-all"
                         />
                         <svg
                           className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none opacity-0 peer-checked:opacity-100 text-[#0A192F]"
@@ -650,7 +650,7 @@ function OrderServiceForm() {
                           }
                           className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
                             formData.checklist.tests.liga === opt
-                              ? "bg-[#D4AF37] text-black border-[#D4AF37]"
+                              ? "bg-amber-400 text-black border-amber-400"
                               : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
                           }`}
                         >
@@ -674,7 +674,7 @@ function OrderServiceForm() {
                           }
                           className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
                             formData.checklist.tests.touch === opt
-                              ? "bg-[#D4AF37] text-black border-[#D4AF37]"
+                              ? "bg-amber-400 text-black border-amber-400"
                               : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
                           }`}
                         >
@@ -700,12 +700,12 @@ function OrderServiceForm() {
                               opt === "RISCOS LEVES" || opt === "AMASSADO",
                             )
                           }
-                          className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border ${
+                          className={`flex-1 p-2 text-center text-xs font-bold rounded cursor-pointer border transition-colors ${
                             (opt === "OK" &&
                               !formData.checklist.physical.riscos) ||
                             (opt !== "OK" && formData.checklist.physical.riscos)
-                              ? "bg-slate-700 text-white border-slate-600" // Just toggles for now, can be improved
-                              : "bg-transparent text-slate-400 border-slate-700"
+                              ? "bg-amber-400 text-black border-amber-400 hover:bg-amber-500"
+                              : "bg-transparent text-slate-400 border-slate-700 hover:border-slate-500"
                           }`}
                         >
                           {opt}

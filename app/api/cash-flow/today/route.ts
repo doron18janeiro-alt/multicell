@@ -32,10 +32,6 @@ export async function GET() {
       endOfDayBrazil.getTime() - brazilOffset * 60 * 60 * 1000
     );
 
-    console.log(
-      `[CashFlow] Buscando vendas entre ${today.toISOString()} e ${endOfDay.toISOString()} para empresa ${companyId}`
-    );
-
     const sales = await prisma.sale.findMany({
       where: {
         companyId: companyId, // Garante filtro explícito
@@ -48,8 +44,6 @@ export async function GET() {
         },
       },
     });
-
-    console.log(`[CashFlow] Vendas encontradas: ${sales.length}`);
 
     let totalCash = 0;
     let totalPix = 0;

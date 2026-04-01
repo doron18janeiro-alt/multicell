@@ -32,9 +32,6 @@ export async function GET() {
 
     // Fallback Bruto: Se não achou com companyId, traz TUDO que for COMPLETED
     if (sales.length === 0) {
-      console.log(
-        "Relatórios: Nenhuma venda encontrada para ID. Ativando busca global.",
-      );
       sales = await prisma.sale.findMany({
         where: {
           status: "COMPLETED",

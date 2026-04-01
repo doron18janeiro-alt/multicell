@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
-import { Search, Plus, Filter, FileText } from "lucide-react";
+import { Search, Plus, FileText } from "lucide-react";
 
 export default function ServiceOrders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -30,34 +29,13 @@ export default function ServiceOrders() {
     (os) =>
       os.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       os.id?.toString().includes(searchTerm) ||
-      os.deviceModel?.toLowerCase().includes(searchTerm)
+      os.deviceModel?.toLowerCase().includes(searchTerm) ||
+      (os.clientCpf || "").replace(/\D/g, "").includes(searchTerm.replace(/\D/g, "")),
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
-      <Sidebar />{" "}
-      {/* Though layout handles sidebar usually, keeping it consistent if layout does/doesn't automatically */}
-      {/* Wait, layout.tsx already adds sidebar based on page. But I see Sidebar imported in Cliente page.
-           Checking app/layout.tsx: It adds ClientLayout. ClientLayout adds Sidebar.
-           So I DO NOT need to add Sidebar here explicitly if layout does it.
-           But app/clientes/page.tsx HAS Sidebar. Why?
-           Maybe layout.tsx only wraps children.
-           Let's check layout again.
-           ClientLayout: 
-             {!isLoginPage && <Sidebar />}
-             <main ...>{children}</main>
-           So Sidebar is added by layout.
-           If app/clientes/page.tsx adds it again, we get double sidebars?
-           Checking app/clientes/page.tsx again. Yes, it imports Sidebar.
-           And layout.tsx imports ClientLayout which imports Sidebar.
-           This logic seems potentially duplicate if my update to layout was correct.
-           "Agora, para resolver o problema do menu lateral aparecendo no login ... altere app/layout.tsx"
-           I replaced layout content to use ClientLayout.
-           ClientLayout renders Sidebar.
-           So individual pages SHOULD NOT render Sidebar.
-           I will remove Sidebar from my new page.
-        */}
-      <div className="flex-1 p-8">
+    <div className="min-h-screen bg-[#0B1120] text-slate-100">
+      <div className="p-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
             <FileText className="text-[#FFD700]" />
@@ -73,20 +51,17 @@ export default function ServiceOrders() {
         </div>
 
         {/* Search & Filter */}
-        <div className="bg-[#112240] p-4 rounded-xl border border-slate-800 mb-6 flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
+        <div className="bg-amber-400/5 p-4 rounded-xl border border-amber-400/30 mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 text-amber-300 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por cliente, nº O.S. ou modelo..."
-              className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:border-[#FFD700]"
+              placeholder="Buscar por nome, CPF ou protocolo..."
+              className="w-full bg-[#0B1120] border border-amber-400/40 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="px-4 py-2 bg-[#0B1120] border border-slate-700 rounded-lg text-slate-300 hover:text-white flex items-center gap-2">
-            <Filter size={18} /> Filtros
-          </button>
         </div>
 
         {/* List */}

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -13,6 +15,8 @@ import {
   Cable,
   Mail,
   Lock,
+  Eye,
+  EyeOff,
   ArrowRight,
   Loader2,
   Cpu,
@@ -77,6 +81,7 @@ const FloatingIcons = () => {
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -135,9 +140,12 @@ export default function LoginPage() {
                 whileHover={{ scale: 1.05 }}
               >
                 <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full group-hover:bg-cyan-500/40 transition-all"></div>
-                <img
+                <Image
                   src="/logo.png"
                   alt="Multicell Logo"
+                  width={80}
+                  height={80}
+                  priority
                   className="w-20 h-auto relative z-10 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]"
                 />
               </motion.div>
@@ -176,13 +184,35 @@ export default function LoginPage() {
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-5 w-5 transition-colors group-focus-within:text-cyan-400" />
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-[#020617]/50 border border-slate-700 text-slate-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600"
+                      className="w-full bg-[#020617]/50 border border-slate-700 text-slate-100 rounded-xl py-3 pl-10 pr-12 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600"
                       placeholder="••••••••"
                       required
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-300 transition-colors"
+                      aria-label={
+                        showPassword ? "Ocultar senha" : "Mostrar senha"
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <Link
+                      href="/recuperar"
+                      className="text-xs text-slate-400 hover:text-cyan-300 transition-colors"
+                    >
+                      Esqueci minha senha
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -211,6 +241,16 @@ export default function LoginPage() {
                   </>
                 )}
               </button>
+
+              <Link href="/cadastro">
+                <motion.div
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className="w-full mt-3 border border-amber-400/40 text-amber-300 font-bold py-3 rounded-xl text-center hover:bg-amber-400/10 transition-all"
+                >
+                  CRIAR CONTA
+                </motion.div>
+              </Link>
             </form>
           </div>
 

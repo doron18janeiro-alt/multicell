@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import useSWR from "swr";
+import { useEffect, useState } from "react";
 import {
   DollarSign,
   TrendingUp,
@@ -9,18 +8,50 @@ import {
   Layers,
   Activity,
   CalendarCheck,
-  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
+import { WeeklyRevenueChart } from "@/components/WeeklyRevenueChart";
+import { DashboardSkeleton } from "@/components/DashboardSkeleton";
+import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
+import { PaymentMethodsChart } from "@/components/ReportsCharts";
+import {
+  getDailyProfit,
+  getWeeklyEvolution,
+  getCriticalStockAlerts,
+  getStockValue,
+  getTotalStockItems,
+  getDashboardPaymentMethods,
+} from "@/app/actions/dashboard";
 
-// Helper de formatação
-const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat("pt-BR", {
+export const dynamic = "force-dynamic";
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
   }).format(value || 0);
+
+const getDefaultRange = () => {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 7);
+
+  const toInput = (value: Date) => {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  return {
+    startDate: toInput(start),
+    endDate: toInput(end),
+  };
 };
 
-// Componente Card
+const formatDate = (value: string) =>
+  new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR");
+
 const StatCard = ({
   title,
   value,
@@ -28,6 +59,7 @@ const StatCard = ({
   icon: Icon,
   type = "profit",
   loading = false,
+  alertCount = 0,
 }: {
   title: string;
   value: string | number;
@@ -35,22 +67,32 @@ const StatCard = ({
   icon: any;
   type?: "profit" | "stock";
   loading?: boolean;
+  alertCount?: number;
 }) => {
   const isProfit = type === "profit";
-
-  // Cores Glassmorphism
   const colorClasses = isProfit
-    ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10"
-    : "text-cyan-400 border-cyan-500/20 bg-cyan-500/10";
+    ? "bg-zinc-950/70 border border-zinc-700/50 hover:border-amber-600/30"
+    : "bg-zinc-950/70 border border-zinc-700/50 hover:border-blue-600/30";
 
-  const iconBg = isProfit ? "bg-emerald-500/20" : "bg-cyan-500/20";
-  const iconColor = isProfit ? "text-emerald-400" : "text-cyan-400";
-  const glowColor = isProfit ? "bg-emerald-500" : "bg-cyan-500";
+  const iconBgClasses = isProfit
+    ? "bg-gradient-to-br from-amber-400 to-yellow-600 text-black"
+    : "bg-gradient-to-br from-blue-400 to-cyan-600 text-white";
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border backdrop-blur-md p-6 transition-all duration-300 hover:scale-[1.01] hover:shadow-lg ${colorClasses}`}
+      className={`relative overflow-hidden rounded-2xl backdrop-blur-md p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${colorClasses}`}
     >
+      {alertCount > 0 && (
+        <div className="absolute -top-2 -right-2">
+          <div className="relative">
+            <div className="absolute inset-0 bg-red-500 rounded-full animate-pulse blur-md opacity-50" />
+            <div className="relative bg-red-500 text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+              {alertCount > 9 ? "9+" : alertCount}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between z-10 relative">
         <div>
           <p className="text-sm font-medium text-slate-400 mb-1">{title}</p>
@@ -67,129 +109,226 @@ const StatCard = ({
             </p>
           )}
         </div>
-        <div className={`p-3 rounded-xl ${iconBg} ${iconColor}`}>
+        <div className={`p-3 rounded-xl ${iconBgClasses}`}>
           <Icon className="w-6 h-6" />
         </div>
       </div>
-      {/* Background Decor */}
+
       <div
-        className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full blur-3xl opacity-20 pointer-events-none ${glowColor}`}
+        className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full blur-3xl opacity-20 pointer-events-none ${
+          isProfit ? "bg-amber-400" : "bg-cyan-500"
+        }`}
       />
     </div>
   );
 };
 
-const fetcher = (url: string) =>
-  fetch(`${url}?t=${Date.now()}`).then((res) => res.json());
-
 export default function Dashboard() {
-  const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher, {
-    refreshInterval: 2000,
-    revalidateOnFocus: true,
-    dedupingInterval: 0,
+  const [loading, setLoading] = useState(true);
+  const [trialStatus, setTrialStatus] = useState<{
+    subscriptionStatus: string;
+    daysRemaining: number;
+    isTrialActive: boolean;
+  } | null>(null);
+  const [dateRange, setDateRange] = useState(getDefaultRange);
+  const [dailyProfit, setDailyProfit] = useState({
+    value: 0,
+    formatted: "R$ 0,00",
+    itemsCount: 0,
+  });
+  const [weeklyEvolution, setWeeklyEvolution] = useState<any[]>([]);
+  const [stockValue, setStockValue] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
+  const [criticalAlerts, setCriticalAlerts] = useState<{
+    count: number;
+    items: Array<{
+      id: string;
+      name: string;
+      stock: number;
+      minStock: number;
+      diff: number;
+    }>;
+  }>({
+    count: 0,
+    items: [],
   });
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] text-red-400">
-        <div className="text-center">
-          <p className="mb-2">Erro ao carregar dados do painel.</p>
-          <button
-            onClick={() => mutate()}
-            className="text-sm underline hover:text-red-300"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    );
+  useEffect(() => {
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+        const [
+          profitData,
+          evolutionData,
+          criticalData,
+          stockValueData,
+          totalItemsData,
+          paymentData,
+          subscriptionResponse,
+        ] = await Promise.all([
+          getDailyProfit(dateRange.startDate, dateRange.endDate),
+          getWeeklyEvolution(dateRange.startDate, dateRange.endDate),
+          getCriticalStockAlerts(),
+          getStockValue(),
+          getTotalStockItems(),
+          getDashboardPaymentMethods(dateRange.startDate, dateRange.endDate),
+          fetch("/api/subscription/status", { cache: "no-store" }),
+        ]);
+
+        setDailyProfit(profitData);
+        setWeeklyEvolution(evolutionData);
+        setCriticalAlerts(criticalData);
+        setStockValue(stockValueData);
+        setTotalItems(totalItemsData);
+        setPaymentMethods(paymentData);
+
+        if (subscriptionResponse.ok) {
+          const subscriptionData = await subscriptionResponse.json();
+          setTrialStatus({
+            subscriptionStatus: subscriptionData.subscriptionStatus,
+            daysRemaining: subscriptionData.daysRemaining,
+            isTrialActive: subscriptionData.isTrialActive,
+          });
+        }
+      } catch (error) {
+        console.error("[Dashboard] Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [dateRange.startDate, dateRange.endDate]);
+
+  if (loading) {
+    return <DashboardSkeleton />;
   }
 
   return (
     <div className="min-h-screen bg-[#0B1120] p-6 space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-            <Activity className="w-8 h-8 text-emerald-400" />
-            Painel de Gestão
+          <h1 className="text-4xl font-bold text-white tracking-tight flex items-center gap-3">
+            <div className="p-2 bg-linear-to-br from-amber-400 to-yellow-600 rounded-lg">
+              <Activity className="w-8 h-8 text-black" />
+            </div>
+            Painel Profissional Multicell
           </h1>
           <p className="text-slate-400 mt-2">
-            Visão financeira em tempo real e controle patrimonial.
+            Período ativo: {formatDate(dateRange.startDate)} a{" "}
+            {formatDate(dateRange.endDate)}
           </p>
         </div>
-
-        <button
-          onClick={() => mutate()}
-          className="flex items-center gap-2 text-slate-500 text-sm hover:text-emerald-400 transition-colors cursor-pointer opacity-80 hover:opacity-100"
-          title="Clique para atualizar agora"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          {isLoading && !data
-            ? "Sincronizando..."
-            : "Atualização em tempo real (2s)"}
-        </button>
+        <DateRangePickerGlass
+          startDate={dateRange.startDate}
+          endDate={dateRange.endDate}
+          defaultFromDays={7}
+          onDateRangeChange={(startDate, endDate) =>
+            setDateRange({ startDate, endDate })
+          }
+        />
       </div>
 
-      {/* Grid de Cards */}
+      {trialStatus?.subscriptionStatus === "unpaid" &&
+        trialStatus.isTrialActive && (
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-5 py-4 text-amber-100">
+            <p className="text-sm font-semibold">
+              Você está no período de teste gratuito. Faltam{" "}
+              {trialStatus.daysRemaining} dia(s) para o bloqueio.
+            </p>
+          </div>
+        )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* === LUCROS === */}
         <StatCard
-          title="Lucro Diário (Hoje)"
-          value={formatCurrency(data?.dailyProfit)}
-          subtitle="Vendas Líquidas - Custos"
+          title="💰 Lucro do Período"
+          value={dailyProfit.formatted}
+          subtitle={`${dailyProfit.itemsCount} transações`}
           icon={DollarSign}
           type="profit"
-          loading={isLoading && !data}
         />
         <StatCard
-          title="Lucro Semanal"
-          value={formatCurrency(data?.weeklyProfit)}
-          subtitle="Acumulado da semana atual"
+          title="📈 Evolução do Período"
+          value={formatCurrency(
+            weeklyEvolution.reduce((acc, point) => acc + point.lucro, 0),
+          )}
+          subtitle="Lucro acumulado"
           icon={TrendingUp}
           type="profit"
-          loading={isLoading && !data}
         />
         <StatCard
-          title="Lucro Mensal"
-          value={formatCurrency(data?.monthlyProfit)}
-          subtitle="Acumulado do mês atual"
+          title="📅 Ticket de Lucro Médio"
+          value={formatCurrency(
+            dailyProfit.itemsCount > 0
+              ? dailyProfit.value / dailyProfit.itemsCount
+              : 0,
+          )}
+          subtitle="Lucro médio por transação"
           icon={CalendarCheck}
           type="profit"
-          loading={isLoading && !data}
         />
 
-        {/* === ESTOQUE === */}
         <StatCard
-          title="Valor Atual de Estoque"
-          value={formatCurrency(data?.stockValue)}
-          subtitle="Patrimônio (Custo Total)"
+          title="📦 Valor de Estoque"
+          value={formatCurrency(stockValue)}
+          subtitle="Custo total investido"
           icon={Package}
           type="stock"
-          loading={isLoading && !data}
         />
         <StatCard
-          title="Lucro Estimado (Estoque)"
-          value={formatCurrency(data?.stockProfitEstimate)}
-          subtitle="Projeção na venda de tudo"
-          icon={Activity}
-          type="stock"
-          loading={isLoading && !data}
-        />
-        <StatCard
-          title="Total de Itens"
-          value={data?.totalStockItems || 0}
-          subtitle="Produtos físicos em loja"
+          title="📊 Total de Itens"
+          value={totalItems}
+          subtitle="Unidades físicas em estoque"
           icon={Layers}
           type="stock"
-          loading={isLoading && !data}
+        />
+        <StatCard
+          title="🚨 Itens Críticos"
+          value={criticalAlerts.count}
+          subtitle="Stock baixo/crítico"
+          icon={AlertTriangle}
+          type="stock"
+          alertCount={criticalAlerts.count}
         />
       </div>
 
-      <div className="mt-8 p-4 rounded-lg border border-slate-800 bg-slate-900/50 backdrop-blur-sm">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <WeeklyRevenueChart data={weeklyEvolution} loading={false} />
+        <PaymentMethodsChart data={paymentMethods} />
+      </div>
+
+      {criticalAlerts.count > 0 && (
+        <div className="bg-linear-to-r from-red-950/50 to-orange-950/50 backdrop-blur-md rounded-2xl border border-red-700/30 p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <AlertTriangle className="w-6 h-6 text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white">
+              ⚠️ Produtos com Estoque Crítico
+            </h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {criticalAlerts.items.slice(0, 6).map((item) => (
+              <div
+                key={item.id}
+                className="bg-zinc-900/50 border border-red-500/20 rounded-lg p-3"
+              >
+                <p className="font-medium text-white text-sm">{item.name}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Atual: <span className="text-red-400 font-bold">{item.stock}</span>{" "}
+                  | Mínimo: {item.minStock}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8 p-4 rounded-lg border border-zinc-700/50 bg-zinc-950/70 backdrop-blur-sm">
         <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>Atualização automática (5s)</span>
-          <span>Versão v2.1 • Fuso: America/Sao_Paulo</span>
+          <span>✅ Dados sincronizados</span>
+          <span>Multicell v3.0 • Tier 1 Profissional • Brasil/SP</span>
         </div>
       </div>
     </div>

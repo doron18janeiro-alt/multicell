@@ -32,6 +32,7 @@
     "@prisma/client": "^5.7.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "framer-motion": "^12.26.2",
@@ -43,7 +44,8 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-to-print": "^3.2.0",
-    "recharts": "^3.6.0",
+    "recharts": "^3.8.1",
+    "resend": "^6.10.0",
     "swr": "^2.3.8",
     "tailwind-merge": "^3.4.0"
   }

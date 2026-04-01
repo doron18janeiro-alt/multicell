@@ -10,24 +10,32 @@ export default function ClientLayout({
 }) {
   const pathname = usePathname();
 
-  // Define se a página atual é a de login
-  const isLoginPage = pathname === "/login";
+  // Define se a página atual é de autenticação
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/cadastro" ||
+    pathname === "/recuperar" ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/auth/reset-password");
+  const isCheckoutPage = pathname.startsWith("/checkout");
 
   return (
     <div className="min-h-screen bg-[#050c1a]">
-      {/* SÓ MOSTRA A SIDEBAR SE NÃO FOR PÁGINA DE LOGIN */}
-      {!isLoginPage ? (
+      {/* Fluxo sem sidebar */}
+      {isAuthPage ? (
+        <main className="w-full h-screen flex items-center justify-center">
+          {children}
+        </main>
+      ) : isCheckoutPage ? (
+        <main className="w-full min-h-screen">{children}</main>
+      ) : (
+        /* Páginas internas com sidebar */
         <div className="flex">
           <Sidebar />
           <main className="flex-1 p-4 md:p-8 ml-64 overflow-y-auto h-screen">
             {children}
           </main>
         </div>
-      ) : (
-        /* TELA DE LOGIN CHEIA SEM SIDEBAR */
-        <main className="w-full h-screen flex items-center justify-center">
-          {children}
-        </main>
       )}
     </div>
   );

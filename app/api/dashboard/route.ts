@@ -12,8 +12,7 @@ export async function GET() {
     }
 
     // 1. FILTRO DE SEGURANÇA FLEXÍVEL
-    const companyId = session.user.companyId || 'multicell-oficial'; 
-    console.log('[DASHBOARD] ID utilizado:', companyId);
+    const companyId = session.user.companyId || "multicell-oficial";
 
     // 2. LÓGICA DE DATA REFERENCIAL (BRASÍLIA -3h)
     const now = new Date();
@@ -40,12 +39,9 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    console.log(`[DASHBOARD] Vendas encontradas (Filtro ID): ${sales.length}`);
-
     // 4. BUSCA SEM ERRO (FALLBACK GLOBAL - EMERGÊNCIA)
     // Se não achou nada com o ID, tenta busca global para garantir números
     if (sales.length === 0) {
-        console.log('[DASHBOARD] Nenhuma venda encontrada para o ID. Ativando busca global de emergência...');
         sales = await prisma.sale.findMany({
             where: {
                 status: "COMPLETED",
@@ -56,7 +52,6 @@ export async function GET() {
             },
             orderBy: { createdAt: 'desc' }
         });
-        console.log(`[DASHBOARD] Vendas encontradas (Global/Emergência): ${sales.length}`);
     }
 
     // --- CÁLCULO DE LUCRO ---
@@ -79,12 +74,6 @@ export async function GET() {
     const vendasHoje = sales.filter((sale) => {
         const saleTime = new Date(sale.createdAt).getTime();
         const saleDateSP = new Date(saleTime - (3 * 60 * 60 * 1000)).toISOString().split('T')[0];
-        
-        // Debug específico para confirmar vendas recentes (ex: #26 ou #28 de 600.00)
-        // O usuário mencionou Venda #28
-        if (sale.total && Number(sale.total) === 600) {
-            console.log(`[DASHBOARD] Venda de R$ 600 encontrada (ID: ${sale.id}). DataSP: ${saleDateSP} vs Hoje: ${hojeString}`);
-        }
         
         return saleDateSP === hojeString;
     });

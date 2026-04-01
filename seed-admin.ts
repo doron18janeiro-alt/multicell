@@ -1,45 +1,99 @@
-const { PrismaClient } = require("@prisma/client");
-const bcrypt = require("bcryptjs");
+{
+  const { PrismaClient } = require("@prisma/client");
+  const bcrypt = require("bcryptjs");
 
-const prisma = new PrismaClient();
+  const prisma = new PrismaClient();
 
-async function main() {
-  console.log("🔐 Gerando hash seguro para a senha...");
+  const normalizeEnvValue = (value: string | undefined) => {
+    return String(value || "")
+      .replace(/\\r|\\n/g, "")
+      .replace(/\r|\n/g, "")
+      .trim();
+  };
 
-  /* Hash da senha exata solicitada */
-  const password = "123456789";
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const getEnv = (key: string) => {
+    const value = normalizeEnvValue(process.env[key]);
+    if (!value) {
+      throw new Error(`Variável de ambiente obrigatória ausente: ${key}`);
+    }
+    return value;
+  };
 
-  console.log("🔄 Atualizando usuários no banco de dados...");
+  async function runSeedAdmin() {
+    const adminEmail = getEnv("ADMIN_EMAIL").toLowerCase();
+    const adminPassword = getEnv("ADMIN_PASSWORD");
+    const secondaryEmail = normalizeEnvValue(
+      process.env.SECONDARY_ADMIN_EMAIL,
+    ).toLowerCase();
 
-  // Usuário 1: admin@multicell.com
-  await prisma.user.upsert({
-    where: { email: "admin@multicell.com" },
-    update: { password: hashedPassword },
-    create: {
-      email: "admin@multicell.com",
-      password: hashedPassword,
-      companyId: "multicell-oficial",
-    },
-  });
-  console.log("✅ admin@multicell.com atualizado.");
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
-  // Usuário 2: doron18janeiro@gmail.com
-  await prisma.user.upsert({
-    where: { email: "doron18janeiro@gmail.com" },
-    update: { password: hashedPassword },
-    create: {
-      email: "doron18janeiro@gmail.com",
-      password: hashedPassword,
-      companyId: "multicell-oficial",
-    },
-  });
-  console.log("✅ doron18janeiro@gmail.com atualizado.");
+    await prisma.company.upsert({
+      where: { id: "multicell-oficial" },
+      update: {
+        name: "Multicell Oficial",
+        trialEndsAt,
+        subscriptionStatus: "active",
+        mpSubscriptionId: null,
+      },
+      create: {
+        id: "multicell-oficial",
+        name: "Multicell Oficial",
+        trialEndsAt,
+        subscriptionStatus: "active",
+      },
+    });
+
+    await prisma.companyConfig.upsert({
+      where: { companyId: "multicell-oficial" },
+      update: {
+        name: "Multicell Oficial",
+      },
+      create: {
+        companyId: "multicell-oficial",
+        name: "Multicell Oficial",
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: {
+        password: hashedPassword,
+        companyId: "multicell-oficial",
+      },
+      create: {
+        name: "Administrador",
+        email: adminEmail,
+        password: hashedPassword,
+        companyId: "multicell-oficial",
+      },
+    });
+
+    if (secondaryEmail) {
+      await prisma.user.upsert({
+        where: { email: secondaryEmail },
+        update: {
+          password: hashedPassword,
+          companyId: "multicell-oficial",
+        },
+        create: {
+          name: "Administrador",
+          email: secondaryEmail,
+          password: hashedPassword,
+          companyId: "multicell-oficial",
+        },
+      });
+    }
+  }
+
+  runSeedAdmin()
+    .catch((error: unknown) => {
+      console.error("Erro ao executar seed:", error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }
-
-main()
-  .catch((e) => {
-    console.error("❌ Erro fatal:", e);
-    process.exit(1);
-  })
-  .finally(async () => await prisma.$disconnect());

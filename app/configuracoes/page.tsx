@@ -9,6 +9,7 @@ import {
   Building2,
   Store,
   CreditCard,
+  TriangleAlert,
 } from "lucide-react";
 
 interface CompanyConfig {
@@ -38,6 +39,7 @@ export default function Configuracoes() {
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
@@ -143,6 +145,38 @@ export default function Configuracoes() {
       setMsg("❌ Erro de conexão.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    const confirmed = window.confirm(
+      "Deseja cancelar sua assinatura agora? O logout sera feito imediatamente.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setCancelLoading(true);
+    setMsg("");
+
+    try {
+      const response = await fetch("/api/subscription/cancel", {
+        method: "POST",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMsg(payload.error || "❌ Erro ao cancelar assinatura.");
+        return;
+      }
+
+      window.location.href = "/login";
+    } catch (error) {
+      console.error(error);
+      setMsg("❌ Erro de conexão ao cancelar assinatura.");
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -357,6 +391,27 @@ export default function Configuracoes() {
               <Save size={20} />
               SALVAR TODAS AS ALTERAÇÕES
             </button>
+
+            <section className="bg-[#112240]/80 backdrop-blur-sm border border-red-500/25 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-semibold text-red-400 mb-4 flex items-center gap-2 border-b border-slate-700 pb-2">
+                <TriangleAlert size={20} />
+                Assinatura
+              </h2>
+              <p className="text-sm text-slate-300 mb-4">
+                Cancele quando quiser. Ao confirmar, sua assinatura será marcada
+                como cancelada, um e-mail de confirmação será enviado e sua
+                sessão será encerrada imediatamente.
+              </p>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelLoading}
+                className="w-full rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-red-300 font-semibold hover:bg-red-500/20 transition-colors disabled:opacity-60"
+              >
+                {cancelLoading
+                  ? "Cancelando assinatura..."
+                  : "Cancele quando quiser"}
+              </button>
+            </section>
 
             {msg && (
               <div

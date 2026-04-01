@@ -2,17 +2,15 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useState, useEffect, useRef } from "react";
-import Sidebar from "@/components/Sidebar";
+import { useState, useEffect } from "react";
+import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
 import { RelatorioFechamentoTerminal } from "@/components/RelatorioFechamentoTerminal";
 import {
   Search,
   Trash2,
-  Calendar,
   CreditCard,
   DollarSign,
   TrendingUp,
-  Share2,
   Zap,
 } from "lucide-react";
 
@@ -20,15 +18,31 @@ interface Sale {
   id: number;
   total: number;
   paymentMethod: string;
+  cardType?: string | null;
   items: any[];
   createdAt: string;
 }
 
 export default function SalesMetrics() {
+  const getTodayString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDate = (value: string) =>
+    new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR");
+
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [lastClosingTime, setLastClosingTime] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState({
+    startDate: getTodayString(),
+    endDate: getTodayString(),
+  });
   const [todayTotals, setTodayTotals] = useState({
     money: 0,
     pix: 0,
@@ -49,25 +63,29 @@ export default function SalesMetrics() {
     creditRate: 3.99,
   });
 
-  // Data atual formatada (YYYY-MM-DD) para a API
-  const getTodayString = () => {
-    const now = new Date(); // Browser time
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+  const isTodayRange =
+    dateRange.startDate === getTodayString() &&
+    dateRange.endDate === getTodayString();
 
   useEffect(() => {
     fetchConfig();
-    fetchLastClosing();
-    fetchSales();
-    const interval = setInterval(() => {
-      fetchSales();
-      fetchLastClosing();
-    }, 30000); // Auto-refresh a cada 30s
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const refreshData = async () => {
+      setLoading(true);
+      if (isTodayRange) {
+        await fetchLastClosing();
+      } else {
+        setLastClosingTime(null);
+      }
+      await fetchSales(dateRange.startDate, dateRange.endDate);
+    };
+
+    refreshData();
+    const interval = setInterval(refreshData, 30000);
+    return () => clearInterval(interval);
+  }, [dateRange.startDate, dateRange.endDate, isTodayRange]);
 
   const fetchConfig = async () => {
     try {
@@ -124,10 +142,13 @@ export default function SalesMetrics() {
     return allSales.filter((s) => new Date(s.createdAt).getTime() > closeTime);
   };
 
-  const fetchSales = async () => {
+  const fetchSales = async (startDate: string, endDate: string) => {
     try {
-      const today = getTodayString();
-      const res = await fetch(`/api/sales?date=${today}`);
+      const params = new URLSearchParams({
+        startDate,
+        endDate,
+      });
+      const res = await fetch(`/api/sales?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data: Sale[] = await res.json();
 
@@ -247,6 +268,11 @@ export default function SalesMetrics() {
   };
 
   const handleCloseCash = async () => {
+    if (!isTodayRange) {
+      alert("Fechamento disponível apenas para o período de hoje.");
+      return;
+    }
+
     // 1. Confirmar intenção
     if (
       !confirm(
@@ -394,11 +420,7 @@ export default function SalesMetrics() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0B1120] text-slate-100 font-sans">
-      <div className="print:hidden">
-        <Sidebar />
-      </div>
-
+    <div className="min-h-screen bg-[#0B1120] text-slate-100 font-sans">
       {/* Componente de Impressão (Invisível exceto na hora de imprimir) */}
       <div className="hidden print:block fixed top-0 left-0 bg-white w-full h-full z-[9999]">
         <RelatorioFechamentoTerminal
@@ -409,26 +431,36 @@ export default function SalesMetrics() {
         />
       </div>
 
-      <main className="flex-1 p-6 ml-64 print:hidden">
+      <main className="p-6 print:hidden">
         {/* Header & Title */}
-        <header className="mb-6 flex justify-between items-center">
+        <header className="mb-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               <TrendingUp className="text-[#FFD700]" />
-              Resumo de Caixa (Hoje)
+              Resumo de Caixa
             </h1>
             <p className="text-slate-400 text-sm">
-              Centro de Comando Financeiro
+              Período: {formatDate(dateRange.startDate)} a{" "}
+              {formatDate(dateRange.endDate)}
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col md:flex-row gap-3">
+            <DateRangePickerGlass
+              startDate={dateRange.startDate}
+              endDate={dateRange.endDate}
+              defaultFromDays={0}
+              onDateRangeChange={(startDate, endDate) =>
+                setDateRange({ startDate, endDate })
+              }
+            />
             <button
               onClick={handleCloseCash}
-              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.4)]"
+              disabled={!isTodayRange}
+              className="bg-red-600 hover:bg-red-500 disabled:bg-slate-700 disabled:text-slate-300 disabled:border-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 border border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.4)] disabled:shadow-none"
             >
               <CreditCard className="w-4 h-4" />
-              Fechar Caixa
+              {isTodayRange ? "Fechar Caixa" : "Fechar Caixa (Somente Hoje)"}
             </button>
 
             <a
@@ -535,7 +567,7 @@ export default function SalesMetrics() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-yellow-500/20"></div>
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-yellow-400 font-bold text-sm uppercase tracking-wider">
-                VALOR TOTAL (HOJE)
+                VALOR TOTAL (PERÍODO)
               </h3>
               <div className="p-2 bg-yellow-900/30 rounded-lg text-yellow-400 border border-yellow-600">
                 <DollarSign size={20} />
@@ -601,7 +633,7 @@ export default function SalesMetrics() {
               ) : filteredSales.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-slate-500">
-                    Nenhuma venda registrada hoje.
+                    Nenhuma venda no período selecionado.
                   </td>
                 </tr>
               ) : (

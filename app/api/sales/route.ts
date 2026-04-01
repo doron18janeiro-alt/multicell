@@ -1,39 +1,50 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const dateParam = searchParams.get("date"); // Format: YYYY-MM-DD
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    let whereClause = {};
+    const companyId = session.user.companyId || "multicell-oficial";
+    const { searchParams } = new URL(request.url);
+    const dateParam = searchParams.get("date");
+    const startDateParam = searchParams.get("startDate");
+    const endDateParam = searchParams.get("endDate");
+
+    const whereClause: any = {
+      companyId,
+      status: {
+        not: "REFUNDED",
+      },
+    };
     let takeAmount = 50;
 
-    if (dateParam) {
-      // Create date range for the specific date in UTC (assuming dateParam is passed correctly)
-      // Simpler approach: If date is provided, filter by that day (ignoring strict TZ for now or handling broadly)
-      // Let's rely on the frontend passing the correct day boundaries would be best, but let's implement a simple "contains date" logic
-
-      // Better strategy: Filter by specific Start/End ISO strings passed from frontend which knows the Timezone
-      // But let's stick to the user prompt "A query deve filtrar"
-
-      const startOfDay = new Date(`${dateParam}T00:00:00.000-03:00`); // Force SP Timezone start
-      const endOfDay = new Date(`${dateParam}T23:59:59.999-03:00`); // Force SP Timezone end
-
-      whereClause = {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+    if (startDateParam && endDateParam) {
+      const startDate =
+        startDateParam <= endDateParam ? startDateParam : endDateParam;
+      const endDate =
+        endDateParam >= startDateParam ? endDateParam : startDateParam;
+      whereClause.createdAt = {
+        gte: new Date(`${startDate}T00:00:00.000-03:00`),
+        lte: new Date(`${endDate}T23:59:59.999-03:00`),
       };
-
-      takeAmount = 10000; // No limit for daily view essentially
+      takeAmount = 10000;
+    } else if (dateParam) {
+      whereClause.createdAt = {
+        gte: new Date(`${dateParam}T00:00:00.000-03:00`),
+        lte: new Date(`${dateParam}T23:59:59.999-03:00`),
+      };
+      takeAmount = 10000;
     }
 
     const sales = await prisma.sale.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" },
-      take: takeAmount, // Limit only if no date filter
+      take: takeAmount,
       include: {
         items: {
           include: {
@@ -53,6 +64,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const companyId = session.user.companyId || "multicell-oficial";
     const body = await request.json();
     const { items, paymentMethod, total, customerId } = body;
 
@@ -62,7 +79,9 @@ export async function POST(request: Request) {
     let netAmount = total;
 
     // Fetch config for rates
-    const config = await prisma.companyConfig.findFirst();
+    const config = await prisma.companyConfig.findFirst({
+      where: { companyId },
+    });
 
     // Normalizing payment methods and calculating fees
     if (paymentMethod === "DEBITO" || paymentMethod === "CREDITO") {
@@ -83,6 +102,7 @@ export async function POST(request: Request) {
       // 1. Create the Sale
       const newSale = await tx.sale.create({
         data: {
+          companyId,
           total,
           paymentMethod: finalPaymentMethod,
           cardType,
