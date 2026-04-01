@@ -117,12 +117,12 @@ export default function Estoque() {
   );
 
   useBarcodeListener({
-    enabled: userRole === "ADMIN" && !scannerOpen,
+    enabled: Boolean(userRole) && !scannerOpen,
     onScan: handleBarcodePrefill,
   });
 
   useEffect(() => {
-    if (userRole !== "ADMIN") {
+    if (!userRole) {
       return;
     }
 
@@ -368,8 +368,8 @@ export default function Estoque() {
       <main className="mx-auto w-full max-w-7xl">
         {userRole === "ATTENDANT" && (
           <div className="mb-6 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100">
-            Modo leitura ativo. Atendentes podem consultar o estoque, mas não
-            podem alterar produtos.
+            Cadastro liberado. Atendentes podem adicionar produtos, mas edição,
+            exclusão e remessas continuam restritas ao administrador.
           </div>
         )}
 
@@ -395,24 +395,24 @@ export default function Estoque() {
                   <Truck className="w-5 h-5" />
                   Fornecedores
                 </button>
-                <button
-                  onClick={() => setScannerOpen(true)}
-                  className="bg-sky-500/10 text-sky-200 border border-sky-400/40 px-4 py-2 rounded-lg font-bold hover:bg-sky-500/20 transition-colors flex items-center gap-2"
-                >
-                  <ScanBarcode className="w-5 h-5" />
-                  Ler Código
-                </button>
-                <button
-                  onClick={() => {
-                    handleOpenNewProductForm();
-                  }}
-                  className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  Novo Produto
-                </button>
               </>
             )}
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="bg-sky-500/10 text-sky-200 border border-sky-400/40 px-4 py-2 rounded-lg font-bold hover:bg-sky-500/20 transition-colors flex items-center gap-2"
+            >
+              <ScanBarcode className="w-5 h-5" />
+              Ler Código
+            </button>
+            <button
+              onClick={() => {
+                handleOpenNewProductForm();
+              }}
+              className="bg-[#FFD700] text-black px-4 py-2 rounded-lg font-bold hover:bg-[#E5C100] transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              Novo Produto
+            </button>
           </div>
         </div>
 
@@ -518,7 +518,7 @@ export default function Estoque() {
                     <td className="p-4 flex gap-2">
                       {userRole === "ATTENDANT" ? (
                         <span className="text-xs font-semibold text-slate-500">
-                          Somente leitura
+                          Cadastro liberado
                         </span>
                       ) : (
                         <>
