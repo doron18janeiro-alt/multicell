@@ -12,6 +12,7 @@ const serializeUser = (user: {
   cpf: string | null;
   birthDate: Date | null;
   role: "ADMIN" | "ATTENDANT";
+  commissionRate: { toString(): string } | number;
 }) => ({
   id: user.id,
   fullName: user.fullName || user.name || "",
@@ -19,6 +20,7 @@ const serializeUser = (user: {
   cpf: user.cpf,
   birthDate: user.birthDate?.toISOString() ?? null,
   role: user.role,
+  commissionRate: Number(user.commissionRate || 0),
 });
 
 export async function GET() {
@@ -49,6 +51,7 @@ export async function GET() {
         cpf: true,
         birthDate: true,
         role: true,
+        commissionRate: true,
       },
     });
 
@@ -82,6 +85,7 @@ export async function POST(request: Request) {
     const password = String(body.password || "");
     const cpf = sanitizeCpf(String(body.cpf || ""));
     const birthDateRaw = String(body.birthDate || "");
+    const commissionRate = Number(body.commissionRate ?? 0);
     const role = String(body.role || "ATTENDANT")
       .trim()
       .toUpperCase();
@@ -123,6 +127,17 @@ export async function POST(request: Request) {
       );
     }
 
+    if (
+      Number.isNaN(commissionRate) ||
+      commissionRate < 0 ||
+      commissionRate > 100
+    ) {
+      return NextResponse.json(
+        { error: "Comissão deve estar entre 0 e 100%." },
+        { status: 400 },
+      );
+    }
+
     const [existingEmail, existingCpf] = await Promise.all([
       prisma.user.findUnique({ where: { email } }),
       prisma.user.findFirst({ where: { cpf } }),
@@ -151,6 +166,7 @@ export async function POST(request: Request) {
         email,
         cpf,
         birthDate,
+        commissionRate,
         role: "ATTENDANT",
         password: hashedPassword,
         companyId: currentUser.companyId,
@@ -163,6 +179,7 @@ export async function POST(request: Request) {
         cpf: true,
         birthDate: true,
         role: true,
+        commissionRate: true,
       },
     });
 

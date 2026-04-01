@@ -13,6 +13,7 @@ import {
   Users,
   UserPlus,
   Trash2,
+  Pencil,
 } from "lucide-react";
 
 interface CompanyConfig {
@@ -34,7 +35,18 @@ interface TeamMember {
   cpf: string | null;
   birthDate: string | null;
   role: "ATTENDANT";
+  commissionRate: number;
 }
+
+const createEmptyTeamForm = () => ({
+  fullName: "",
+  email: "",
+  password: "",
+  cpf: "",
+  birthDate: "",
+  role: "ATTENDANT" as const,
+  commissionRate: "0.00",
+});
 
 export default function Configuracoes() {
   const [config, setConfig] = useState<CompanyConfig>({
@@ -55,14 +67,8 @@ export default function Configuracoes() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamSaving, setTeamSaving] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-  const [teamForm, setTeamForm] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    cpf: "",
-    birthDate: "",
-    role: "ATTENDANT" as const,
-  });
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [teamForm, setTeamForm] = useState(createEmptyTeamForm);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
@@ -214,17 +220,20 @@ export default function Configuracoes() {
     }
   };
 
-  const handleCreateEmployee = async (event: React.FormEvent) => {
+  const handleSaveEmployee = async (event: React.FormEvent) => {
     event.preventDefault();
     setTeamSaving(true);
     setMsg("");
 
     try {
-      const response = await fetch("/api/team", {
-        method: "POST",
+      const response = await fetch(
+        editingMemberId ? `/api/team/${editingMemberId}` : "/api/team",
+        {
+        method: editingMemberId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(teamForm),
-      });
+          body: JSON.stringify(teamForm),
+        },
+      );
       const payload = await response.json();
 
       if (!response.ok) {
@@ -232,22 +241,44 @@ export default function Configuracoes() {
         return;
       }
 
-      setTeamForm({
-        fullName: "",
-        email: "",
-        password: "",
-        cpf: "",
-        birthDate: "",
-        role: "ATTENDANT",
-      });
-      setMsg("✅ Funcionário cadastrado com sucesso!");
+      setEditingMemberId(null);
+      setTeamForm(createEmptyTeamForm());
+      setMsg(
+        editingMemberId
+          ? "✅ Funcionário atualizado com sucesso!"
+          : "✅ Funcionário cadastrado com sucesso!",
+      );
       await fetchTeam();
     } catch (error) {
       console.error(error);
-      setMsg("❌ Erro ao cadastrar funcionário.");
+      setMsg(
+        editingMemberId
+          ? "❌ Erro ao atualizar funcionário."
+          : "❌ Erro ao cadastrar funcionário.",
+      );
     } finally {
       setTeamSaving(false);
     }
+  };
+
+  const handleEditEmployee = (member: TeamMember) => {
+    setEditingMemberId(member.id);
+    setTeamForm({
+      fullName: member.fullName,
+      email: member.email,
+      password: "",
+      cpf: member.cpf || "",
+      birthDate: member.birthDate
+        ? new Date(member.birthDate).toISOString().slice(0, 10)
+        : "",
+      role: "ATTENDANT",
+      commissionRate: member.commissionRate.toFixed(2),
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMemberId(null);
+    setTeamForm(createEmptyTeamForm());
   };
 
   const handleDeleteEmployee = async (member: TeamMember) => {
@@ -541,7 +572,7 @@ export default function Configuracoes() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-8">
-            <form onSubmit={handleCreateEmployee} className="space-y-4">
+            <form onSubmit={handleSaveEmployee} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">
@@ -586,8 +617,12 @@ export default function Configuracoes() {
                       setTeamForm({ ...teamForm, password: e.target.value })
                     }
                     className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
-                    placeholder="Minimo 6 caracteres"
-                    required
+                    placeholder={
+                      editingMemberId
+                        ? "Deixe em branco para manter a atual"
+                        : "Minimo 6 caracteres"
+                    }
+                    required={!editingMemberId}
                   />
                 </div>
 
@@ -642,16 +677,56 @@ export default function Configuracoes() {
                     <option value="ATTENDANT">Atendente</option>
                   </select>
                 </div>
+
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">
+                    Comissão (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={teamForm.commissionRate}
+                    onChange={(e) =>
+                      setTeamForm({
+                        ...teamForm,
+                        commissionRate: e.target.value,
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
+                    placeholder="0,00"
+                    required
+                  />
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={teamSaving}
-                className="w-full bg-linear-to-r from-amber-400 to-yellow-500 text-black font-semibold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2"
-              >
-                <UserPlus size={20} />
-                {teamSaving ? "Cadastrando..." : "Cadastrar Funcionário"}
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="submit"
+                  disabled={teamSaving}
+                  className="w-full bg-linear-to-r from-amber-400 to-yellow-500 text-black font-semibold py-4 rounded-xl hover:brightness-110 transition-all flex items-center justify-center gap-2"
+                >
+                  <UserPlus size={20} />
+                  {teamSaving
+                    ? editingMemberId
+                      ? "Salvando..."
+                      : "Cadastrando..."
+                    : editingMemberId
+                      ? "Salvar Alterações"
+                      : "Cadastrar Funcionário"}
+                </button>
+
+                {editingMemberId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="w-full rounded-xl border border-slate-700 bg-[#0B1120] px-4 py-4 font-semibold text-slate-300 transition-colors hover:border-slate-500"
+                  >
+                    Cancelar edição
+                  </button>
+                )}
+              </div>
             </form>
 
             <div className="space-y-4">
@@ -686,16 +761,30 @@ export default function Configuracoes() {
                             )
                           : "--"}
                       </p>
+                      <p className="text-xs text-[#D4AF37] mt-1 font-semibold">
+                        Comissão: {member.commissionRate.toFixed(2)}%
+                      </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteEmployee(member)}
-                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-red-300 hover:bg-red-500/20 transition-colors flex items-center gap-2"
-                    >
-                      <Trash2 size={16} />
-                      Excluir
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleEditEmployee(member)}
+                        className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-amber-200 hover:bg-amber-400/20 transition-colors flex items-center gap-2"
+                      >
+                        <Pencil size={16} />
+                        Editar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEmployee(member)}
+                        className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-red-300 hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                      >
+                        <Trash2 size={16} />
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

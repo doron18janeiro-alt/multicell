@@ -28,6 +28,18 @@ export interface ReportMetrics {
     worstDay: { date: string; revenue: number };
     dailyAverage: number;
   };
+  teamPerformance: Array<{
+    sellerId: string;
+    sellerName: string;
+    role: string;
+    commissionRate: number;
+    totalSales: number;
+    commissionToPay: number;
+    salesCount: number;
+    averageTicket: number;
+    progressPercent: number;
+    revenueSharePercent: number;
+  }>;
   paymentMethods: Array<{
     method: string;
     count: number;
@@ -138,7 +150,14 @@ export async function getReportMetrics(
     const companyId = session.user.companyId || "multicell-oficial";
     const range = resolveDateRange(startDate, endDate);
 
-    const [sales, serviceOrders, soldItems, paymentMethodsRaw, paidExpenses] =
+    const [
+      sales,
+      serviceOrders,
+      soldItems,
+      paymentMethodsRaw,
+      paidExpenses,
+      sellers,
+    ] =
       await Promise.all([
         prisma.sale.findMany({
           where: {
@@ -149,6 +168,15 @@ export async function getReportMetrics(
           include: {
             items: {
               include: { product: true },
+            },
+            seller: {
+              select: {
+                id: true,
+                fullName: true,
+                name: true,
+                role: true,
+                commissionRate: true,
+              },
             },
           },
         }),
@@ -200,6 +228,18 @@ export async function getReportMetrics(
           select: {
             amount: true,
             type: true,
+          },
+        }),
+        prisma.user.findMany({
+          where: {
+            companyId,
+          },
+          select: {
+            id: true,
+            fullName: true,
+            name: true,
+            role: true,
+            commissionRate: true,
           },
         }),
       ]);
@@ -406,6 +446,83 @@ export async function getReportMetrics(
     const topProductCategory =
       categoryRanking.length > 0 ? categoryRanking[0].category : "N/A";
 
+    const sellerPerformanceMap = new Map<
+      string,
+      {
+        sellerId: string;
+        sellerName: string;
+        role: string;
+        commissionRate: number;
+        totalSales: number;
+        commissionToPay: number;
+        salesCount: number;
+      }
+    >();
+
+    sellers.forEach((seller) => {
+      sellerPerformanceMap.set(seller.id, {
+        sellerId: seller.id,
+        sellerName: seller.fullName || seller.name || seller.id,
+        role: seller.role,
+        commissionRate: Number(seller.commissionRate || 0),
+        totalSales: 0,
+        commissionToPay: 0,
+        salesCount: 0,
+      });
+    });
+
+    sales.forEach((sale) => {
+      if (!sale.sellerId) {
+        return;
+      }
+
+      const sellerName =
+        sale.seller?.fullName || sale.seller?.name || "Vendedor";
+      const commissionRate = Number(sale.seller?.commissionRate || 0);
+      const current = sellerPerformanceMap.get(sale.sellerId) || {
+        sellerId: sale.sellerId,
+        sellerName,
+        role: sale.seller?.role || "ATTENDANT",
+        commissionRate,
+        totalSales: 0,
+        commissionToPay: 0,
+        salesCount: 0,
+      };
+
+      current.totalSales += Number(sale.total || 0);
+      current.salesCount += 1;
+      current.commissionToPay =
+        current.totalSales * (current.commissionRate / 100);
+
+      sellerPerformanceMap.set(sale.sellerId, current);
+    });
+
+    const topSellerRevenue = Math.max(
+      ...Array.from(sellerPerformanceMap.values()).map((seller) =>
+        Number(seller.totalSales || 0),
+      ),
+      0,
+    );
+
+    const teamSalesTotal = Array.from(sellerPerformanceMap.values()).reduce(
+      (acc, seller) => acc + Number(seller.totalSales || 0),
+      0,
+    );
+
+    const teamPerformance = Array.from(sellerPerformanceMap.values())
+      .map((seller) => ({
+        ...seller,
+        averageTicket:
+          seller.salesCount > 0 ? seller.totalSales / seller.salesCount : 0,
+        progressPercent:
+          topSellerRevenue > 0
+            ? (seller.totalSales / topSellerRevenue) * 100
+            : 0,
+        revenueSharePercent:
+          teamSalesTotal > 0 ? (seller.totalSales / teamSalesTotal) * 100 : 0,
+      }))
+      .sort((a, b) => b.totalSales - a.totalSales);
+
     return {
       period: {
         startDate: range.startDate,
@@ -431,6 +548,7 @@ export async function getReportMetrics(
         worstDay,
         dailyAverage,
       },
+      teamPerformance,
       paymentMethods,
       topProducts,
       serviceVsProducts: {

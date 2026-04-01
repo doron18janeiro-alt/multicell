@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId || "multicell-oficial";
+    const companyId = currentUser.companyId || "multicell-oficial";
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
     const startDateParam = searchParams.get("startDate");
@@ -51,6 +51,14 @@ export async function GET(request: Request) {
             product: true,
           },
         },
+        seller: {
+          select: {
+            id: true,
+            fullName: true,
+            name: true,
+            commissionRate: true,
+          },
+        },
       },
     });
     return NextResponse.json(sales);
@@ -64,12 +72,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const companyId = session.user.companyId || "multicell-oficial";
+    const companyId = currentUser.companyId || "multicell-oficial";
     const body = await request.json();
     const { items, paymentMethod, total, customerId } = body;
 
@@ -109,6 +117,7 @@ export async function POST(request: Request) {
           feeAmount,
           netAmount,
           customerId,
+          sellerId: currentUser.id,
           items: {
             create: items.map((item: any) => ({
               productId: item.productId,
@@ -124,6 +133,14 @@ export async function POST(request: Request) {
             },
           },
           customer: true, // Includes customer for Receipt
+          seller: {
+            select: {
+              id: true,
+              fullName: true,
+              name: true,
+              commissionRate: true,
+            },
+          },
         },
       });
 

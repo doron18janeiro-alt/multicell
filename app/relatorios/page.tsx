@@ -295,6 +295,98 @@ export default function AdvancedReports() {
         <MonthlyEvolutionChart data={monthlyData} />
       </div>
 
+      {/* PERFORMANCE DA EQUIPE */}
+      <div className="mt-8 bg-zinc-950/70 backdrop-blur-md rounded-2xl border border-zinc-700/50 p-6 shadow-lg">
+        <div className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              👥 Performance da Equipe
+            </h3>
+            <p className="text-sm text-slate-400">
+              Total vendido por cada usuário e comissão estimada no período.
+            </p>
+          </div>
+          <p className="text-xs text-slate-500">
+            Comissão = total de vendas x percentual individual
+          </p>
+        </div>
+
+        {metrics.teamPerformance.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-700 bg-[#0B1120]/60 px-6 py-12 text-center text-slate-400">
+            Nenhum vendedor encontrado para o período selecionado.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {metrics.teamPerformance.map((seller, index) => (
+              <div
+                key={seller.sellerId}
+                className="rounded-2xl border border-zinc-700/40 bg-[#0B1120]/80 p-5 shadow-lg transition-colors hover:border-amber-500/30"
+              >
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-slate-500">
+                      #{index + 1} no período
+                    </p>
+                    <h4 className="text-lg font-bold text-white">
+                      {seller.sellerName}
+                    </h4>
+                    <p className="text-xs text-slate-400">
+                      {seller.role === "ADMIN" ? "Administrador" : "Atendente"}{" "}
+                      • Comissão {seller.commissionRate.toFixed(2)}%
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-300">
+                    {seller.revenueSharePercent.toFixed(1)}% da equipe
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-xl border border-zinc-700/40 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-slate-400">Total de Vendas</p>
+                    <p className="mt-2 text-lg font-bold text-white">
+                      {formatCurrency(seller.totalSales)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-700/40 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-slate-400">Comissão a Pagar</p>
+                    <p className="mt-2 text-lg font-bold text-green-400">
+                      {formatCurrency(seller.commissionToPay)}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-700/40 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-slate-400">Qtde. de Vendas</p>
+                    <p className="mt-2 text-lg font-bold text-cyan-300">
+                      {seller.salesCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-zinc-700/40 bg-zinc-950/60 p-3">
+                    <p className="text-xs text-slate-400">Ticket Médio</p>
+                    <p className="mt-2 text-lg font-bold text-white">
+                      {formatCurrency(seller.averageTicket)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <div className="mb-2 flex items-center justify-between text-xs text-slate-400">
+                    <span>Aproveitamento</span>
+                    <span>{seller.progressPercent.toFixed(1)}%</span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-400 via-yellow-500 to-lime-400"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, seller.progressPercent))}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* TOP 5 PRODUTOS */}
       <div className="mt-8 bg-zinc-950/70 backdrop-blur-md rounded-2xl border border-zinc-700/50 p-6 shadow-lg">
         <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">

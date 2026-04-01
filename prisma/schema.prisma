@@ -113,9 +113,11 @@ model Sale {
   status         SaleStatus @default(COMPLETED)
   returnReason   String?    @map("return_reason")
   customerId     String?    @map("customer_id")
+  sellerId       String?    @map("seller_id")
   createdAt      DateTime   @default(now()) @map("created_at")
   items          SaleItem[]
   customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  seller         User?      @relation("SellerSales", fields: [sellerId], references: [id], onDelete: SetNull)
 
   @@map("sales")
 }
@@ -169,11 +171,13 @@ model User {
   email             String    @unique
   cpf               String?   @unique
   birthDate         DateTime? @map("birth_date") @db.Date
+  commissionRate    Decimal   @default(0.00) @map("commission_rate") @db.Decimal(5, 2)
   role              UserRole  @default(ATTENDANT)
   password          String
   resetToken        String?   @map("reset_token")
   resetTokenExpires DateTime? @map("reset_token_expires")
   companyId         String    @map("company_id")
+  sales             Sale[]    @relation("SellerSales")
 
   @@map("users")
 }
