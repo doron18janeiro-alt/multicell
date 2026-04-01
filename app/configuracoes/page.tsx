@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { formatCpf } from "@/lib/cpf";
-import Sidebar from "@/components/Sidebar";
 import {
   Settings,
   Save,
@@ -280,11 +279,10 @@ export default function Configuracoes() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#0B1120] text-slate-100 font-sans">
-      <Sidebar />
-      <main className="flex-1 p-8 ml-64">
+    <div className="min-h-full w-full bg-[#0B1120] font-sans text-slate-100">
+      <main className="mx-auto w-full max-w-7xl">
         <header className="mb-8 border-b border-slate-800 pb-6">
-          <h1 className="text-3xl font-light text-white flex items-center gap-3">
+          <h1 className="flex items-center gap-3 text-2xl font-light text-white sm:text-3xl">
             <Settings className="text-[#D4AF37]" size={32} strokeWidth={1.5} />
             Configurações do Sistema
           </h1>

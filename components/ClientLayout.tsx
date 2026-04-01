@@ -30,9 +30,9 @@ export default function ClientLayout({
         <main className="w-full min-h-screen">{children}</main>
       ) : (
         /* Páginas internas com sidebar */
-        <div className="flex">
+        <div className="min-h-screen">
           <Sidebar />
-          <main className="flex-1 p-4 md:p-8 ml-64 overflow-y-auto h-screen">
+          <main className="min-w-0 overflow-x-hidden px-4 pb-6 pt-20 sm:px-5 md:ml-64 md:h-screen md:overflow-y-auto md:px-8 md:pb-8 md:pt-8">
             {children}
           </main>
         </div>

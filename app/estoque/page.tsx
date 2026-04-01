@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Sidebar from "@/components/Sidebar";
 import {
   Search,
   Package,
@@ -297,9 +296,8 @@ export default function Estoque() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#0B1120] text-slate-100">
-      <Sidebar />
-      <main className="flex-1 p-8">
+    <div className="min-h-full w-full bg-[#0B1120] text-slate-100">
+      <main className="mx-auto w-full max-w-7xl">
         {userRole === "ATTENDANT" && (
           <div className="mb-6 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100">
             Modo leitura ativo. Atendentes podem consultar o estoque, mas não
@@ -307,12 +305,12 @@ export default function Estoque() {
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+        <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="flex items-center gap-3 text-2xl font-bold text-white sm:text-3xl">
             <Package className="text-[#FFD700]" />
             Gestão de Estoque
           </h1>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={handleExportCSV}
               className="bg-[#112240] text-white border border-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-[#1e293b] transition-colors flex items-center gap-2"
@@ -354,7 +352,7 @@ export default function Estoque() {
         </div>
 
         {/* Filters */}
-        <div className="bg-[#112240] p-4 rounded-xl border border-slate-800 mb-6 flex gap-4">
+        <div className="mb-6 flex flex-col gap-4 rounded-xl border border-slate-800 bg-[#112240] p-4 md:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
             <input
@@ -378,8 +376,8 @@ export default function Estoque() {
         </div>
 
         {/* Product List */}
-        <div className="bg-[#112240] rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-left">
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#112240]">
+          <table className="min-w-[760px] w-full text-left">
             <thead className="bg-[#0B1120] text-slate-400">
               <tr>
                 <th className="p-4">Nome</th>

@@ -3,7 +3,6 @@
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef, Suspense } from "react"; // Added Suspense
 import { useReactToPrint } from "react-to-print";
-import Sidebar from "@/components/Sidebar";
 import {
   Search,
   Trash2,
@@ -227,12 +226,11 @@ function PDVContent() {
   };
 
   return (
-    <div className="flex  min-h-screen bg-[#0B1120] text-slate-100 font-sans">
-      <Sidebar />
-      <main className="flex-1 p-4 lg:p-8 ml-0 lg:ml-64 flex flex-col lg:flex-row gap-6">
+    <div className="min-h-full w-full bg-[#0B1120] font-sans text-slate-100">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 lg:flex-row">
         {/* Left: Product Selection */}
-        <div className="flex-1 flex flex-col pt-12 lg:pt-0">
-          <header className="mb-6 flex justify-between items-start">
+        <div className="flex-1 min-w-0 flex flex-col">
+          <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2 flex items-center gap-3">
                 <ShoppingCart className="text-[#FFD700]" />
@@ -328,7 +326,7 @@ function PDVContent() {
         </div>
 
         {/* Right: Cart & Checkout */}
-        <div className="w-full lg:w-[400px] bg-[#112240] rounded-2xl border border-slate-700 flex flex-col shadow-2xl overflow-hidden mt-16 md:mt-0">
+        <div className="mt-0 flex w-full flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#112240] shadow-2xl lg:w-[400px]">
           <div className="p-6 bg-[#0f172a] border-b border-slate-700">
             <h2 className="text-xl font-bold text-white flex items-center justify-between">
               <span>Carrinho</span>

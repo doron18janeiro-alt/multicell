@@ -295,97 +295,98 @@ export default function FinanceiroPage() {
       : 0;
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-slate-100 p-8 space-y-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 p-2 text-black">
-              <Wallet className="w-8 h-8" />
-            </div>
-            Financeiro Elite
-          </h1>
-          <p className="mt-2 text-slate-400">
-            Gestao de despesas, fluxo de caixa e alerta visual para contas
-            vencidas.
-          </p>
-        </div>
+    <div className="min-h-full bg-[#0B1120] text-slate-100">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 sm:gap-8">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold text-white sm:text-3xl xl:text-4xl">
+              <div className="rounded-xl bg-gradient-to-br from-amber-400 to-yellow-600 p-2 text-black">
+                <Wallet className="h-6 w-6 sm:h-8 sm:w-8" />
+              </div>
+              <span>Financeiro Elite</span>
+            </h1>
+            <p className="mt-2 text-sm text-slate-400 sm:text-base">
+              Gestao de despesas, fluxo de caixa e alerta visual para contas
+              vencidas.
+            </p>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] transition-transform hover:scale-[1.01]"
-        >
-          <Plus className="w-5 h-5" />
-          Nova Despesa
-        </button>
-      </header>
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] transition-transform hover:scale-[1.01] sm:w-auto"
+          >
+            <Plus className="h-5 w-5" />
+            Nova Despesa
+          </button>
+        </header>
 
-      {message && (
-        <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-5 py-4 text-sm font-medium text-amber-100">
-          {message}
-        </div>
-      )}
+        {message && (
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-5 py-4 text-sm font-medium text-amber-100">
+            {message}
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-amber-500/20 bg-zinc-950/70 p-6 backdrop-blur-md">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-amber-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-400">Saldo em Caixa</p>
-            <Wallet className="w-5 h-5 text-amber-400" />
+            <Wallet className="h-5 w-5 text-amber-400" />
           </div>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-2xl font-bold text-white sm:text-3xl">
             {formatCurrency(summary.cashBalance)}
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Vendas totais - despesas da loja pagas
           </p>
-        </div>
+          </div>
 
-        <div className="rounded-2xl border border-cyan-500/20 bg-zinc-950/70 p-6 backdrop-blur-md">
+          <div className="rounded-2xl border border-cyan-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-400">Entradas em Vendas</p>
-            <ArrowUpCircle className="w-5 h-5 text-cyan-400" />
+            <ArrowUpCircle className="h-5 w-5 text-cyan-400" />
           </div>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-2xl font-bold text-white sm:text-3xl">
             {formatCurrency(summary.totalSales)}
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Base para o saldo do caixa
           </p>
-        </div>
+          </div>
 
-        <div className="rounded-2xl border border-red-500/20 bg-zinc-950/70 p-6 backdrop-blur-md">
+          <div className="rounded-2xl border border-red-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-400">Pendentes</p>
-            <ArrowDownCircle className="w-5 h-5 text-red-400" />
+            <ArrowDownCircle className="h-5 w-5 text-red-400" />
           </div>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-2xl font-bold text-white sm:text-3xl">
             {formatCurrency(summary.pendingTotal)}
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {summary.overdueCount} conta(s) vencida(s)
           </p>
-        </div>
+          </div>
 
-        <div className="rounded-2xl border border-blue-500/20 bg-zinc-950/70 p-6 backdrop-blur-md">
+          <div className="rounded-2xl border border-blue-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-400">Gastos Pagos</p>
-            <CheckCircle2 className="w-5 h-5 text-blue-400" />
+            <CheckCircle2 className="h-5 w-5 text-blue-400" />
           </div>
-          <p className="text-3xl font-bold text-white">
+          <p className="text-2xl font-bold text-white sm:text-3xl">
             {formatCurrency(totalExpensePaid)}
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Loja {formatCurrency(summary.shopPaidTotal)} | Pessoal{" "}
             {formatCurrency(summary.personalPaidTotal)}
           </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-6 backdrop-blur-md">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
+          <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <h2 className="text-xl font-bold text-white">
               Lista de Despesas
@@ -550,10 +551,10 @@ export default function FinanceiroPage() {
               })}
             </div>
           )}
-        </div>
+          </div>
 
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-6 backdrop-blur-md">
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-zinc-700/50 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
             <h2 className="text-xl font-bold text-white">
               Loja vs Pessoal
             </h2>
@@ -604,9 +605,9 @@ export default function FinanceiroPage() {
                 </p>
               </div>
             </div>
-          </div>
+            </div>
 
-          <div className="rounded-2xl border border-red-500/20 bg-zinc-950/70 p-6 backdrop-blur-md">
+            <div className="rounded-2xl border border-red-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-red-500/10 p-2">
                 <AlertTriangle className="w-5 h-5 text-red-400" />
@@ -626,6 +627,7 @@ export default function FinanceiroPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
 
       {showCreateModal && (
