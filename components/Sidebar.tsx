@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -15,23 +15,29 @@ import {
   LogOut,
   BarChart3,
   Wallet,
-  Menu,
   X,
 } from "lucide-react";
 
-export default function Sidebar() {
+type SidebarProps = {
+  isMobileOpen: boolean;
+  onCloseMobileMenu: () => void;
+};
+
+export default function Sidebar({
+  isMobileOpen,
+  onCloseMobileMenu,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<{
     fullName: string | null;
     role: "ADMIN" | "ATTENDANT";
   } | null>(null);
 
   useEffect(() => {
-    setIsMobileOpen(false);
-  }, [pathname]);
+    onCloseMobileMenu();
+  }, [onCloseMobileMenu, pathname]);
 
   useEffect(() => {
     const checkAlerts = () => {
@@ -121,51 +127,17 @@ export default function Sidebar() {
 
   return (
     <>
-      <div className="fixed inset-x-0 top-0 z-40 border-b border-[#1E293B]/60 bg-[#0B1121]/95 px-4 backdrop-blur-md md:hidden">
-        <div className="mx-auto flex h-16 w-full items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setIsMobileOpen(true)}
-            aria-label="Abrir menu"
-            aria-expanded={isMobileOpen}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0F172A]/80 text-slate-100 transition-colors hover:border-[#D4AF37]/40 hover:text-[#D4AF37]"
-          >
-            <Menu size={20} strokeWidth={1.75} />
-          </button>
-
-          <Link href="/dashboard" className="flex min-w-0 items-center justify-center">
-            <Image
-              src="/logo.png"
-              alt="Multicell"
-              width={132}
-              height={40}
-              priority
-              className="h-9 w-auto drop-shadow-md"
-            />
-          </Link>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            aria-label="Sair"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0F172A]/80 text-slate-100 transition-colors hover:border-red-500/40 hover:text-red-400"
-          >
-            <LogOut size={18} strokeWidth={1.75} />
-          </button>
-        </div>
-      </div>
-
       {isMobileOpen && (
         <button
           type="button"
           aria-label="Fechar menu"
-          onClick={() => setIsMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/65 md:hidden"
+          onClick={onCloseMobileMenu}
+          className="fixed inset-0 z-[55] bg-black/65 md:hidden"
         />
       )}
 
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-screen w-72 max-w-[85vw] flex-col border-r border-[#1E293B]/50 bg-[#0B1121]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 md:w-64 ${
+        className={`fixed left-0 top-0 z-[60] flex h-screen w-[80vw] max-w-sm flex-col border-r border-[#1E293B]/50 bg-[#0B1121]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 md:z-50 md:w-64 ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         } md:translate-x-0`}
       >
@@ -180,7 +152,7 @@ export default function Sidebar() {
           />
           <button
             type="button"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={onCloseMobileMenu}
             aria-label="Fechar menu"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[#1E293B] bg-[#0F172A]/80 text-slate-100 transition-colors hover:border-[#D4AF37]/40 hover:text-[#D4AF37]"
           >
@@ -209,7 +181,7 @@ export default function Sidebar() {
               <Link
                 key={item.path}
                 href={item.path}
-                onClick={() => setIsMobileOpen(false)}
+                onClick={onCloseMobileMenu}
                 className={`
                   group relative flex items-center gap-3 overflow-hidden rounded-xl px-4 py-3 transition-all duration-300
                   ${

@@ -1,6 +1,8 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { usePathname } from "next/navigation";
+import HeaderMobile from "@/components/HeaderMobile";
 import Sidebar from "@/components/Sidebar";
 
 export default function ClientLayout({
@@ -9,6 +11,13 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const handleOpenMobileMenu = useCallback(() => {
+    setIsMobileSidebarOpen(true);
+  }, []);
+  const handleCloseMobileMenu = useCallback(() => {
+    setIsMobileSidebarOpen(false);
+  }, []);
 
   // Define se a página atual é de autenticação
   const isAuthPage =
@@ -31,9 +40,15 @@ export default function ClientLayout({
       ) : (
         /* Páginas internas com sidebar */
         <div className="min-h-screen">
-          <Sidebar />
-          <main className="min-w-0 overflow-x-hidden px-4 pb-6 pt-20 sm:px-5 md:ml-64 md:h-screen md:overflow-y-auto md:px-8 md:pb-8 md:pt-8">
-            {children}
+          <HeaderMobile onOpenMenu={handleOpenMobileMenu} />
+          <Sidebar
+            isMobileOpen={isMobileSidebarOpen}
+            onCloseMobileMenu={handleCloseMobileMenu}
+          />
+          <main className="min-w-0 overflow-x-hidden pt-20 md:h-screen md:overflow-y-auto md:pl-64 md:pt-8">
+            <div className="px-4 pb-6 pl-0 sm:px-5 md:px-8 md:pb-8">
+              {children}
+            </div>
           </main>
         </div>
       )}
