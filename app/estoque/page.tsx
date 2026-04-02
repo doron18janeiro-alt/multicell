@@ -12,12 +12,13 @@ import {
   Pencil,
   Trash2,
   ScanBarcode,
+  MessageCircle,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { buildSupplierRestockMessage, formatWhatsAppLink } from "@/lib/whatsapp";
+import { formatWhatsAppLink } from "@/lib/whatsapp";
 import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
 
 interface Product {
@@ -45,6 +46,13 @@ interface Supplier {
   contact?: string | null;
   whatsapp?: string | null;
 }
+
+type RestockRequestState = {
+  productId: string;
+  productName: string;
+  supplierId: string;
+  quantity: string;
+} | null;
 
 const createEmptyProductForm = (barcode = "") => ({
   name: "",
@@ -95,6 +103,8 @@ export default function Estoque() {
     newSalePrice: "",
   });
   const handledQueryBarcodeRef = useRef("");
+  const [restockRequest, setRestockRequest] =
+    useState<RestockRequestState>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -104,6 +114,21 @@ export default function Estoque() {
       .then((data) => setUserRole(data?.role || null))
       .catch((error) => console.error(error));
   }, []);
+
+  useEffect(() => {
+    if (!restockRequest || restockRequest.supplierId || suppliers.length === 0) {
+      return;
+    }
+
+    setRestockRequest((current) =>
+      current
+        ? {
+            ...current,
+            supplierId: suppliers[0].id,
+          }
+        : current,
+    );
+  }, [restockRequest, suppliers]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -370,6 +395,49 @@ export default function Estoque() {
     setShowBatchModal(true);
   };
 
+  const getDefaultRestockQuantity = (product: Product) => {
+    const minimumStock = resolveProductMinStock(product);
+    const quantityToOrder = Math.max(minimumStock - Number(product.stock || 0), 1);
+    return String(quantityToOrder);
+  };
+
+  const handleOpenRestockModal = (product: Product) => {
+    setRestockRequest({
+      productId: product.id,
+      productName: product.name,
+      supplierId: product.supplierId || suppliers[0]?.id || "",
+      quantity: getDefaultRestockQuantity(product),
+    });
+  };
+
+  const buildRestockWhatsAppMessage = (
+    supplierName: string,
+    productName: string,
+    quantity: number,
+  ) =>
+    [
+      `Boa tarde, ${supplierName}! 👋 Aqui é da Multicell, tudo bem? 🛠️📱`,
+      ``,
+      `Gostaríamos de consultar a disponibilidade e o valor do seguinte item para reposição em nossa loja:`,
+      ``,
+      `📦 Produto: ${productName}`,
+      `🔢 Quantidade desejada: ${quantity} unidades`,
+      ``,
+      `Poderia nos informar se tem em estoque e qual o preço atual para essa quantidade? Ficamos no aguardo! ✨`,
+    ].join("\n");
+
+  const getRestockButtonClass = (product: Product, compact = false) => {
+    const lowStock = isProductLowStock(product);
+
+    return `inline-flex items-center justify-center rounded-xl bg-[#25D366] font-bold text-[#081c10] transition-all hover:bg-[#20bd5a] ${
+      compact ? "h-10 w-10" : "min-h-11 gap-2 px-4 py-2 text-sm"
+    } ${
+      lowStock
+        ? "shadow-[0_0_24px_rgba(37,211,102,0.55)] animate-[pulse_2.2s_ease-in-out_infinite]"
+        : "shadow-[0_10px_24px_rgba(37,211,102,0.18)]"
+    }`;
+  };
+
   const handleSaveBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!batchData.productId) return;
@@ -428,6 +496,46 @@ export default function Estoque() {
 
   const getSupplierPhone = (supplier: Supplier | Product["supplier"]) =>
     supplier?.whatsapp || supplier?.contact || "";
+
+  const selectedRestockSupplier = restockRequest
+    ? suppliers.find((supplier) => supplier.id === restockRequest.supplierId) || null
+    : null;
+
+  const handleSendRestockMessage = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!restockRequest) {
+      return;
+    }
+
+    if (!selectedRestockSupplier) {
+      alert("Selecione um fornecedor para solicitar a reposição.");
+      return;
+    }
+
+    const quantity = Number.parseInt(restockRequest.quantity, 10);
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      alert("Informe uma quantidade válida para o pedido.");
+      return;
+    }
+
+    const supplierPhone = getSupplierPhone(selectedRestockSupplier);
+    const message = buildRestockWhatsAppMessage(
+      selectedRestockSupplier.name,
+      restockRequest.productName,
+      quantity,
+    );
+    const whatsappUrl = formatWhatsAppLink(supplierPhone, message);
+
+    if (!whatsappUrl) {
+      alert("O fornecedor selecionado não possui um WhatsApp válido cadastrado.");
+      return;
+    }
+
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    setRestockRequest(null);
+  };
 
   return (
     <div className="min-h-full w-full bg-[#0B1120] text-slate-100">
@@ -540,10 +648,6 @@ export default function Estoque() {
             ) : (
               filteredProducts.map((product) => {
                 const supplier = getSupplierForProduct(product);
-                const supplierHref = formatWhatsAppLink(
-                  getSupplierPhone(supplier),
-                  buildSupplierRestockMessage(product.name),
-                );
                 const effectiveMinStock = resolveProductMinStock(product);
 
                 return (
@@ -569,24 +673,14 @@ export default function Estoque() {
                         </div>
                       </div>
 
-                      {supplierHref ? (
-                        <a
-                          href={supplierHref}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#25D366] px-4 py-2 text-sm font-bold text-[#081c10] transition-colors hover:bg-[#20bd5a]"
-                        >
-                          Pedir ao Fornecedor
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled
-                          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-500"
-                        >
-                          Pedir ao Fornecedor
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenRestockModal(product)}
+                        className={getRestockButtonClass(product)}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Solicitar Reposição
+                      </button>
                     </div>
 
                     <div className="mt-4 border-t border-slate-800 pt-4 text-sm text-slate-400">
@@ -616,9 +710,7 @@ export default function Estoque() {
                   <th className="p-4">Preço Venda</th>
                   <th className="p-4">Estoque</th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">
-                    {userRole === "ATTENDANT" ? "Modo" : "Ações"}
-                  </th>
+                  <th className="p-4">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -635,87 +727,222 @@ export default function Estoque() {
                     </td>
                   </tr>
                 ) : (
-                  filteredProducts.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="hover:bg-[#1e293b] transition-colors"
-                    >
-                      <td className="p-4 font-medium text-white">
-                        <div className="space-y-1">
-                          <p>{product.name}</p>
-                          {product.barcode && (
-                            <p className="text-xs text-slate-500">
-                              {product.barcode}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-4 text-slate-300">
-                        <span className="px-2 py-1 rounded bg-slate-800 text-xs">
-                          {product.category}
-                        </span>
-                      </td>
-                      <td className="p-4 text-slate-400">
-                        R$ {(product.costPrice || 0).toFixed(2)}
-                      </td>
-                      <td className="p-4 text-[#FFD700] font-bold">
-                        R$ {(product.salePrice || 0).toFixed(2)}
-                      </td>
-                      <td className="p-4">
-                        <span
-                          className={`font-bold ${
-                            isProductLowStock(product)
-                              ? "text-red-500"
-                              : "text-white"
-                          }`}
-                        >
-                          {product.stock}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {isProductLowStock(product) && (
-                          <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
-                            <AlertTriangle className="w-4 h-4" />
-                            BAIXO ESTOQUE
+                  filteredProducts.map((product) => {
+                    const lowStock = isProductLowStock(product);
+
+                    return (
+                      <tr
+                        key={product.id}
+                        className="hover:bg-[#1e293b] transition-colors"
+                      >
+                        <td className="p-4 font-medium text-white">
+                          <div className="space-y-1">
+                            <p>{product.name}</p>
+                            {product.barcode && (
+                              <p className="text-xs text-slate-500">
+                                {product.barcode}
+                              </p>
+                            )}
                           </div>
-                        )}
-                      </td>
-                      <td className="p-4 flex gap-2">
-                        {userRole === "ATTENDANT" ? (
-                          <span className="text-xs font-semibold text-slate-500">
-                            Cadastro liberado
+                        </td>
+                        <td className="p-4 text-slate-300">
+                          <span className="px-2 py-1 rounded bg-slate-800 text-xs">
+                            {product.category}
                           </span>
-                        ) : (
-                          <>
+                        </td>
+                        <td className="p-4 text-slate-400">
+                          R$ {(product.costPrice || 0).toFixed(2)}
+                        </td>
+                        <td className="p-4 text-[#FFD700] font-bold">
+                          R$ {(product.salePrice || 0).toFixed(2)}
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`font-bold ${
+                              lowStock ? "text-red-500" : "text-white"
+                            }`}
+                          >
+                            {product.stock}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {lowStock ? (
+                            <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
+                              <AlertTriangle className="w-4 h-4" />
+                              BAIXO ESTOQUE
+                            </div>
+                          ) : (
+                            <span className="text-xs font-semibold text-emerald-400">
+                              EM DIA
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-wrap items-center gap-2">
                             <button
-                              onClick={() => handleOpenBatchModal(product)}
-                              className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
-                              title="Nova Remessa"
+                              type="button"
+                              onClick={() => handleOpenRestockModal(product)}
+                              className={getRestockButtonClass(product, true)}
+                              title={`Solicitar reposição de ${product.name}`}
                             >
-                              <Plus className="w-5 h-5" />
+                              <MessageCircle className="h-5 w-5" />
                             </button>
-                            <button
-                              onClick={() => handleEdit(product)}
-                              className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                              title="Editar"
-                            >
-                              <Pencil className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+
+                            {userRole !== "ATTENDANT" ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenBatchModal(product)}
+                                  className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
+                                  title="Nova Remessa"
+                                >
+                                  <Plus className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleEdit(product)}
+                                  className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                  title="Editar"
+                                >
+                                  <Pencil className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(product.id)}
+                                  className="p-2 rounded hover:bg-red-500/10 text-red-500 hover:text-red-400 transition-colors"
+                                  title="Excluir"
+                                >
+                                  <Trash2 className="w-5 h-5" />
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-xs font-semibold text-slate-500">
+                                Reposição liberada
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {restockRequest && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+            <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-[#112240] p-8 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#25D366]">
+                    Reposição Inteligente
+                  </p>
+                  <h2 className="mt-2 text-2xl font-bold text-white">
+                    Solicitar Reposição - {restockRequest.productName}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRestockRequest(null)}
+                  className="rounded-lg border border-slate-700 px-3 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+                >
+                  Fechar
+                </button>
+              </div>
+
+              <form onSubmit={handleSendRestockMessage} className="mt-6 space-y-5">
+                <div>
+                  <label className="mb-1 block text-slate-400">Fornecedor</label>
+                  <select
+                    className="w-full rounded-xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white focus:border-[#25D366] focus:outline-none"
+                    value={restockRequest.supplierId}
+                    onChange={(e) =>
+                      setRestockRequest((current) =>
+                        current
+                          ? {
+                              ...current,
+                              supplierId: e.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                  >
+                    <option value="">Selecione um fornecedor</option>
+                    {suppliers.map((supplier) => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                  {suppliers.length === 0 && (
+                    <p className="mt-2 text-xs text-amber-300">
+                      Nenhum fornecedor cadastrado. Cadastre um fornecedor para
+                      enviar o pedido via WhatsApp.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-slate-400">Quantidade</label>
+                  <input
+                    required
+                    min="1"
+                    type="number"
+                    className="w-full rounded-xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white focus:border-[#25D366] focus:outline-none"
+                    value={restockRequest.quantity}
+                    onChange={(e) =>
+                      setRestockRequest((current) =>
+                        current
+                          ? {
+                              ...current,
+                              quantity: e.target.value,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4 text-sm text-slate-300">
+                  <p className="font-semibold text-white">
+                    {selectedRestockSupplier?.name || "Fornecedor não selecionado"}
+                  </p>
+                  <p className="mt-1 text-slate-400">
+                    WhatsApp:{" "}
+                    {selectedRestockSupplier
+                      ? getSupplierPhone(selectedRestockSupplier) || "Não cadastrado"
+                      : "Selecione um fornecedor"}
+                  </p>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setRestockRequest(null)}
+                    className="flex-1 rounded-xl bg-slate-700 py-3 font-bold text-white transition-colors hover:bg-slate-600"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      !restockRequest.supplierId ||
+                      !restockRequest.quantity ||
+                      Number(restockRequest.quantity) <= 0
+                    }
+                    className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 font-bold transition-colors ${
+                      !restockRequest.supplierId ||
+                      !restockRequest.quantity ||
+                      Number(restockRequest.quantity) <= 0
+                        ? "cursor-not-allowed bg-slate-700 text-slate-500"
+                        : "bg-[#25D366] text-[#081c10] hover:bg-[#20bd5a]"
+                    }`}
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    Enviar
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
