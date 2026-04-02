@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { getCurrentUser, isAdminUser, setAuthSession } from "@/lib/auth";
 import { ensureCompanyProfile, updateCompanyProfile } from "@/lib/company";
 
 export async function GET() {
@@ -33,6 +33,18 @@ export async function PUT(req: Request) {
 
     const data = await req.json();
     const profile = await updateCompanyProfile(currentUser.companyId, data);
+    await setAuthSession({
+      id: currentUser.id,
+      email: currentUser.email,
+      companyId: currentUser.companyId,
+      role: currentUser.role,
+      fullName: currentUser.fullName,
+      companyName: profile.name,
+      segment: profile.segment,
+      cpf: currentUser.cpf,
+      birthDate: currentUser.birthDate?.toISOString() ?? null,
+    });
+
     return NextResponse.json(profile);
   } catch (error) {
     console.error("[api/config][PUT] Error:", error);

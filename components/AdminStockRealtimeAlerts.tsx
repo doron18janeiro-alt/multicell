@@ -5,6 +5,7 @@ import { AlertTriangle, BellRing, Package, X } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { buildSupplierRestockMessage, formatWhatsAppLink } from "@/lib/whatsapp";
 import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
+import { useSegment } from "@/hooks/useSegment";
 
 type StockToast = {
   id: string;
@@ -17,24 +18,13 @@ type StockToast = {
 };
 
 export default function AdminStockRealtimeAlerts() {
-  const [enabled, setEnabled] = useState(false);
+  const { role, isReady } = useSegment();
   const [toasts, setToasts] = useState<StockToast[]>([]);
   const timeoutMapRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
   );
   const lastToastAtRef = useRef<Map<string, number>>(new Map());
-
-  useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((session) => {
-        setEnabled(session?.role === "ADMIN");
-      })
-      .catch((error) => {
-        console.error("[StockRealtime] Session error:", error);
-        setEnabled(false);
-      });
-  }, []);
+  const enabled = isReady && role === "ADMIN";
 
   useEffect(() => {
     if (!enabled) {

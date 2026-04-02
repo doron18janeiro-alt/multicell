@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
+import { useSegment } from "@/hooks/useSegment";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { formatWhatsAppLink } from "@/lib/whatsapp";
@@ -73,7 +74,7 @@ export default function Estoque() {
   const [categoryFilter, setCategoryFilter] = useState("TODOS");
   const [activeTab, setActiveTab] = useState<"ALL" | "BUY">("ALL");
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
+  const { role: userRole } = useSegment();
   const [scannerOpen, setScannerOpen] = useState(false);
   const productsRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -109,10 +110,6 @@ export default function Estoque() {
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => setUserRole(data?.role || null))
-      .catch((error) => console.error(error));
   }, []);
 
   useEffect(() => {

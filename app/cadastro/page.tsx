@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatCpf, isValidCpf, sanitizeCpf } from "@/lib/cpf";
+import { resetSegmentSessionCache } from "@/hooks/useSegment";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -80,8 +81,9 @@ export default function CadastroPage() {
         return;
       }
 
-      setSuccess("Conta criada com sucesso! Redirecionando para o Dashboard...");
-      setTimeout(() => router.push("/dashboard"), 1200);
+      resetSegmentSessionCache();
+      setSuccess("Conta criada com sucesso! Redirecionando para a configuracao inicial...");
+      setTimeout(() => router.push(payload?.nextPath || "/setup"), 1200);
     } catch (requestError) {
       console.error(requestError);
       setError("Falha de conexão ao criar conta.");

@@ -1,13 +1,16 @@
+import type { Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const DEFAULT_COMPANY_PROFILE = {
   name: "Minha Empresa",
+  segment: null,
   cnpj: null,
   address: null,
   phone: null,
   email: null,
   logoUrl: "/logo.png",
   certificateA1: null,
+  companyData: null,
   settings: {},
   debitRate: 1.99,
   creditRate: 3.99,
@@ -19,6 +22,7 @@ export type CompanyProfile = {
   id: string;
   companyId: string;
   name: string;
+  segment: Segment | null;
   cnpj: string | null;
   document: string | null;
   address: string | null;
@@ -26,6 +30,7 @@ export type CompanyProfile = {
   email: string | null;
   logoUrl: string | null;
   certificateA1: string | null;
+  companyData: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
   debitRate: number;
   creditRate: number;
@@ -35,6 +40,7 @@ export type CompanyProfile = {
 
 type CompanyProfileInput = Partial<{
   name: string | null;
+  segment: Segment | null;
   cnpj: string | null;
   document: string | null;
   address: string | null;
@@ -42,6 +48,7 @@ type CompanyProfileInput = Partial<{
   email: string | null;
   logoUrl: string | null;
   certificateA1: string | null;
+  companyData: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
   debitRate: number | string | null;
   creditRate: number | string | null;
@@ -84,12 +91,14 @@ const buildProfileResponse = (
   company: {
     id: string;
     name: string;
+    segment: Segment | null;
     cnpj: string | null;
     address: string | null;
     phone: string | null;
     email: string | null;
     logoUrl: string | null;
     certificateA1: string | null;
+    companyData: unknown;
     settings: unknown;
   },
   config: {
@@ -102,6 +111,7 @@ const buildProfileResponse = (
   id: company.id,
   companyId: company.id,
   name: normalizeName(company.name),
+  segment: company.segment || null,
   cnpj: company.cnpj || null,
   document: company.cnpj || null,
   address: company.address || null,
@@ -109,6 +119,10 @@ const buildProfileResponse = (
   email: company.email || null,
   logoUrl: normalizeOptionalString(company.logoUrl) || DEFAULT_COMPANY_PROFILE.logoUrl,
   certificateA1: company.certificateA1 || null,
+  companyData:
+    company.companyData && typeof company.companyData === "object"
+      ? (company.companyData as Record<string, unknown>)
+      : DEFAULT_COMPANY_PROFILE.companyData,
   settings:
     company.settings && typeof company.settings === "object"
       ? (company.settings as Record<string, unknown>)
@@ -129,7 +143,9 @@ export async function ensureCompanyProfile(
       create: {
         id: companyId,
         name: DEFAULT_COMPANY_PROFILE.name,
+        segment: DEFAULT_COMPANY_PROFILE.segment,
         logoUrl: DEFAULT_COMPANY_PROFILE.logoUrl,
+        companyData: DEFAULT_COMPANY_PROFILE.companyData,
         settings: DEFAULT_COMPANY_PROFILE.settings,
       },
     }),
@@ -226,12 +242,18 @@ export async function updateCompanyProfile(
       where: { id: companyId },
       update: {
         name: normalizeName(input.name, current.name),
+        segment:
+          input.segment === undefined ? current.segment : input.segment || null,
         cnpj: resolvedCnpj,
         address: normalizeOptionalString(input.address),
         phone: normalizeOptionalString(input.phone),
         email: normalizeOptionalString(input.email),
         logoUrl: resolvedLogoUrl,
         certificateA1: normalizeOptionalString(input.certificateA1),
+        companyData:
+          input.companyData && typeof input.companyData === "object"
+            ? input.companyData
+            : current.companyData || DEFAULT_COMPANY_PROFILE.companyData,
         settings:
           input.settings && typeof input.settings === "object"
             ? input.settings
@@ -240,12 +262,17 @@ export async function updateCompanyProfile(
       create: {
         id: companyId,
         name: normalizeName(input.name),
+        segment: input.segment || DEFAULT_COMPANY_PROFILE.segment,
         cnpj: resolvedCnpj,
         address: normalizeOptionalString(input.address),
         phone: normalizeOptionalString(input.phone),
         email: normalizeOptionalString(input.email),
         logoUrl: resolvedLogoUrl,
         certificateA1: normalizeOptionalString(input.certificateA1),
+        companyData:
+          input.companyData && typeof input.companyData === "object"
+            ? input.companyData
+            : DEFAULT_COMPANY_PROFILE.companyData,
         settings:
           input.settings && typeof input.settings === "object"
             ? input.settings

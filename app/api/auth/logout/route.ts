@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { clearAuthSession } from "@/lib/auth";
 
 export async function POST() {
-  const cookieStore = await cookies();
-  cookieStore.set("auth_token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 0,
-    path: "/",
-  });
+  await clearAuthSession();
 
   return NextResponse.json({ success: true });
 }

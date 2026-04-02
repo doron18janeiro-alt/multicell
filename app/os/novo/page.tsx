@@ -19,6 +19,7 @@ import { useReactToPrint } from "react-to-print";
 import { ServiceOrderThermalPrint } from "@/components/ServiceOrderThermalPrint";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
+import { useSegment } from "@/hooks/useSegment";
 
 type CarcacaStatus = "OK" | "RISCOS LEVES" | "AMASSADO";
 
@@ -57,6 +58,7 @@ const createInitialFormData = () => ({
 
 function OrderServiceForm() {
   const searchParams = useSearchParams();
+  const { getLabel } = useSegment();
   const [isSaving, setIsSaving] = useState(false);
   const [successData, setSuccessData] = useState<any>(null);
   const [generatedProtocol, setGeneratedProtocol] = useState("");
@@ -467,7 +469,7 @@ function OrderServiceForm() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-[#D4AF37] uppercase mb-2">
-                  IMEI / Serial
+                  {getLabel("identifier")}
                 </label>
                 <input
                   name="imei"
@@ -475,7 +477,7 @@ function OrderServiceForm() {
                   onChange={handleInputChange}
                   type="text"
                   className="input-field"
-                  placeholder="S/N ou IMEI"
+                  placeholder={getLabel("identifier")}
                 />
               </div>
               <div>

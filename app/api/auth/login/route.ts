@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import {
   ensureCompanySubscription,
   getCompanySubscriptionState,
 } from "@/lib/subscription";
+import { setAuthSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +18,23 @@ export async function POST(request: Request) {
     // 1. Busca usuário no banco
     const user = await prisma.user.findUnique({
       where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        role: true,
+        fullName: true,
+        name: true,
+        companyId: true,
+        cpf: true,
+        birthDate: true,
+        company: {
+          select: {
+            name: true,
+            segment: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -52,23 +69,24 @@ export async function POST(request: Request) {
     }
 
     // 4. Salva sessão no cookie
-    const cookieStore = await cookies();
-    const sessionData = JSON.stringify({
+    await setAuthSession({
       id: user.id, // Add ID to session
       email: user.email,
       companyId: companyId,
       role: user.role,
       fullName: user.fullName || user.name || null,
+      companyName: user.company?.name || null,
+      segment: user.company?.segment || null,
+      cpf: user.cpf,
+      birthDate: user.birthDate?.toISOString() ?? null,
     });
 
-    cookieStore.set("auth_token", sessionData, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: "/",
+    return NextResponse.json({
+      success: true,
+      companyId,
+      segment: user.company?.segment || null,
+      nextPath: user.company?.segment ? "/dashboard" : "/setup",
     });
-
-    return NextResponse.json({ success: true, companyId });
   } catch (error) {
     console.error("Erro no login:", error);
     return NextResponse.json(

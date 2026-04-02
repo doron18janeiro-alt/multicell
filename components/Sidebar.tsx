@@ -19,6 +19,7 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 
 type SidebarProps = {
   isMobileOpen: boolean;
@@ -32,10 +33,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<{
-    fullName: string | null;
-    role: "ADMIN" | "ATTENDANT";
-  } | null>(null);
+  const { showOS, fullName, role } = useSegment();
 
   useEffect(() => {
     onCloseMobileMenu();
@@ -64,19 +62,6 @@ export default function Sidebar({
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    fetch("/api/auth/session", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data) return;
-        setCurrentUser({
-          fullName: data.fullName,
-          role: data.role,
-        });
-      })
-      .catch((error) => console.error(error));
-  }, []);
-
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", {
@@ -85,6 +70,7 @@ export default function Sidebar({
     } catch (error) {
       console.error(error);
     } finally {
+      resetSegmentSessionCache();
       router.push("/login");
       router.refresh();
     }
@@ -93,9 +79,13 @@ export default function Sidebar({
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
-    { name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" },
+    ...(showOS
+      ? [{ name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" }]
+      : []),
     { name: "Clientes", icon: Users, path: "/clientes" },
-    { name: "Consulta Garantia", icon: Search, path: "/consulta" },
+    ...(showOS
+      ? [{ name: "Consulta Garantia", icon: Search, path: "/consulta" }]
+      : []),
     { name: "Estoque", icon: Package, path: "/estoque" },
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
@@ -105,7 +95,7 @@ export default function Sidebar({
 
   const visibleMenuItems = menuItems.filter((item) => {
     if (
-      currentUser?.role === "ATTENDANT" &&
+      role === "ATTENDANT" &&
       (
         item.path === "/financeiro" ||
         item.path === "/configuracoes" ||
@@ -117,7 +107,7 @@ export default function Sidebar({
     }
 
     if (
-      !currentUser &&
+      !role &&
       (
         item.path === "/financeiro" ||
         item.path === "/configuracoes" ||
@@ -229,12 +219,12 @@ export default function Sidebar({
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D4AF37]/20 bg-[#D4AF37]/10 text-[#D4AF37]">
               <Smartphone size={18} strokeWidth={1.5} />
             </div>
-            <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-bold text-white transition-colors group-hover:text-[#D4AF37]">
-                {currentUser?.fullName || "Usuário"}
+                {fullName || "Usuário"}
               </p>
               <p className="truncate text-[10px] text-slate-400">
-                {currentUser?.role === "ATTENDANT"
+                {role === "ATTENDANT"
                   ? "Atendente"
                   : "Administrador"}
               </p>

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { isValidCpf, sanitizeCpf } from "@/lib/cpf";
@@ -7,6 +6,7 @@ import {
   calculateInitialTrialEndsAt,
   getInitialSubscriptionStatus,
 } from "@/lib/billing-mode";
+import { setAuthSession } from "@/lib/auth";
 
 const generateCompanyId = () => {
   return `company_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -109,26 +109,24 @@ export async function POST(request: Request) {
       });
     });
 
-    const cookieStore = await cookies();
-    const sessionData = JSON.stringify({
+    await setAuthSession({
       id: user.id,
       email: user.email,
       companyId,
       role: user.role,
       fullName: user.fullName || user.name || null,
-    });
-
-    cookieStore.set("auth_token", sessionData, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7,
-      path: "/",
+      companyName: "Minha Empresa",
+      segment: null,
+      cpf,
+      birthDate: birthDate.toISOString(),
     });
 
     return NextResponse.json({
       success: true,
       userId: user.id,
       companyId,
+      segment: null,
+      nextPath: "/setup",
       trialEndsAt: trialEndsAt.toISOString(),
     });
   } catch (error) {

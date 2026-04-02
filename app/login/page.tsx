@@ -21,6 +21,7 @@ import {
   Loader2,
   Cpu,
 } from "lucide-react";
+import { resetSegmentSessionCache } from "@/hooks/useSegment";
 
 const FloatingIcons = () => {
   const [mounted, setMounted] = useState(false);
@@ -99,7 +100,9 @@ export default function LoginPage() {
       });
 
       if (res.ok) {
-        router.push("/dashboard");
+        const payload = await res.json();
+        resetSegmentSessionCache();
+        router.push(payload?.nextPath || "/dashboard");
       } else {
         const data = await res.json();
         setError(data.error || "Credenciais inválidas");

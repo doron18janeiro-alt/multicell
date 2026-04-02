@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import AdminStockRealtimeAlerts from "@/components/AdminStockRealtimeAlerts";
 import HeaderMobile from "@/components/HeaderMobile";
 import Sidebar from "@/components/Sidebar";
+import { useSegment } from "@/hooks/useSegment";
 
 export default function ClientLayout({
   children,
@@ -12,6 +13,7 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const handleOpenMobileMenu = useCallback(() => {
     setIsMobileSidebarOpen(true);
@@ -32,6 +34,74 @@ export default function ClientLayout({
     pathname === "/termos" ||
     pathname === "/suporte";
   const isCheckoutPage = pathname.startsWith("/checkout");
+  const isSetupPage = pathname === "/setup";
+  const shouldResolveSegment =
+    !isAuthPage && !isPublicStandalonePage && !isCheckoutPage;
+  const { isReady, isAuthenticated, hasSegment, showOS } = useSegment({
+    enabled: shouldResolveSegment,
+  });
+  const isServicePath = pathname.startsWith("/os") || pathname.startsWith("/consulta");
+
+  useEffect(() => {
+    if (!shouldResolveSegment || !isReady) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+
+    if (isSetupPage && hasSegment) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (!isSetupPage && !hasSegment) {
+      router.replace("/setup");
+      return;
+    }
+
+    if (!isSetupPage && hasSegment && isServicePath && !showOS) {
+      router.replace("/dashboard");
+    }
+  }, [
+    hasSegment,
+    isAuthenticated,
+    isServicePath,
+    isReady,
+    isSetupPage,
+    router,
+    showOS,
+    shouldResolveSegment,
+  ]);
+
+  const shouldHoldContent =
+    shouldResolveSegment &&
+    (!isReady ||
+      !isAuthenticated ||
+      (isSetupPage ? hasSegment : !hasSegment) ||
+      (!isSetupPage && hasSegment && isServicePath && !showOS));
+
+  if (shouldHoldContent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050c1a] px-6">
+        <div className="w-full max-w-md rounded-3xl border border-[#FACC15]/20 bg-[#0B1121]/90 p-8 text-center shadow-[0_0_40px_rgba(250,204,21,0.08)] backdrop-blur-xl">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-[#FACC15]/20 border-t-[#FACC15]" />
+          <p className="text-sm font-medium tracking-[0.24em] text-[#FACC15]">
+            WORLD TECH
+          </p>
+          <h2 className="mt-3 text-2xl font-semibold text-white">
+            Preparando sua interface
+          </h2>
+          <p className="mt-2 text-sm text-slate-400">
+            Estamos carregando o perfil da empresa e direcionando voce para a
+            experiencia correta.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050c1a]">
@@ -43,6 +113,8 @@ export default function ClientLayout({
       ) : isPublicStandalonePage ? (
         <main className="w-full min-h-screen">{children}</main>
       ) : isCheckoutPage ? (
+        <main className="w-full min-h-screen">{children}</main>
+      ) : isSetupPage ? (
         <main className="w-full min-h-screen">{children}</main>
       ) : (
         /* Páginas internas com sidebar */

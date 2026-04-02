@@ -1,15 +1,21 @@
 import { cookies } from "next/headers";
-import type { UserRole } from "@prisma/client";
+import type { Segment, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
+export type SessionSnapshot = {
+  id?: string;
+  email: string;
+  companyId: string;
+  role?: UserRole;
+  fullName?: string | null;
+  companyName?: string | null;
+  segment?: Segment | null;
+  cpf?: string | null;
+  birthDate?: string | null;
+};
+
 export type Session = {
-  user: {
-    id?: string; // Add optional ID
-    email: string;
-    companyId: string;
-    role?: UserRole;
-    fullName?: string | null;
-  };
+  user: SessionSnapshot;
 } | null;
 
 export type AuthenticatedUser = {
@@ -18,6 +24,8 @@ export type AuthenticatedUser = {
   companyId: string;
   role: UserRole;
   fullName: string | null;
+  companyName: string | null;
+  segment: Segment | null;
   cpf: string | null;
   birthDate: Date | null;
 };
@@ -28,6 +36,26 @@ const normalizeEmail = (value: string | null | undefined) =>
 const logAuth = (label: string, details?: Record<string, unknown>) => {
   console.log(`[Auth] ${label}`, details || {});
 };
+
+const getSessionCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 60 * 60 * 24 * 7,
+  path: "/",
+});
+
+export async function setAuthSession(session: SessionSnapshot) {
+  const cookieStore = await cookies();
+  cookieStore.set("auth_token", JSON.stringify(session), getSessionCookieOptions());
+}
+
+export async function clearAuthSession() {
+  const cookieStore = await cookies();
+  cookieStore.set("auth_token", "", {
+    ...getSessionCookieOptions(),
+    maxAge: 0,
+  });
+}
 
 export async function getSession(): Promise<Session> {
   const cookieStore = await cookies();
@@ -45,14 +73,21 @@ export async function getSession(): Promise<Session> {
       email: sessionData.email || null,
       companyId: sessionData.companyId || null,
       role: sessionData.role || null,
+      segment: sessionData.segment || null,
     });
     return {
       user: {
-        id: sessionData.id, // Try to get ID from token
+        id: sessionData.id,
         email: sessionData.email,
         companyId: sessionData.companyId,
         role: sessionData.role,
         fullName: sessionData.fullName ?? null,
+        companyName:
+          "companyName" in sessionData ? sessionData.companyName ?? null : undefined,
+        segment: "segment" in sessionData ? sessionData.segment ?? null : undefined,
+        cpf: "cpf" in sessionData ? sessionData.cpf ?? null : undefined,
+        birthDate:
+          "birthDate" in sessionData ? sessionData.birthDate ?? null : undefined,
       },
     };
   } catch (e) {
@@ -79,6 +114,12 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     name: true,
     cpf: true,
     birthDate: true,
+    company: {
+      select: {
+        name: true,
+        segment: true,
+      },
+    },
   } as const;
 
   const userById = session.user.id
@@ -126,6 +167,8 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     companyId: user.companyId,
     role: user.role,
     fullName: user.fullName || user.name || null,
+    companyName: user.company?.name || session.user.companyName || null,
+    segment: user.company?.segment || session.user.segment || null,
     cpf: user.cpf,
     birthDate: user.birthDate,
   };
