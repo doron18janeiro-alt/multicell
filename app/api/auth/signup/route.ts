@@ -6,7 +6,7 @@ import {
   calculateInitialTrialEndsAt,
   getInitialSubscriptionStatus,
 } from "@/lib/billing-mode";
-import { setAuthSession } from "@/lib/auth";
+import { createAuthSessionSnapshot, setAuthSession } from "@/lib/auth";
 
 const generateCompanyId = () => {
   return `company_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -109,7 +109,8 @@ export async function POST(request: Request) {
       });
     });
 
-    await setAuthSession({
+    await setAuthSession(
+      createAuthSessionSnapshot({
       id: user.id,
       email: user.email,
       companyId,
@@ -119,7 +120,8 @@ export async function POST(request: Request) {
       segment: null,
       cpf,
       birthDate: birthDate.toISOString(),
-    });
+      }),
+    );
 
     return NextResponse.json({
       success: true,

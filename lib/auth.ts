@@ -12,6 +12,7 @@ export type SessionSnapshot = {
   segment?: Segment | null;
   cpf?: string | null;
   birthDate?: string | null;
+  isDeveloper?: boolean;
 };
 
 export type Session = {
@@ -28,6 +29,7 @@ export type AuthenticatedUser = {
   segment: Segment | null;
   cpf: string | null;
   birthDate: Date | null;
+  isDeveloper: boolean;
 };
 
 const normalizeEmail = (value: string | null | undefined) =>
@@ -48,6 +50,16 @@ export async function setAuthSession(session: SessionSnapshot) {
   const cookieStore = await cookies();
   cookieStore.set("auth_token", JSON.stringify(session), getSessionCookieOptions());
 }
+
+export const createAuthSessionSnapshot = (session: SessionSnapshot): SessionSnapshot => ({
+  ...session,
+  isDeveloper:
+    session.isDeveloper ??
+    isResponsibleEngineerUser({
+      email: session.email,
+      role: session.role,
+    }),
+});
 
 export async function clearAuthSession() {
   const cookieStore = await cookies();
@@ -88,6 +100,8 @@ export async function getSession(): Promise<Session> {
         cpf: "cpf" in sessionData ? sessionData.cpf ?? null : undefined,
         birthDate:
           "birthDate" in sessionData ? sessionData.birthDate ?? null : undefined,
+        isDeveloper:
+          "isDeveloper" in sessionData ? Boolean(sessionData.isDeveloper) : undefined,
       },
     };
   } catch (e) {
@@ -171,6 +185,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     segment: user.company?.segment || session.user.segment || null,
     cpf: user.cpf,
     birthDate: user.birthDate,
+    isDeveloper: isResponsibleEngineerUser(user),
   };
 }
 
@@ -179,7 +194,7 @@ export const isAdminUser = (
 ) => user?.role === "ADMIN";
 
 export const getResponsibleEngineerEmail = () =>
-  normalizeEmail(process.env.ADMIN_EMAIL) || "admin@multicellsystem.com.br";
+  normalizeEmail(process.env.ADMIN_EMAIL) || "admin@worldtechmanager.com.br";
 
 export const isResponsibleEngineerUser = (
   user: Pick<AuthenticatedUser, "email" | "role"> | null | undefined,

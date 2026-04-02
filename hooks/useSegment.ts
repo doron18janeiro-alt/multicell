@@ -24,6 +24,7 @@ type SessionSegmentSnapshot = {
   fullName?: string | null;
   companyName?: string | null;
   segment?: CompanySegment | null;
+  isDeveloper?: boolean;
 };
 
 type UseSegmentOptions = {
@@ -85,6 +86,20 @@ const normalizeSegment = (
   return null;
 };
 
+const normalizeSessionSnapshot = (
+  payload: SessionSegmentSnapshot | null | undefined,
+): SessionSegmentSnapshot | null => {
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    ...payload,
+    segment: normalizeSegment(payload.segment),
+    isDeveloper: Boolean(payload.isDeveloper),
+  };
+};
+
 const loadSessionSnapshot = async (force = false) => {
   if (!force && sessionCache !== undefined) {
     return sessionCache;
@@ -104,10 +119,7 @@ const loadSessionSnapshot = async (force = false) => {
       }
 
       const payload = await response.json();
-      sessionCache = {
-        ...payload,
-        segment: normalizeSegment(payload?.segment),
-      };
+      sessionCache = normalizeSessionSnapshot(payload);
 
       return sessionCache;
     })
@@ -124,6 +136,13 @@ const loadSessionSnapshot = async (force = false) => {
 
 export function resetSegmentSessionCache() {
   sessionCache = undefined;
+  sessionPromise = null;
+}
+
+export function primeSegmentSessionCache(
+  snapshot: SessionSegmentSnapshot | null | undefined,
+) {
+  sessionCache = normalizeSessionSnapshot(snapshot);
   sessionPromise = null;
 }
 
@@ -156,6 +175,7 @@ export function useSegment(options: UseSegmentOptions = {}) {
   const isAuthenticated = Boolean(session);
   const hasSegment = Boolean(segment);
   const labels = SEGMENT_LABELS[segment || DEFAULT_SEGMENT];
+  const isDeveloper = Boolean(session?.isDeveloper);
 
   const getLabel = useMemo(
     () => (key: string) => {
@@ -186,6 +206,8 @@ export function useSegment(options: UseSegmentOptions = {}) {
     companyName: session?.companyName || null,
     fullName: session?.fullName || null,
     role: session?.role || null,
+    email: session?.email || null,
+    isDeveloper,
     isReady,
     isAuthenticated,
     hasSegment,

@@ -27,7 +27,7 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
         >
           <Image
             src="/logo.png"
-            alt="Multicell"
+            alt="World Tech Manager"
             width={132}
             height={40}
             priority

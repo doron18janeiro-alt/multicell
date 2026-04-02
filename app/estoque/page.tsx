@@ -413,7 +413,7 @@ export default function Estoque() {
     quantity: number,
   ) =>
     [
-      `Boa tarde, ${supplierName}! 👋 Aqui é da Multicell, tudo bem? 🛠️📱`,
+      `Boa tarde, ${supplierName}! 👋 Aqui é da World Tech Manager, tudo bem? 🛠️📱`,
       ``,
       `Gostaríamos de consultar a disponibilidade e o valor do seguinte item para reposição em nossa loja:`,
       ``,

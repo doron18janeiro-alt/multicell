@@ -8,9 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://multicellsystem.com.br"),
-  applicationName: "Multicell System",
-  title: "MULTICELL - Sistema de Gestão",
-  description: "Sistema de gestão para assistência técnica e vendas",
+  applicationName: "World Tech Manager",
+  title: "World Tech Manager",
+  description: "Gestão Global de Tecnologia e Negócios",
   manifest: "/manifest.json",
   icons: {
     icon: "/logo.png",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Multicell System",
+    title: "World Tech Manager",
   },
   other: {
     "mobile-web-app-capable": "yes",

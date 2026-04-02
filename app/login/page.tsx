@@ -145,7 +145,7 @@ export default function LoginPage() {
                 <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full group-hover:bg-cyan-500/40 transition-all"></div>
                 <Image
                   src="/logo.png"
-                  alt="Multicell Logo"
+                  alt="World Tech Manager"
                   width={80}
                   height={80}
                   priority
@@ -153,10 +153,13 @@ export default function LoginPage() {
                 />
               </motion.div>
               <h1 className="text-2xl font-bold text-white tracking-wide">
-                MULTICELL <span className="text-cyan-400">SYSTEM</span>
+                WORLD TECH <span className="text-cyan-400">MANAGER</span>
               </h1>
               <p className="text-slate-400 text-sm mt-1 tracking-wider uppercase">
                 Acesso ao Ecossistema
+              </p>
+              <p className="mt-2 text-center text-sm text-slate-500">
+                Gestão Global de Tecnologia e Negócios
               </p>
             </div>
 
@@ -260,8 +263,11 @@ export default function LoginPage() {
           {/* Footer of Card */}
           <div className="bg-[#020617]/50 p-4 text-center border-t border-slate-800">
             <p className="text-slate-500 text-xs">
-              © {new Date().getFullYear()} Multicell System. Todos os direitos
+              © {new Date().getFullYear()} World Tech Manager. Todos os direitos
               reservados.
+            </p>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Gestão Global de Tecnologia e Negócios
             </p>
             <div className="mt-2 flex items-center justify-center gap-2 text-[11px] text-slate-500">
               <Link

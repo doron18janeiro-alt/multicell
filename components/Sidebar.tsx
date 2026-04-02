@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  Car,
   Search,
   LayoutDashboard,
   ShoppingCart,
@@ -33,7 +34,8 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
-  const { showOS, hasInventoryGrade, labels, fullName, role } = useSegment();
+  const { showOS, hasInventoryGrade, labels, fullName, role, segment } = useSegment();
+  const ServiceIcon = segment === "AUTO" ? Car : Wrench;
 
   useEffect(() => {
     onCloseMobileMenu();
@@ -80,7 +82,7 @@ export default function Sidebar({
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
     ...(showOS
-      ? [{ name: labels.action, icon: Wrench, path: "/os/novo" }]
+      ? [{ name: labels.action, icon: ServiceIcon, path: "/os/novo" }]
       : []),
     { name: "Clientes", icon: Users, path: "/clientes" },
     ...(showOS
@@ -144,7 +146,7 @@ export default function Sidebar({
         <div className="flex items-center justify-between border-b border-[#1E293B]/50 px-4 py-4 md:hidden">
           <Image
             src="/logo.png"
-            alt="Multicell"
+            alt="World Tech Manager"
             width={150}
             height={44}
             priority
@@ -163,7 +165,7 @@ export default function Sidebar({
         <div className="hidden border-b border-[#1E293B]/50 bg-linear-to-b from-[#0F172A] to-transparent p-6 md:flex md:justify-center">
           <Image
             src="/logo.png"
-            alt="Multicell"
+            alt="World Tech Manager"
             width={180}
             height={56}
             priority
@@ -202,7 +204,7 @@ export default function Sidebar({
                   {item.name}
                 </span>
 
-                {item.name === "Estoque" && alertCount > 0 && (
+                {item.path === "/estoque" && alertCount > 0 && (
                   <span className="z-10 ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
                     {alertCount}
                   </span>

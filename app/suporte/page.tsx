@@ -2,7 +2,7 @@ import BackButton from "@/components/BackButton";
 
 const whatsappHref =
   "https://wa.me/5545991291742?text=" +
-  encodeURIComponent("Olá Luiz, preciso de suporte no Multicell System");
+  encodeURIComponent("Olá Luiz, preciso de suporte no World Tech Manager");
 
 export default function SuportePage() {
   return (

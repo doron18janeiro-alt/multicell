@@ -74,6 +74,8 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const LEGACY_BRAND_NAMES = new Set(["multicell", "world tech manager"]);
+
 const shouldHydrateCompanyNameFromLegacy = (
   companyName: string | null,
   companyId: string,
@@ -82,7 +84,7 @@ const shouldHydrateCompanyNameFromLegacy = (
   return (
     !normalized ||
     normalized === companyId ||
-    normalized === "Multicell" ||
+    LEGACY_BRAND_NAMES.has(normalized.toLowerCase()) ||
     normalized === DEFAULT_COMPANY_PROFILE.name
   );
 };
@@ -212,7 +214,7 @@ export async function ensureCompanyProfile(
   if (
     shouldHydrateCompanyNameFromLegacy(companyRecord.name, companyId) &&
     legacyName &&
-    legacyName !== "Multicell"
+    !LEGACY_BRAND_NAMES.has(legacyName.toLowerCase())
   ) {
     companyPatch.name = normalizeName(legacyName);
   }

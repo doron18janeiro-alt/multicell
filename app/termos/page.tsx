@@ -44,7 +44,7 @@ export default function TermosPage() {
 
         <div className="mb-8 border-b border-[#1E293B] pb-6">
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-amber-400/80">
-            Multicell System
+            World Tech Manager
           </p>
           <h1 className="mt-3 text-3xl font-bold text-white sm:text-4xl">
             Termos de Uso

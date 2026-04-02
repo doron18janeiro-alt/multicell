@@ -298,7 +298,7 @@ export default function CheckoutPageClient() {
           <div>
             <h1 className="flex items-center gap-3 text-4xl font-black tracking-tight">
               <Crown className="h-9 w-9 text-amber-300" />
-              Assinatura Multicell System
+              Assinatura World Tech Manager
             </h1>
             <p className="mt-3 max-w-2xl text-slate-300">
               Escolha o ciclo ideal para liberar o Dashboard. O anual recebe o

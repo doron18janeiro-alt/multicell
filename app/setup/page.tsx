@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { SetupWizard } from "@/components/SetupWizard";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { ensureCompanyProfile } from "@/lib/company";
 
 export const dynamic = "force-dynamic";
 
@@ -15,10 +16,15 @@ export default async function SetupPage() {
     redirect("/dashboard");
   }
 
+  const companyProfile = await ensureCompanyProfile(currentUser.companyId);
+
   return (
     <SetupWizard
       canEdit={isAdminUser(currentUser)}
-      companyName={currentUser.companyName || "Minha Empresa"}
+      companyName={companyProfile.name || currentUser.companyName || "Minha Empresa"}
+      companyDocument={companyProfile.cnpj || ""}
+      companyPhone={companyProfile.phone || ""}
+      companyAddress={companyProfile.address || ""}
       responsibleName={currentUser.fullName || currentUser.email}
     />
   );

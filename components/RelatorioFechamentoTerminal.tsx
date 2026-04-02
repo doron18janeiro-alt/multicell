@@ -43,7 +43,7 @@ export const RelatorioFechamentoTerminal = React.forwardRef<
         id="print-content"
         className="flex flex-col gap-2 border-b-2 border-dashed border-black pb-4 mb-4"
       >
-        <div className="text-center font-bold text-sm">MULTICELL</div>
+        <div className="text-center font-bold text-sm">WORLD TECH MANAGER</div>
         <div className="text-center">RESUMO DE FECHAMENTO</div>
         <div className="text-center">
           {new Date().toLocaleString("pt-BR", {

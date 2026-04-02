@@ -438,7 +438,7 @@ function DashboardContent() {
               <div className="rounded-lg bg-linear-to-br from-amber-400 to-yellow-600 p-2">
                 <Activity className="h-6 w-6 text-black sm:h-8 sm:w-8" />
               </div>
-              <span className="min-w-0">Painel Profissional Multicell</span>
+              <span className="min-w-0">Painel Profissional World Tech Manager</span>
             </h1>
             <p className="mt-2 text-sm text-slate-400 sm:text-base">
               Período ativo: {formatDate(dateRange.startDate)} a{" "}
@@ -778,7 +778,7 @@ function DashboardContent() {
                 </Link>
               </div>
             </div>
-            <span>Multicell v3.0 • Tier 1 Profissional • Brasil/SP</span>
+            <span>World Tech Manager v3.0 • Tier 1 Profissional • Brasil/SP</span>
           </div>
         </div>
       </div>

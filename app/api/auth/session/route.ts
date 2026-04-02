@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, getSession, setAuthSession } from "@/lib/auth";
+import {
+  createAuthSessionSnapshot,
+  getCurrentUser,
+  getSession,
+  setAuthSession,
+} from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -11,7 +16,9 @@ export async function GET() {
     }
 
     const needsHydration =
-      session.user.segment === undefined || session.user.companyName === undefined;
+      session.user.segment === undefined ||
+      session.user.companyName === undefined ||
+      session.user.isDeveloper === undefined;
 
     if (needsHydration) {
       const user = await getCurrentUser();
@@ -20,7 +27,7 @@ export async function GET() {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
-      const hydratedSession = {
+      const hydratedSession = createAuthSessionSnapshot({
         id: user.id,
         email: user.email,
         companyId: user.companyId,
@@ -30,7 +37,8 @@ export async function GET() {
         segment: user.segment,
         cpf: user.cpf,
         birthDate: user.birthDate?.toISOString() ?? null,
-      };
+        isDeveloper: user.isDeveloper,
+      });
 
       await setAuthSession(hydratedSession);
 
@@ -61,6 +69,7 @@ export async function GET() {
       segment: session.user.segment ?? null,
       cpf: session.user.cpf ?? null,
       birthDate: session.user.birthDate ?? null,
+      isDeveloper: Boolean(session.user.isDeveloper),
     });
   } catch (error) {
     console.error("[auth/session] Error:", error);

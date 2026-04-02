@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser, isAdminUser, setAuthSession } from "@/lib/auth";
+import {
+  createAuthSessionSnapshot,
+  getCurrentUser,
+  isAdminUser,
+  setAuthSession,
+} from "@/lib/auth";
 import { ensureCompanyProfile, updateCompanyProfile } from "@/lib/company";
 
 export async function GET() {
@@ -33,7 +38,8 @@ export async function PUT(req: Request) {
 
     const data = await req.json();
     const profile = await updateCompanyProfile(currentUser.companyId, data);
-    await setAuthSession({
+    await setAuthSession(
+      createAuthSessionSnapshot({
       id: currentUser.id,
       email: currentUser.email,
       companyId: currentUser.companyId,
@@ -43,7 +49,9 @@ export async function PUT(req: Request) {
       segment: profile.segment,
       cpf: currentUser.cpf,
       birthDate: currentUser.birthDate?.toISOString() ?? null,
-    });
+      isDeveloper: currentUser.isDeveloper,
+      }),
+    );
 
     return NextResponse.json(profile);
   } catch (error) {

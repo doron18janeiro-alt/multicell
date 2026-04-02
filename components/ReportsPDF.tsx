@@ -363,7 +363,7 @@ export async function generatePDFReport(metrics: ReportMetrics) {
 
 export function generateWhatsAppMessage(metrics: ReportMetrics): string {
   const message = `
-📊 *RELATÓRIO MULTICELL* 📅 ${new Date().toLocaleDateString("pt-BR")}
+📊 *RELATÓRIO WORLD TECH MANAGER* 📅 ${new Date().toLocaleDateString("pt-BR")}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💰 *FATURAMENTO:* ${formatCurrency(metrics.financials.totalRevenue)}
@@ -386,7 +386,7 @@ export function generateWhatsAppMessage(metrics: ReportMetrics): string {
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Período: ${new Date(metrics.period.startDate).toLocaleDateString("pt-BR")} a ${new Date(metrics.period.endDate).toLocaleDateString("pt-BR")}
-*MULTICELL ASSISTÊNCIA TÉCNICA*
+*WORLD TECH MANAGER*
 📞 (43) 99603-1208
 `;
 

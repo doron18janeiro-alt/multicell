@@ -110,7 +110,7 @@ function buildEntryMessage({
   return [
     `Olá, *${clientName}*! 👋`,
     ``,
-    `Sua *Ordem de Serviço ${formatOrderId(osId)}* foi registrada com sucesso na *Multicell System*.`,
+    `Sua *Ordem de Serviço ${formatOrderId(osId)}* foi registrada com sucesso na *World Tech Manager*.`,
     ``,
     `📱 *Equipamento:* ${formatDevice(deviceBrand, deviceModel)}`,
     `🛠️ *Defeito informado:* ${problem || "Aguardando detalhamento técnico"}`,
@@ -122,7 +122,7 @@ function buildEntryMessage({
     ``,
     `Seguiremos com a análise e novas atualizações serão enviadas por este canal.`,
     ``,
-    `*Equipe Multicell System 📱✨*`,
+    `*Equipe World Tech Manager 📱✨*`,
   ].join("\n");
 }
 
@@ -143,7 +143,7 @@ function buildReadyMessage({
     ``,
     `Se precisar, responda esta mensagem para alinhar retirada ou dúvidas finais.`,
     ``,
-    `*Equipe Multicell System 📱✨*`,
+    `*Equipe World Tech Manager 📱✨*`,
   ].join("\n");
 }
 
@@ -163,7 +163,7 @@ function buildSaleMessage({
   return [
     `Olá, *${clientName}*! 🧾`,
     ``,
-    `Registramos sua venda com sucesso na *Multicell System*.`,
+    `Registramos sua venda com sucesso na *World Tech Manager*.`,
     ``,
     `🛍️ *Itens:*`,
     itemsSummary,
@@ -173,6 +173,6 @@ function buildSaleMessage({
     ``,
     `Obrigado pela preferência.`,
     ``,
-    `*Equipe Multicell System 📱✨*`,
+    `*Equipe World Tech Manager 📱✨*`,
   ].join("\n");
 }

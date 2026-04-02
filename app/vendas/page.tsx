@@ -326,7 +326,7 @@ export default function SalesMetrics() {
             // Cabeçalho
             doc.setFontSize(22);
             doc.setTextColor(40);
-            doc.text("Relatório de Fechamento - Multicell", 14, 20);
+            doc.text("Relatório de Fechamento - World Tech Manager", 14, 20);
 
             doc.setFontSize(10);
             doc.setTextColor(100);
@@ -390,7 +390,7 @@ export default function SalesMetrics() {
 
             // --- 2. WhatsApp ---
             const whatsappMsg =
-              `*Relatório de Fechamento - Multicell* %0A` +
+              `*Relatório de Fechamento - World Tech Manager* %0A` +
               `📅 ${dateStr} %0A%0A` +
               `💰 Faturamento: R$ ${Number(details.totalGross || 0).toFixed(2)} %0A` +
               `📉 Custos: R$ ${Number(details.totalCost || 0).toFixed(2)} %0A` +

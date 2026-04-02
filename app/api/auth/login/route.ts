@@ -5,7 +5,7 @@ import {
   ensureCompanySubscription,
   getCompanySubscriptionState,
 } from "@/lib/subscription";
-import { setAuthSession } from "@/lib/auth";
+import { createAuthSessionSnapshot, setAuthSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Salva sessão no cookie
-    await setAuthSession({
+    const sessionSnapshot = createAuthSessionSnapshot({
       id: user.id, // Add ID to session
       email: user.email,
       companyId: companyId,
@@ -80,12 +80,17 @@ export async function POST(request: Request) {
       cpf: user.cpf,
       birthDate: user.birthDate?.toISOString() ?? null,
     });
+    await setAuthSession(sessionSnapshot);
 
     return NextResponse.json({
       success: true,
       companyId,
       segment: user.company?.segment || null,
-      nextPath: user.company?.segment ? "/dashboard" : "/setup",
+      isDeveloper: sessionSnapshot.isDeveloper,
+      nextPath:
+        user.company?.segment || sessionSnapshot.isDeveloper
+          ? "/dashboard"
+          : "/setup",
     });
   } catch (error) {
     console.error("Erro no login:", error);

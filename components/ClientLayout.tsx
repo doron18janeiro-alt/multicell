@@ -37,9 +37,10 @@ export default function ClientLayout({
   const isSetupPage = pathname === "/setup";
   const shouldResolveSegment =
     !isAuthPage && !isPublicStandalonePage && !isCheckoutPage;
-  const { isReady, isAuthenticated, hasSegment, showOS } = useSegment({
+  const { isReady, isAuthenticated, hasSegment, isDeveloper, showOS } = useSegment({
     enabled: shouldResolveSegment,
   });
+  const isDeveloperBypass = isDeveloper && !hasSegment;
   const isServicePath = pathname.startsWith("/os") || pathname.startsWith("/consulta");
 
   useEffect(() => {
@@ -57,17 +58,18 @@ export default function ClientLayout({
       return;
     }
 
-    if (!isSetupPage && !hasSegment) {
+    if (!isSetupPage && !hasSegment && !isDeveloperBypass) {
       router.replace("/setup");
       return;
     }
 
-    if (!isSetupPage && hasSegment && isServicePath && !showOS) {
+    if (!isSetupPage && hasSegment && isServicePath && !showOS && !isDeveloperBypass) {
       router.replace("/dashboard");
     }
   }, [
     hasSegment,
     isAuthenticated,
+    isDeveloperBypass,
     isServicePath,
     isReady,
     isSetupPage,
@@ -80,8 +82,8 @@ export default function ClientLayout({
     shouldResolveSegment &&
     (!isReady ||
       !isAuthenticated ||
-      (isSetupPage ? hasSegment : !hasSegment) ||
-      (!isSetupPage && hasSegment && isServicePath && !showOS));
+      (isSetupPage ? hasSegment : !hasSegment && !isDeveloperBypass) ||
+      (!isSetupPage && hasSegment && isServicePath && !showOS && !isDeveloperBypass));
 
   if (shouldHoldContent) {
     return (
@@ -127,6 +129,11 @@ export default function ClientLayout({
           />
           <main className="min-w-0 overflow-x-hidden pt-20 md:h-screen md:overflow-y-auto md:pl-64 md:pt-8">
             <div className="px-4 pb-6 pl-0 sm:px-5 md:px-8 md:pb-8">
+              {isDeveloperBypass ? (
+                <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100 shadow-[0_0_18px_rgba(250,204,21,0.08)]">
+                  Modo Desenvolvedor: Segmento não definido
+                </div>
+              ) : null}
               {children}
             </div>
           </main>

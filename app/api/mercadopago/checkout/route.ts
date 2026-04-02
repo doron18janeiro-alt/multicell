@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     if (plan === "monthly") {
       const preapprovalPayload = {
-        reason: "Multicell System - Plano Profissional Mensal",
+        reason: "World Tech Manager - Plano Profissional Mensal",
         external_reference: externalReference,
         metadata: getMetadata(companyId, plan),
         payer_email: currentUser.email,
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       items: [
         {
           id: "multicell-profissional-anual",
-          title: "Multicell System - Plano Profissional Anual",
+          title: "World Tech Manager - Plano Profissional Anual",
           quantity: 1,
           currency_id: "BRL",
           unit_price: PLAN_PRICES.annual,
@@ -130,7 +130,7 @@ export async function POST(request: Request) {
       payment_methods: {
         installments: 12,
       },
-      statement_descriptor: "MULTICELL",
+      statement_descriptor: "WORLDTECH",
     };
 
     const preference = await mercadoPagoRequest<any>("/checkout/preferences", {

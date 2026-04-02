@@ -112,7 +112,7 @@ export default function CadastroPage() {
               <div className="mb-4 flex justify-center">
                 <Image
                   src="/logo.png"
-                  alt="Multicell Logo"
+                  alt="World Tech Manager"
                   width={72}
                   height={72}
                   priority
@@ -120,11 +120,14 @@ export default function CadastroPage() {
                 />
               </div>
               <h1 className="text-2xl font-black text-white tracking-wide">
-                CRIAR CONTA <span className="text-amber-300">MULTICELL</span>
+                CRIAR CONTA <span className="text-amber-300">WTM</span>
               </h1>
               <p className="text-slate-400 text-sm mt-1">
                 Comece com 7 dias de teste gratuito e explore o Dashboard sem
                 informar cartao agora.
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Gestão Global de Tecnologia e Negócios
               </p>
             </div>
 
