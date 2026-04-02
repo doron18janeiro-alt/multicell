@@ -33,7 +33,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
-  const { showOS, fullName, role } = useSegment();
+  const { showOS, hasInventoryGrade, labels, fullName, role } = useSegment();
 
   useEffect(() => {
     onCloseMobileMenu();
@@ -80,13 +80,17 @@ export default function Sidebar({
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
     ...(showOS
-      ? [{ name: "Ordens de Serviço", icon: Wrench, path: "/os/novo" }]
+      ? [{ name: labels.action, icon: Wrench, path: "/os/novo" }]
       : []),
     { name: "Clientes", icon: Users, path: "/clientes" },
     ...(showOS
       ? [{ name: "Consulta Garantia", icon: Search, path: "/consulta" }]
       : []),
-    { name: "Estoque", icon: Package, path: "/estoque" },
+    {
+      name: hasInventoryGrade ? "Estoque / Grade" : "Estoque",
+      icon: Package,
+      path: "/estoque",
+    },
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
     { name: "Minha Empresa", icon: Building2, path: "/configuracoes/empresa" },
