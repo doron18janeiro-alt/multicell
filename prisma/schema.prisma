@@ -20,6 +20,7 @@ model Customer {
   sales         Sale[]
 
   @@unique([document, companyId])
+  @@index([companyId], map: "idx_customers_company_id")
   @@map("clients")
 }
 
@@ -30,7 +31,7 @@ model Product {
   stock       Int            @default(0)
   minStock    Int            @default(5) @map("min_stock")
   category    String
-  companyId   String         @default("multicell-oficial") @map("company_id")
+  companyId   String         @map("company_id")
   createdAt   DateTime       @default(now()) @map("created_at")
   costPrice   Float          @default(0) @map("cost_price")
   description String?
@@ -44,6 +45,7 @@ model Product {
   sales       SaleItem[]
 
   @@unique([companyId, barcode])
+  @@index([companyId], map: "idx_products_company_id")
   @@index([stock, costPrice, salePrice], map: "idx_products_stock_prices")
   @@map("products")
 }
@@ -63,7 +65,7 @@ model ProductBatch {
 
 model ServiceOrder {
   deviceModel    String    @map("device_model")
-  companyId      String    @default("multicell-oficial") @map("company_id")
+  companyId      String    @map("company_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   checklist      Json?
   clientCpf      String?   @map("client_cpf")
@@ -99,13 +101,14 @@ model Supplier {
   catalogUrl String?   @map("catalog_url")
   products   Product[]
 
+  @@index([companyId], map: "idx_suppliers_company_id")
   @@map("suppliers")
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Sale {
   id             Int        @id @default(autoincrement())
-  companyId      String     @default("multicell-oficial") @map("company_id")
+  companyId      String     @map("company_id")
   total          Float
   discount       Float?     @default(0)
   feeAmount      Float?     @default(0) @map("fee_amount")
@@ -123,6 +126,7 @@ model Sale {
   customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   seller         User?      @relation("SellerSales", fields: [sellerId], references: [id], onDelete: SetNull)
 
+  @@index([companyId], map: "idx_sales_company_id")
   @@index([companyId, createdAt], map: "idx_sales_company_created_at")
   @@map("sales")
 }
@@ -155,18 +159,21 @@ model CompanyConfig {
   taxCash    Float    @default(0) @map("tax_cash")
   company    Company  @relation(fields: [companyId], references: [id])
 
+  @@index([companyId], map: "idx_company_config_company_id")
   @@map("company_config")
 }
 
 model Company {
   id                 String         @id
   name               String         @default("Minha Empresa")
+  segment            Segment?
   cnpj               String?
   address            String?
   phone              String?
   email              String?
   logoUrl            String?        @default("/logo.png") @map("logo_url")
   certificateA1      String?        @map("certificate_a1")
+  companyData        Json?          @map("company_data")
   settings           Json?
   trialEndsAt        DateTime       @default(dbgenerated("(now() + interval '7 days')")) @map("trial_ends_at")
   subscriptionStatus String         @default("trialing") @map("subscription_status")
@@ -220,6 +227,7 @@ model Expense {
   company       Company               @relation(fields: [companyId], references: [id])
   updatedAt     DateTime              @updatedAt @map("updated_at")
 
+  @@index([companyId], map: "idx_expenses_company_id")
   @@index([companyId, status, dueDate])
   @@index([companyId, paidAt])
   @@index([companyId, isRecurring, dueDate])
@@ -235,6 +243,7 @@ model AuditLog {
   description String
   createdAt   DateTime    @default(now()) @map("created_at")
 
+  @@index([companyId], map: "idx_audit_logs_company_id")
   @@index([companyId, createdAt])
   @@map("audit_logs")
 }
@@ -261,7 +270,16 @@ model DailyClosing {
   valor_total_estoque Float?    @default(0)
 
   @@unique([date, companyId])
+  @@index([companyId], map: "idx_daily_closing_company_id")
   @@map("daily_closing")
+}
+
+enum Segment {
+  TECH
+  RETAIL
+  AUTO
+  BEAUTY
+  FOOD
 }
 
 enum OSStatus {
