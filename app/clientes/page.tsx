@@ -199,7 +199,7 @@ export default function Clientes() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "clientes_multicell.csv");
+    link.setAttribute("download", "clientes_wtm.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

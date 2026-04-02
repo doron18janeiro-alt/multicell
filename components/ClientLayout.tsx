@@ -30,6 +30,7 @@ export default function ClientLayout({
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/auth/reset-password");
   const isPublicStandalonePage =
+    pathname === "/" ||
     pathname === "/privacidade" ||
     pathname === "/termos" ||
     pathname === "/suporte";

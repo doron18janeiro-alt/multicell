@@ -177,7 +177,7 @@ export default function LoginPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-[#020617]/50 border border-slate-700 text-slate-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-slate-600"
-                      placeholder="seu@email.com"
+                      placeholder="seu-email@wtm.com"
                       required
                     />
                   </div>
@@ -248,13 +248,13 @@ export default function LoginPage() {
                 )}
               </button>
 
-              <Link href="/cadastro">
+              <Link href="/">
                 <motion.div
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
                   className="w-full mt-3 border border-amber-400/40 text-amber-300 font-bold py-3 rounded-xl text-center hover:bg-amber-400/10 transition-all"
                 >
-                  CRIAR CONTA
+                  ESCOLHER SEGMENTO E CRIAR CONTA
                 </motion.div>
               </Link>
             </form>

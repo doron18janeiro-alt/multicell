@@ -2,7 +2,7 @@ import type { Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const DEFAULT_COMPANY_PROFILE = {
-  name: "Minha Empresa",
+  name: "Sua Empresa Aqui",
   segment: null,
   cnpj: null,
   address: null,

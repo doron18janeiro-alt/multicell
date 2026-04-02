@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
-  Car,
+  CarFront,
+  ClipboardCheck,
+  Globe2,
   Search,
   LayoutDashboard,
   ShoppingCart,
@@ -35,7 +36,8 @@ export default function Sidebar({
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
   const { showOS, hasInventoryGrade, labels, fullName, role, segment } = useSegment();
-  const ServiceIcon = segment === "AUTO" ? Car : Wrench;
+  const ServiceIcon = segment === "AUTO" ? ClipboardCheck : Wrench;
+  const StockIcon = segment === "AUTO" ? CarFront : Package;
 
   useEffect(() => {
     onCloseMobileMenu();
@@ -90,7 +92,7 @@ export default function Sidebar({
       : []),
     {
       name: hasInventoryGrade ? "Estoque / Grade" : "Estoque",
-      icon: Package,
+      icon: StockIcon,
       path: "/estoque",
     },
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
@@ -127,6 +129,20 @@ export default function Sidebar({
     return true;
   });
 
+  const SidebarBrand = () => (
+    <div className="flex flex-col items-center text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#FACC15]/30 bg-[#FACC15]/10 shadow-[0_0_24px_rgba(250,204,21,0.14)]">
+        <Globe2 className="h-7 w-7 text-[#FACC15]" />
+      </div>
+      <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.38em] text-slate-400">
+        World Tech
+      </p>
+      <p className="mt-1 text-2xl font-black tracking-[0.42em] text-[#FACC15]">
+        WTM
+      </p>
+    </div>
+  );
+
   return (
     <>
       {isMobileOpen && (
@@ -144,14 +160,9 @@ export default function Sidebar({
         } md:translate-x-0`}
       >
         <div className="flex items-center justify-between border-b border-[#1E293B]/50 px-4 py-4 md:hidden">
-          <Image
-            src="/logo.png"
-            alt="World Tech Manager"
-            width={150}
-            height={44}
-            priority
-            className="h-10 w-auto drop-shadow-md"
-          />
+          <div className="flex-1">
+            <SidebarBrand />
+          </div>
           <button
             type="button"
             onClick={onCloseMobileMenu}
@@ -163,14 +174,7 @@ export default function Sidebar({
         </div>
 
         <div className="hidden border-b border-[#1E293B]/50 bg-linear-to-b from-[#0F172A] to-transparent p-6 md:flex md:justify-center">
-          <Image
-            src="/logo.png"
-            alt="World Tech Manager"
-            width={180}
-            height={56}
-            priority
-            className="h-14 w-auto drop-shadow-md"
-          />
+          <SidebarBrand />
         </div>
 
         <nav className="flex-1 space-y-2 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-thumb-slate-700">

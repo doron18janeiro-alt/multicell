@@ -420,6 +420,19 @@ function DashboardContent() {
     totalPaidExpenses > 0
       ? (expenseBreakdown.personal / totalPaidExpenses) * 100
       : 0;
+  const isEmptyDashboard =
+    userRole === "ATTENDANT"
+      ? totalItems === 0 && criticalAlerts.count === 0
+      : totalItems === 0 &&
+        criticalAlerts.count === 0 &&
+        dailyProfit.itemsCount === 0 &&
+        dailyProfit.value === 0 &&
+        weeklyEvolution.length === 0 &&
+        stockValue === 0 &&
+        paymentMethods.length === 0 &&
+        recurringCommitments.count === 0 &&
+        cashBalance.totalSales === 0 &&
+        totalPaidExpenses === 0;
 
   return (
     <div className="min-h-full bg-[#0B1120] text-slate-100 animate-in fade-in duration-500">
@@ -500,7 +513,29 @@ function DashboardContent() {
           </div>
           )}
 
-        {userRole === "ATTENDANT" ? (
+        {isEmptyDashboard ? (
+          <div className="rounded-3xl border border-dashed border-[#FACC15]/30 bg-[#0B1120]/80 px-6 py-12 text-center shadow-[0_0_30px_rgba(250,204,21,0.06)]">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#FACC15]/20 bg-[#FACC15]/10">
+              <Store className="h-7 w-7 text-[#FACC15]" />
+            </div>
+            <h2 className="mt-5 text-2xl font-semibold text-white">
+              Seu dashboard ainda está vazio
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+              O World Tech Manager está pronto para começar. Cadastre o primeiro
+              produto para ativar estoque, vendas e relatórios da sua operação.
+            </p>
+            <div className="mt-6 flex justify-center">
+              <Link
+                href="/estoque?novo=1"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 text-sm font-semibold text-[#050c1a] transition-all hover:brightness-105"
+              >
+                <Package className="h-4 w-4" />
+                Cadastrar meu primeiro produto
+              </Link>
+            </div>
+          </div>
+        ) : userRole === "ATTENDANT" ? (
           <>
             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-cyan-100">
               <p className="text-sm font-semibold">

@@ -385,7 +385,7 @@ export default function SalesMetrics() {
             });
 
             doc.save(
-              `fechamento_multicell_${new Date().toISOString().split("T")[0]}.pdf`,
+              `fechamento_wtm_${new Date().toISOString().split("T")[0]}.pdf`,
             );
 
             // --- 2. WhatsApp ---

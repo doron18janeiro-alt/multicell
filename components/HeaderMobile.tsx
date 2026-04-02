@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Globe2, Menu } from "lucide-react";
 
 type HeaderMobileProps = {
   onOpenMenu: () => void;
@@ -23,16 +22,14 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
 
         <Link
           href="/dashboard"
-          className="flex min-w-0 flex-1 items-center justify-center"
+          className="flex min-w-0 flex-1 flex-col items-center justify-center"
         >
-          <Image
-            src="/logo.png"
-            alt="World Tech Manager"
-            width={132}
-            height={40}
-            priority
-            className="h-9 w-auto drop-shadow-md"
-          />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#FACC15]/30 bg-[#FACC15]/10">
+            <Globe2 className="h-5 w-5 text-[#FACC15]" />
+          </div>
+          <span className="mt-1 text-[11px] font-black tracking-[0.38em] text-[#FACC15]">
+            WTM
+          </span>
         </Link>
 
         <div className="h-10 w-10 shrink-0" aria-hidden="true" />

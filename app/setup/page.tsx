@@ -21,7 +21,7 @@ export default async function SetupPage() {
   return (
     <SetupWizard
       canEdit={isAdminUser(currentUser)}
-      companyName={companyProfile.name || currentUser.companyName || "Minha Empresa"}
+      companyName={companyProfile.name || currentUser.companyName || "Sua Empresa Aqui"}
       companyDocument={companyProfile.cnpj || ""}
       companyPhone={companyProfile.phone || ""}
       companyAddress={companyProfile.address || ""}

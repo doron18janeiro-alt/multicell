@@ -10,67 +10,53 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isAdminUser(currentUser)) {
+    if (!isAdminUser(currentUser) || !currentUser.isDeveloper) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const companyId = currentUser.companyId;
-
     const result = await prisma.$transaction(async (tx) => {
       const saleItems = await tx.saleItem.deleteMany({
-        where: {
-          sale: {
-            companyId,
-          },
-        },
+        where: {},
       });
 
       const productBatches = await tx.productBatch.deleteMany({
-        where: {
-          product: {
-            companyId,
-          },
-        },
+        where: {},
       });
 
       const sales = await tx.sale.deleteMany({
-        where: {
-          companyId,
-        },
+        where: {},
       });
 
       const serviceOrders = await tx.serviceOrder.deleteMany({
-        where: {
-          companyId,
-        },
+        where: {},
       });
 
       const products = await tx.product.deleteMany({
-        where: {
-          companyId,
-        },
+        where: {},
       });
 
       const expenses = await tx.expense.deleteMany({
-        where: {
-          companyId,
-        },
+        where: {},
+      });
+
+      const customers = await tx.customer.deleteMany({
+        where: {},
       });
 
       return {
-        companyId,
         saleItems: saleItems.count,
         productBatches: productBatches.count,
         sales: sales.count,
         serviceOrders: serviceOrders.count,
         products: products.count,
         expenses: expenses.count,
+        customers: customers.count,
       };
     });
 
     return NextResponse.json({
       success: true,
-      message: "Base operacional da empresa resetada com sucesso.",
+      message: "Base operacional do World Tech Manager resetada com sucesso.",
       result,
     });
   } catch (error) {

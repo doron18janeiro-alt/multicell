@@ -373,7 +373,7 @@ export default function Estoque() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "estoque_multicell.csv");
+    link.setAttribute("download", "estoque_wtm.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

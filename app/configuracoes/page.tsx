@@ -316,7 +316,7 @@ export default function Configuracoes() {
               Dados da empresa foram centralizados.
             </p>
             <p className="mt-2 text-sm text-slate-300">
-              Nome, CNPJ, endereço, telefone e logo agora ficam apenas em
+              Nome, CNPJ, endereço, telefone e logo agora são gerenciados exclusivamente em
               <span className="font-semibold text-white"> Minha Empresa</span>.
             </p>
           </section>

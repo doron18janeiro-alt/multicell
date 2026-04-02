@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Segment } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { isValidCpf, sanitizeCpf } from "@/lib/cpf";
@@ -12,6 +13,20 @@ const generateCompanyId = () => {
   return `company_${crypto.randomUUID().replace(/-/g, "")}`;
 };
 
+const normalizeSegment = (value: unknown): Segment | null => {
+  if (
+    value === "TECH" ||
+    value === "RETAIL" ||
+    value === "AUTO" ||
+    value === "BEAUTY" ||
+    value === "FOOD"
+  ) {
+    return value;
+  }
+
+  return null;
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -23,6 +38,7 @@ export async function POST(request: Request) {
     const cpfRaw = String(body.cpf || "");
     const cpf = sanitizeCpf(cpfRaw);
     const birthDateRaw = String(body.birthDate || "");
+    const segment = normalizeSegment(body.segment);
 
     if (!name || name.length < 3) {
       return NextResponse.json(
@@ -82,8 +98,9 @@ export async function POST(request: Request) {
       await tx.company.create({
         data: {
           id: companyId,
-          name: "Minha Empresa",
+          name: "Sua Empresa Aqui",
           logoUrl: "/logo.png",
+          segment,
           subscriptionStatus: initialSubscriptionStatus,
           trialEndsAt,
         },
@@ -111,15 +128,15 @@ export async function POST(request: Request) {
 
     await setAuthSession(
       createAuthSessionSnapshot({
-      id: user.id,
-      email: user.email,
-      companyId,
-      role: user.role,
-      fullName: user.fullName || user.name || null,
-      companyName: "Minha Empresa",
-      segment: null,
-      cpf,
-      birthDate: birthDate.toISOString(),
+        id: user.id,
+        email: user.email,
+        companyId,
+        role: user.role,
+        fullName: user.fullName || user.name || null,
+        companyName: "Sua Empresa Aqui",
+        segment,
+        cpf,
+        birthDate: birthDate.toISOString(),
       }),
     );
 
@@ -127,8 +144,8 @@ export async function POST(request: Request) {
       success: true,
       userId: user.id,
       companyId,
-      segment: null,
-      nextPath: "/setup",
+      segment,
+      nextPath: segment ? "/dashboard" : "/setup",
       trialEndsAt: trialEndsAt.toISOString(),
     });
   } catch (error) {

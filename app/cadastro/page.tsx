@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   User,
@@ -19,8 +19,17 @@ import {
 import { formatCpf, isValidCpf, sanitizeCpf } from "@/lib/cpf";
 import { resetSegmentSessionCache } from "@/hooks/useSegment";
 
-export default function CadastroPage() {
+const SEGMENT_TITLES = {
+  TECH: "Assistência Técnica",
+  RETAIL: "Loja / Varejo",
+  AUTO: "Auto Center",
+  BEAUTY: "Beleza",
+  FOOD: "Alimentação",
+} as const;
+
+function CadastroPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [form, setForm] = useState({
     name: "",
     cpf: "",
@@ -32,6 +41,24 @@ export default function CadastroPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const selectedSegment = useMemo(() => {
+    const segment = searchParams.get("segment");
+
+    if (
+      segment === "TECH" ||
+      segment === "RETAIL" ||
+      segment === "AUTO" ||
+      segment === "BEAUTY" ||
+      segment === "FOOD"
+    ) {
+      return segment;
+    }
+
+    return null;
+  }, [searchParams]);
+  const selectedSegmentTitle = selectedSegment
+    ? SEGMENT_TITLES[selectedSegment]
+    : null;
 
   const handleChange = (field: string, value: string) => {
     if (field === "cpf") {
@@ -71,6 +98,7 @@ export default function CadastroPage() {
         body: JSON.stringify({
           ...form,
           cpf: cpfDigits,
+          segment: selectedSegment,
         }),
       });
 
@@ -82,8 +110,13 @@ export default function CadastroPage() {
       }
 
       resetSegmentSessionCache();
-      setSuccess("Conta criada com sucesso! Redirecionando para a configuracao inicial...");
-      setTimeout(() => router.push(payload?.nextPath || "/setup"), 1200);
+      const nextPath = payload?.nextPath || (selectedSegment ? "/dashboard" : "/setup");
+      setSuccess(
+        selectedSegment
+          ? "Conta criada com sucesso! Redirecionando para o dashboard..."
+          : "Conta criada com sucesso! Redirecionando para a configuracao inicial...",
+      );
+      setTimeout(() => router.push(nextPath), 1200);
     } catch (requestError) {
       console.error(requestError);
       setError("Falha de conexão ao criar conta.");
@@ -126,6 +159,11 @@ export default function CadastroPage() {
                 Comece com 7 dias de teste gratuito e explore o Dashboard sem
                 informar cartao agora.
               </p>
+              {selectedSegmentTitle ? (
+                <p className="mt-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
+                  Segmento: {selectedSegmentTitle}
+                </p>
+              ) : null}
               <p className="mt-2 text-sm text-slate-500">
                 World Tech Manager - Gestão Inteligente
               </p>
@@ -172,7 +210,7 @@ export default function CadastroPage() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-5 w-5" />
                 <input
                   type="email"
-                  placeholder="E-mail"
+                  placeholder="seu-email@wtm.com"
                   className="w-full bg-[#020617]/55 border border-slate-700 text-slate-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-all"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}
@@ -242,15 +280,33 @@ export default function CadastroPage() {
 
             <div className="mt-6 text-center">
               <Link
-                href="/login"
+                href={selectedSegment ? "/" : "/login"}
                 className="text-sm text-slate-400 hover:text-amber-300 transition-colors"
               >
-                Já tenho conta. Voltar para login
+                {selectedSegment
+                  ? "Trocar segmento antes de criar a conta"
+                  : "Já tenho conta. Voltar para login"}
               </Link>
             </div>
           </div>
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#020617] px-6 text-slate-200">
+          <div className="rounded-2xl border border-amber-400/20 bg-[#0f172a]/70 px-5 py-4">
+            Carregando cadastro...
+          </div>
+        </div>
+      }
+    >
+      <CadastroPageContent />
+    </Suspense>
   );
 }
