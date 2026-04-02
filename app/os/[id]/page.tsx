@@ -1,47 +1,74 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { ServiceOrderPrint } from "@/components/ServiceOrderPrint";
+import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
+import {
+  ServiceOrderDocument,
+  isWarrantyDocumentStatus,
+  resolveServiceDocumentTitle,
+  type DocumentCompanyConfig,
+  type ServiceOrderDocumentData,
+} from "@/components/ServiceOrderDocument";
 import { WhatsAppNotificationButton } from "@/components/WhatsAppNotificationButton";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
   Printer,
   CheckCircle,
   DollarSign,
-  Wrench,
   Banknote,
   QrCode,
   CreditCard,
+  ReceiptText,
   X,
-  User,
-  Smartphone,
-  Calendar,
 } from "lucide-react";
+
+const defaultCompanyConfig: DocumentCompanyConfig = {
+  name: "Multicell",
+  document: "48.002.640.0001/67",
+  address: "Av Paraná, 470 - Bela Vista - Cândido de Abreu (PR)",
+  phone: "(43) 99603-1208",
+  logoUrl: "/logo.png",
+};
 
 export default function OrderDetails() {
   const params = useParams();
   const componentRef = useRef<HTMLDivElement>(null);
+  const thermalPrintRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
   });
-
-  const router = useRouter();
+  const handleThermalPrint = useReactToPrint({
+    contentRef: thermalPrintRef,
+  });
   const id = params?.id as string;
 
-  const [os, setOs] = useState<any>(null);
+  const [os, setOs] = useState<ServiceOrderDocumentData | null>(null);
+  const [companyConfig, setCompanyConfig] =
+    useState<DocumentCompanyConfig>(defaultCompanyConfig);
+  const [currentUserName, setCurrentUserName] = useState("Equipe Multicell");
+  const [appBaseUrl, setAppBaseUrl] = useState(
+    process.env.NEXT_PUBLIC_APP_URL || "",
+  );
   const [loading, setLoading] = useState(true);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
   const [finalPrice, setFinalPrice] = useState("");
   const [partsCost, setPartsCost] = useState("");
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  const termsUrl = useMemo(() => {
+    const fallbackUrl =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const normalizedBase = (appBaseUrl || fallbackUrl || "").replace(/\/$/, "");
+    return normalizedBase ? `${normalizedBase}/termos` : "/termos";
+  }, [appBaseUrl]);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -57,11 +84,58 @@ export default function OrderDetails() {
     }
   }, [id]);
 
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch("/api/config");
+      if (!res.ok) {
+        return;
+      }
+
+      const data = await res.json();
+      if (!data || data.error) {
+        return;
+      }
+
+      setCompanyConfig((current) => ({
+        ...current,
+        name: data.name || current.name,
+        document: data.document || current.document,
+        address: data.address || current.address,
+        phone: data.phone || current.phone,
+        logoUrl: data.logoUrl || current.logoUrl,
+      }));
+    } catch (error) {
+      console.error("Erro ao carregar config da empresa:", error);
+    }
+  }, []);
+
+  const fetchSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/session", { cache: "no-store" });
+      if (!res.ok) {
+        return;
+      }
+
+      const data = await res.json();
+      setCurrentUserName(data.fullName || "Equipe Multicell");
+    } catch (error) {
+      console.error("Erro ao carregar usuário da sessão:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAppBaseUrl(process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
+    }
+  }, []);
+
   useEffect(() => {
     if (id) {
       void fetchOrder();
+      void fetchConfig();
+      void fetchSession();
     }
-  }, [fetchOrder, id]);
+  }, [fetchConfig, fetchOrder, fetchSession, id]);
 
   useEffect(() => {
     if (!id) {
@@ -109,13 +183,14 @@ export default function OrderDetails() {
   }, [fetchOrder, id]);
 
   const handleFinalizar = () => {
-    setFinalPrice(os.totalPrice?.toString() || "0");
-    setPartsCost(os.costPrice?.toString() || "0");
+    setFinalPrice(os?.totalPrice?.toString() || "0");
+    setPartsCost(os?.costPrice?.toString() || "0");
     setIsPaymentModalOpen(true);
   };
 
   const confirmPayment = async () => {
     setProcessingPayment(true);
+
     try {
       const res = await fetch(`/api/os/${id}/finalize`, {
         method: "POST",
@@ -130,7 +205,7 @@ export default function OrderDetails() {
       if (res.ok) {
         alert("Pagamento recebido e O.S. finalizada com sucesso!");
         setIsPaymentModalOpen(false);
-        fetchOrder(); // Reload data
+        void fetchOrder();
       } else {
         alert("Erro ao finalizar pagamento.");
       }
@@ -142,299 +217,232 @@ export default function OrderDetails() {
     }
   };
 
-  if (loading)
-    return <div className="p-8 text-white">Carregando detalhes...</div>;
-  if (!os) return <div className="p-8 text-white">O.S. não encontrada.</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] px-6 py-10 text-slate-600">
+        Carregando detalhes...
+      </div>
+    );
+  }
+
+  if (!os) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] px-6 py-10 text-slate-600">
+        O.S. não encontrada.
+      </div>
+    );
+  }
+
+  const isWarrantyMode = isWarrantyDocumentStatus(os.status);
+  const documentHeading = resolveServiceDocumentTitle(os);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 text-slate-100">
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/os"
-            className="p-2 rounded-full bg-[#112240] text-slate-400 hover:text-[#D4AF37]"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              Ordem de Serviço #{os.id}
-            </h1>
-            <p className="text-slate-400 text-sm">
-              Criada em {new Date(os.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          {os.status !== "FINALIZADO" && (
-            <button
-              onClick={handleFinalizar}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2"
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.18),_transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/os"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition-colors hover:border-[#FACC15] hover:text-slate-950"
             >
-              <DollarSign size={18} />
-              Finalizar e Receber
-            </button>
-          )}
-          <button
-            onClick={() => handlePrint()}
-            className="btn-outline flex items-center gap-2"
-          >
-            <Printer size={18} /> Imprimir
-          </button>
-        </div>
-      </div>
+              <ArrowLeft size={18} />
+            </Link>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Main Info */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Status Banner */}
-          <div
-            className={`p-4 rounded-lg flex items-center gap-3 ${
-              os.status === "FINALIZADO"
-                ? "bg-green-900/30 border border-green-800 text-green-400"
-                : "bg-blue-900/30 border border-blue-800 text-blue-400"
-            }`}
-          >
-            <Wrench className="w-6 h-6" />
             <div>
-              <h3 className="font-bold">Status Atual: {os.status}</h3>
-              <p className="text-sm opacity-80">
-                {os.status === "FINALIZADO"
-                  ? "Serviço concluído e valores lançados no financeiro."
-                  : "O aparelho está em processo de manutenção."}
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">
+                Documento profissional
+              </p>
+              <h1 className="text-2xl font-bold text-slate-950">
+                {documentHeading}
+              </h1>
+              <p className="text-sm text-slate-500">
+                {isWarrantyMode
+                  ? "Termo de garantia pronto para A4/PDF ou cupom térmico de 80mm."
+                  : "Pré-visualização pronta para impressão, PDF ou envio ao cliente."}
               </p>
             </div>
           </div>
 
-          {/* Device Info */}
-          <div className="bg-[#112240] p-6 rounded-xl border border-slate-800">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Smartphone className="text-[#D4AF37]" size={20} />
-              Dados do Aparelho
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-xs text-slate-400 uppercase">
-                  Marca/Modelo
-                </span>
-                <p className="font-medium text-white">
-                  {os.deviceBrand} {os.deviceModel}
-                </p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-400 uppercase">
-                  Serial / IMEI
-                </span>
-                <p className="font-medium text-white">
-                  {os.serialNumber || "-"}
-                </p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-400 uppercase">Senha</span>
-                <p className="font-medium text-white">
-                  {os.devicePassword || "Sem senha"}
-                </p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-400 uppercase">Cor</span>
-                <p className="font-medium text-white">
-                  {os.deviceColor || "-"}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-[#233554]">
-              <span className="text-xs text-slate-400 uppercase">
-                Defeito Relatado
-              </span>
-              <p className="text-white mt-1">{os.problem}</p>
-            </div>
-            {os.observations && (
-              <div className="mt-4 pt-4 border-t border-[#233554]">
-                <span className="text-xs text-slate-400 uppercase">
-                  Observações Técnicas
-                </span>
-                <p className="text-white mt-1">{os.observations}</p>
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+            <WhatsAppNotificationButton
+              clientName={os.customer?.name || os.clientName || ""}
+              clientPhone={os.customer?.phone || os.clientPhone || ""}
+              deviceBrand={os.deviceBrand || ""}
+              deviceModel={os.deviceModel || ""}
+              problem={os.problem || ""}
+              status={os.status || ""}
+              osId={os.id}
+              totalPrice={os.totalPrice || 0}
+              checklist={{
+                liga: os.checklist?.tests?.liga,
+                tela: os.checklist?.tests?.touch,
+                carcaca: os.checklist?.physical?.carcacaStatus,
+              }}
+              className="sm:w-auto px-5 shadow-none"
+            />
+
+            {!isWarrantyMode && (
+              <button
+                onClick={handleFinalizar}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#FACC15] bg-[#FACC15] px-5 py-3 font-semibold text-slate-950 transition-colors hover:bg-[#eab308]"
+              >
+                <DollarSign size={18} />
+                Finalizar e Receber
+              </button>
+            )}
+
+            {isWarrantyMode ? (
+              <>
+                <button
+                  onClick={() => handleThermalPrint()}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#FACC15] bg-[#FFFDE7] px-5 py-3 font-semibold text-slate-900 transition-colors hover:bg-[#fef3c7]"
+                >
+                  <ReceiptText size={18} />
+                  Cupom Garantia 80mm
+                </button>
+
+                <button
+                  onClick={() => handlePrint()}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-800 transition-colors hover:border-[#FACC15] hover:text-slate-950"
+                >
+                  <Printer size={18} />
+                  Imprimir A4 / PDF
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => handlePrint()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 font-semibold text-slate-800 transition-colors hover:border-[#FACC15] hover:text-slate-950"
+              >
+                <Printer size={18} />
+                Imprimir O.S.
+              </button>
             )}
           </div>
         </div>
 
-        {/* Sidebar Info */}
-        <div className="space-y-6">
-          {/* Customer */}
-          <div className="bg-[#112240] p-6 rounded-xl border border-slate-800">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <User className="text-[#D4AF37]" size={20} />
-              Cliente
-            </h3>
-            <p className="font-bold text-white text-lg">{os.clientName}</p>
-            <p className="text-slate-400">{os.clientPhone}</p>
-            {os.clientCpf && (
-              <p className="text-slate-500 text-sm mt-1">CPF: {os.clientCpf}</p>
-            )}
-
-            <div className="mt-4 pt-4 border-t border-[#233554]">
-              <WhatsAppNotificationButton
-                clientName={os.customer?.name || os.clientName || ""}
-                clientPhone={os.customer?.phone || os.clientPhone || ""}
-                deviceBrand={os.deviceBrand}
-                deviceModel={os.deviceModel}
-                problem={os.problem}
-                status={os.status}
-                osId={os.id}
-                totalPrice={os.totalPrice}
-                checklist={{
-                  liga: os.checklist?.tests?.liga,
-                  tela: os.checklist?.tests?.touch,
-                  carcaca: os.checklist?.physical?.carcacaStatus,
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Financial */}
-          <div className="bg-[#112240] p-6 rounded-xl border border-slate-800">
-            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <DollarSign className="text-[#D4AF37]" size={20} />
-              Financeiro
-            </h3>
-
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Total Cobrado</span>
-                <span className="text-green-400 font-bold">
-                  R$ {os.totalPrice?.toFixed(2) || "0.00"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Custo Peças</span>
-                <span className="text-red-400">
-                  R$ {os.costPrice?.toFixed(2) || "0.00"}
-                </span>
-              </div>
-              <div className="pt-3 border-t border-[#233554] flex justify-between">
-                <span className="text-white font-bold">Lucro Líquido</span>
-                <span className="text-[#FFD700] font-bold">
-                  R${" "}
-                  {(os.servicePrice || os.totalPrice - os.costPrice)?.toFixed(
-                    2
-                  ) || "0.00"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ServiceOrderDocument
+          data={os}
+          config={companyConfig}
+          responsibleName={currentUserName}
+        />
       </div>
 
-      {/* Payment Modal */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#112240] rounded-2xl border border-slate-700 w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <DollarSign className="text-[#D4AF37]" />
-                Receber Pagamento
-              </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-[2px]">
+          <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-[#FDE68A] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.22)]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Fechamento da O.S.
+                </p>
+                <h2 className="mt-1 text-xl font-bold text-slate-950">
+                  Receber Pagamento
+                </h2>
+              </div>
+
               <button
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="text-slate-400 hover:text-white"
+                className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-900"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Values */}
+            <div className="space-y-6 px-6 py-6">
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-slate-400 block mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-600">
                     Valor Total (R$)
                   </label>
                   <input
                     type="number"
                     value={finalPrice}
                     onChange={(e) => setFinalPrice(e.target.value)}
-                    className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white text-lg font-bold focus:border-[#D4AF37] focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-lg font-bold text-slate-950 outline-none transition-colors focus:border-[#FACC15]"
                   />
                 </div>
+
                 <div>
-                  <label className="text-sm text-slate-400 block mb-1">
+                  <label className="mb-1.5 block text-sm font-medium text-slate-600">
                     Custo de Peças (R$)
                   </label>
                   <input
                     type="number"
                     value={partsCost}
                     onChange={(e) => setPartsCost(e.target.value)}
-                    className="w-full bg-[#0B1120] border border-slate-700 rounded-lg p-3 text-white focus:border-slate-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition-colors focus:border-[#FACC15]"
                   />
                 </div>
               </div>
 
-              {/* Payment Methods */}
               <div>
-                <label className="text-sm text-slate-400 block mb-2">
+                <label className="mb-2 block text-sm font-medium text-slate-600">
                   Forma de Pagamento
                 </label>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setPaymentMethod("DINHEIRO")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
                       paymentMethod === "DINHEIRO"
-                        ? "bg-[#D4AF37] text-black border-[#D4AF37] shadow-[0_0_10px_#D4AF37]"
-                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                        ? "border-[#FACC15] bg-[#FACC15] text-slate-950 shadow-[0_14px_30px_rgba(250,204,21,0.28)]"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800"
                     }`}
                   >
-                    <Banknote className="w-5 h-5 mb-1" />
+                    <Banknote className="mb-1 h-5 w-5" />
                     <span className="text-xs font-bold">DINHEIRO</span>
                   </button>
+
                   <button
                     onClick={() => setPaymentMethod("PIX")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
                       paymentMethod === "PIX"
-                        ? "bg-[#22c55e] text-black border-[#22c55e] shadow-[0_0_10px_#22c55e]"
-                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200" // changed text-white to text-black for visibility on green
+                        ? "border-[#FACC15] bg-[#FACC15] text-slate-950 shadow-[0_14px_30px_rgba(250,204,21,0.28)]"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800"
                     }`}
                   >
-                    <QrCode className="w-5 h-5 mb-1" />
+                    <QrCode className="mb-1 h-5 w-5" />
                     <span className="text-xs font-bold">PIX</span>
                   </button>
+
                   <button
                     onClick={() => setPaymentMethod("DEBITO")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
                       paymentMethod === "DEBITO"
-                        ? "bg-[#3b82f6] text-white border-[#3b82f6] shadow-[0_0_10px_#3b82f6]"
-                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                        ? "border-[#FACC15] bg-[#FACC15] text-slate-950 shadow-[0_14px_30px_rgba(250,204,21,0.28)]"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800"
                     }`}
                   >
-                    <CreditCard className="w-5 h-5 mb-1" />
+                    <CreditCard className="mb-1 h-5 w-5" />
                     <span className="text-xs font-bold">DÉBITO</span>
                   </button>
+
                   <button
                     onClick={() => setPaymentMethod("CREDITO")}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                    className={`flex flex-col items-center justify-center rounded-xl border p-3 transition-all ${
                       paymentMethod === "CREDITO"
-                        ? "bg-[#8b5cf6] text-white border-[#8b5cf6] shadow-[0_0_10px_#8b5cf6]"
-                        : "bg-[#0B1120] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                        ? "border-[#FACC15] bg-[#FACC15] text-slate-950 shadow-[0_14px_30px_rgba(250,204,21,0.28)]"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800"
                     }`}
                   >
-                    <CreditCard className="w-5 h-5 mb-1" />
+                    <CreditCard className="mb-1 h-5 w-5" />
                     <span className="text-xs font-bold">CRÉDITO</span>
                   </button>
                 </div>
               </div>
 
-              {/* Confirm Button */}
               <button
                 onClick={confirmPayment}
                 disabled={processingPayment}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-4 text-base font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {processingPayment ? (
                   "Processando..."
                 ) : (
                   <>
-                    <CheckCircle size={24} /> Confirmar Recebimento
+                    <CheckCircle size={22} />
+                    Confirmar Recebimento
                   </>
                 )}
               </button>
@@ -443,9 +451,27 @@ export default function OrderDetails() {
         </div>
       )}
 
-      <div style={{ display: "none" }}>
-        <ServiceOrderPrint ref={componentRef} data={os} />
+      <div className="pointer-events-none fixed -left-[10000px] top-0 opacity-0">
+        <ServiceOrderPrint
+          ref={componentRef}
+          data={os}
+          config={companyConfig}
+          responsibleName={currentUserName}
+        />
       </div>
+
+      {isWarrantyMode ? (
+        <div className="pointer-events-none fixed -left-[10000px] top-0 opacity-0">
+          <SaleReceiptThermal
+            ref={thermalPrintRef}
+            mode="warranty"
+            warranty={os}
+            config={companyConfig}
+            termsUrl={termsUrl}
+            responsibleName={currentUserName}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
