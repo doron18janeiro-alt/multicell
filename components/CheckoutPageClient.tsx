@@ -47,7 +47,7 @@ const PLAN_COPY = {
 } as const;
 
 const SUPPORT_NOTE =
-  "Pagamento processado via Mercado Pago. O plano anual pode ser parcelado em até 12x no cartão de crédito ou pago via Pix à vista.";
+  "Processado via Mercado Pago. Parcelamento em até 12x no cartão disponível para o plano anual.";
 
 const ANNUAL_SAVINGS = "ECONOMIZE R$ 239,80";
 
@@ -325,7 +325,7 @@ export default function CheckoutPageClient() {
               </h2>
             </div>
 
-            <div className="inline-flex rounded-2xl border border-slate-700 bg-[#0B1120]/80 p-1.5">
+            <div className="inline-flex flex-wrap items-center gap-2 rounded-2xl border border-slate-700 bg-[#0B1120]/80 p-1.5">
               <button
                 type="button"
                 onClick={() => setSelectedPlan("monthly")}
@@ -346,8 +346,11 @@ export default function CheckoutPageClient() {
                     : "text-slate-300 hover:text-white"
                 }`}
               >
-                Anual (2 MESES OFF)
+                Anual
               </button>
+              <span className="rounded-xl border border-yellow-300/30 bg-yellow-300/10 px-3 py-2 text-[11px] font-black uppercase tracking-[0.18em] text-yellow-100">
+                {ANNUAL_SAVINGS}
+              </span>
             </div>
           </div>
 

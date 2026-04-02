@@ -24,6 +24,8 @@ type ReceiptItem = {
 type ReceiptCustomer = {
   name?: string | null;
   phone?: string | null;
+  address?: string | null;
+  document?: string | null;
 } | null;
 
 type ReceiptSale = {
@@ -34,6 +36,10 @@ type ReceiptSale = {
   createdAt?: string | Date;
   items?: ReceiptItem[];
   customer?: ReceiptCustomer;
+  seller?: {
+    fullName?: string | null;
+    name?: string | null;
+  } | null;
 } | null;
 
 type WarrantyReceiptData = Pick<
@@ -180,7 +186,7 @@ export const SaleReceiptThermal = React.forwardRef<
 
   const normalizedLogoUrl = config.logoUrl?.trim() || "/logo.png";
   const resolvedResponsibleName = normalizeText(
-    responsibleName,
+    sale?.seller?.fullName || sale?.seller?.name || responsibleName,
     "Equipe Multicell",
   );
 
@@ -323,7 +329,7 @@ export const SaleReceiptThermal = React.forwardRef<
                   Garantia
                 </p>
                 <div className="mt-[2mm] space-y-[1.4mm] text-slate-700">
-                  <p>Técnico responsável: {resolvedResponsibleName}</p>
+                  <p>Vendedor/Responsável: {resolvedResponsibleName}</p>
                   <p>Emissão: {formatDocumentDate(referenceDate)}</p>
                   <p>Validade: {formatDocumentDate(expirationDate)}</p>
                 </div>
@@ -335,12 +341,12 @@ export const SaleReceiptThermal = React.forwardRef<
                 </p>
                 <div className="mt-[2mm] space-y-[1.4mm]">
                   <p>
-                    GARANTIA DE 90 DIAS: Cobertura legal sobre peças e mão de
-                    obra (Art. 26 CDC).
+                    Garantia de 90 dias (Art. 26 CDC) sobre o serviço
+                    executado.
                   </p>
                   <p>
-                    A garantia será ANULADA em caso de mau uso, quedas, contato
-                    com líquidos ou lacre rompido.
+                    A garantia não cobre mau uso, quedas, contato com líquidos
+                    ou lacre rompido.
                   </p>
                 </div>
               </section>
@@ -369,12 +375,15 @@ export const SaleReceiptThermal = React.forwardRef<
   }
 
   const items = sale?.items || [];
-  const customerName = sale?.customer?.name || "Consumidor Final";
+  const customerName = sale?.customer?.name || "";
   const customerPhone = sale?.customer?.phone || "";
+  const customerAddress = sale?.customer?.address || "";
   const paymentLabel = getPaymentLabel(sale?.paymentMethod, sale?.cardType);
   const paymentBreakdown = getPaymentBreakdown(sale);
   const saleDate = formatDateTime(sale?.createdAt);
   const totalAmount = Number(sale?.total || 0);
+  const hasCustomerDetails =
+    hasText(customerName) || hasText(customerPhone) || hasText(customerAddress);
 
   return (
     <div
@@ -442,15 +451,42 @@ export const SaleReceiptThermal = React.forwardRef<
 
           <div className="space-y-[3mm] pt-[3mm] text-[11px] leading-[1.45]">
             <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Cliente
-              </p>
-              <p className="mt-[1.2mm] font-semibold text-slate-950">
-                {customerName}
-              </p>
-              {customerPhone ? (
-                <p className="mt-[0.8mm] text-slate-600">{customerPhone}</p>
-              ) : null}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Cliente
+                  </p>
+                  {hasCustomerDetails ? (
+                    <>
+                      {hasText(customerName) ? (
+                        <p className="mt-[1.2mm] font-semibold text-slate-950">
+                          {customerName}
+                        </p>
+                      ) : null}
+                      {hasText(customerPhone) ? (
+                        <p className="mt-[0.8mm] text-slate-600">
+                          {customerPhone}
+                        </p>
+                      ) : null}
+                      {hasText(customerAddress) ? (
+                        <p className="mt-[0.8mm] text-slate-600">
+                          {customerAddress}
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="mt-[1.2mm] text-slate-600">Consumidor final</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    Vendedor/Responsável
+                  </p>
+                  <p className="mt-[1.2mm] max-w-[28mm] text-[10px] font-semibold leading-[1.4] text-slate-950">
+                    {resolvedResponsibleName}
+                  </p>
+                </div>
+              </div>
             </section>
 
             <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
@@ -533,40 +569,6 @@ export const SaleReceiptThermal = React.forwardRef<
                   </div>
                 ))}
               </div>
-            </section>
-
-            <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm] text-[10px] leading-[1.55] text-slate-600">
-              <p className="font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Texto Jurídico
-              </p>
-              <div className="mt-[2mm] space-y-[1.4mm]">
-                <p>
-                  Garantia legal de 90 dias para vícios aparentes ou de fácil
-                  constatação, conforme art. 26 do Código de Defesa do
-                  Consumidor.
-                </p>
-                <p>
-                  A cobertura não se aplica a danos causados por queda,
-                  oxidação, líquidos, mau uso ou violação por terceiros.
-                </p>
-                <p>
-                  Este comprovante deve ser apresentado em qualquer solicitação
-                  relacionada à venda.
-                </p>
-              </div>
-            </section>
-
-            <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm] text-center">
-              {qrCodeDataUrl ? (
-                <img
-                  src={qrCodeDataUrl}
-                  alt="QR Code para termos e condições"
-                  className="mx-auto h-[28mm] w-[28mm]"
-                />
-              ) : null}
-              <p className="mt-[2mm] break-all text-[10px] text-slate-500">
-                Termos e condições: {termsUrl}
-              </p>
             </section>
 
             <p className="pb-[1mm] text-center text-[11px] font-semibold text-slate-900">

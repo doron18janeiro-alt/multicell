@@ -45,6 +45,7 @@ export type ServiceOrderDocumentData = {
   customer?: {
     name?: string | null;
     phone?: string | null;
+    address?: string | null;
   } | null;
 };
 
@@ -141,6 +142,25 @@ const getPaymentLabel = (paymentMethod?: string | null) => {
   return normalizeText(paymentMethod, "A definir");
 };
 
+const LEGAL_NOTICE = {
+  intakeHighlightTitle: "LGPD e Atendimento Técnico",
+  intakeHighlightText:
+    "O cliente autoriza o tratamento de dados para fins de gestão e a realização de testes técnicos que podem expor dados do aparelho.",
+  intakeClauses: [
+    "O cliente autoriza o tratamento de dados para fins de gestão, contato, histórico da assistência e execução dos testes técnicos necessários para diagnóstico e reparo do aparelho.",
+    "Durante a análise e os testes de funcionamento, imagens, aplicativos, mensagens ou arquivos podem ser expostos incidentalmente. Recomenda-se backup prévio antes da entrega do equipamento.",
+    "Aparelhos não retirados em até 90 dias após a notificação de prontidão serão considerados abandonados e poderão ser vendidos para custear despesas de peças, mão de obra e armazenamento, nos termos do art. 652 do Código Civil e art. 35 do CDC.",
+  ],
+  warrantyHighlightTitle: "Garantia de 90 Dias",
+  warrantyHighlightText:
+    "Garantia de 90 dias (Art. 26 CDC) sobre o serviço executado. A garantia não cobre mau uso, quedas, contato com líquidos ou lacre rompido.",
+  warrantyClauses: [
+    "Garantia de 90 dias (Art. 26 CDC) sobre o serviço executado, contada da data de entrega do aparelho ao cliente.",
+    "A cobertura não se aplica a danos causados por mau uso, quedas, oxidação, contato com líquidos, violação de lacres ou intervenção de terceiros após a entrega.",
+    "Para análise de garantia, este documento deve acompanhar o aparelho e o atendimento será vinculado ao responsável registrado nesta emissão.",
+  ],
+} as const;
+
 function SectionCard({
   title,
   icon: Icon,
@@ -203,6 +223,7 @@ export function ServiceOrderDocument({
     responsibleName,
     "Equipe Multicell",
   );
+  const clientAddress = data.customer?.address || null;
   const clientFields = [
     {
       label: "Nome",
@@ -218,6 +239,12 @@ export function ServiceOrderDocument({
       ? {
           label: "CPF / CNPJ",
           value: data.clientCpf,
+        }
+      : null,
+    clientAddress
+      ? {
+          label: "Endereço",
+          value: clientAddress,
         }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: ReactNode }>;
@@ -315,7 +342,7 @@ export function ServiceOrderDocument({
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[#D97706]" />
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Técnico Responsável
+              Vendedor / Responsável
             </p>
           </div>
           <p className="mt-2 text-lg font-semibold text-slate-900">
@@ -491,11 +518,14 @@ export function ServiceOrderDocument({
 
       <div className="mt-4 rounded-[24px] border border-[#FACC15] bg-[#FFFDE7] px-5 py-4 text-sm leading-6 text-slate-800">
         <p className="font-semibold uppercase tracking-[0.18em] text-[#B45309]">
-          GARANTIA DE 90 DIAS
+          {isWarrantyMode
+            ? LEGAL_NOTICE.warrantyHighlightTitle
+            : LEGAL_NOTICE.intakeHighlightTitle}
         </p>
         <p className="mt-2">
-          Cobertura legal sobre peças e mão de obra (Art. 26 CDC). A garantia
-          será ANULADA em caso de mau uso, quedas ou contato com líquidos.
+          {isWarrantyMode
+            ? LEGAL_NOTICE.warrantyHighlightText
+            : LEGAL_NOTICE.intakeHighlightText}
         </p>
       </div>
 
@@ -504,22 +534,13 @@ export function ServiceOrderDocument({
           Cláusulas Jurídicas
         </p>
         <div className="mt-3 space-y-2">
-          <p>
-            Conforme o art. 26 do Código de Defesa do Consumidor, a garantia
-            legal para vícios aparentes ou de fácil constatação em serviços
-            duráveis é de 90 dias, contados da entrega do aparelho.
-          </p>
-          <p>
-            A garantia não cobre danos causados por queda, oxidação, contato
-            com líquidos, mau uso, violação de lacres ou intervenção de
-            terceiros após a entrega.
-          </p>
-          <p>
-            Técnico responsável: {resolvedResponsibleName}. O cliente declara
-            ciência de que dados pessoais e arquivos devem estar devidamente
-            respaldados antes do reparo, sendo recomendada a realização de
-            backup prévio.
-          </p>
+          {(isWarrantyMode
+            ? LEGAL_NOTICE.warrantyClauses
+            : LEGAL_NOTICE.intakeClauses
+          ).map((clause) => (
+            <p key={clause}>{clause}</p>
+          ))}
+          <p>Vendedor/Responsável: {resolvedResponsibleName}.</p>
         </div>
       </section>
 
