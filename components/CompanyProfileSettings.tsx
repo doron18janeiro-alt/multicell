@@ -14,6 +14,7 @@ type CompanyFormState = {
   name: string;
   cnpj: string;
   phone: string;
+  email: string;
   address: string;
   logoUrl: string;
 };
@@ -24,6 +25,7 @@ const createInitialState = (): CompanyFormState => ({
   name: "",
   cnpj: "",
   phone: "",
+  email: "",
   address: "",
   logoUrl: DEFAULT_LOGO,
 });
@@ -56,6 +58,7 @@ export function CompanyProfileSettings() {
           name: payload.name || "",
           cnpj: payload.cnpj || payload.document || "",
           phone: payload.phone || "",
+          email: payload.email || "",
           address: payload.address || "",
           logoUrl: payload.logoUrl || DEFAULT_LOGO,
         });
@@ -113,6 +116,7 @@ export function CompanyProfileSettings() {
           name: form.name,
           cnpj: form.cnpj,
           phone: form.phone,
+          email: form.email,
           address: form.address,
           logoUrl: form.logoUrl,
         }),
@@ -129,6 +133,7 @@ export function CompanyProfileSettings() {
         name: payload.name || current.name,
         cnpj: payload.cnpj || payload.document || current.cnpj,
         phone: payload.phone || "",
+        email: payload.email || "",
         address: payload.address || "",
         logoUrl: payload.logoUrl || DEFAULT_LOGO,
       }));
@@ -236,6 +241,24 @@ export function CompanyProfileSettings() {
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FACC15]"
                   placeholder="(00) 99999-9999"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-300">
+                  E-mail da empresa
+                </label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FACC15]"
+                  placeholder="contato@sualoja.com.br"
                 />
               </div>
 

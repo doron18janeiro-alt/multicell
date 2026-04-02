@@ -63,9 +63,34 @@ export default function AdvancedReports() {
   const [metrics, setMetrics] = useState<ReportMetrics | null>(null);
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [companyFooter, setCompanyFooter] = useState("");
   const [loading, setLoading] = useState(true);
   const [generatingPDF, setGeneratingPDF] = useState(false);
   const [dateRange, setDateRange] = useState(getDefaultRange);
+
+  useEffect(() => {
+    fetch("/api/config", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!payload) {
+          setCompanyFooter("");
+          return;
+        }
+
+        const footer = [
+          payload.address ? `📍 ${payload.address}` : null,
+          payload.phone ? `📞 ${payload.phone}` : null,
+          payload.cnpj || payload.document
+            ? `CNPJ: ${payload.cnpj || payload.document}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" | ");
+
+        setCompanyFooter(footer);
+      })
+      .catch(() => setCompanyFooter(""));
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -505,12 +530,11 @@ export default function AdvancedReports() {
       )}
 
       {/* FOOTER */}
-      <div className="mt-12 p-4 bg-zinc-950/70 backdrop-blur-md rounded-lg border border-zinc-700/50 text-center text-xs text-slate-500">
-        <p>
-          📍 Av. Paraná, 470 - Cândido de Abreu/PR | 📞 (43) 99603-1208 | CNPJ:
-          48.002.640.0001/67
-        </p>
-      </div>
+      {companyFooter ? (
+        <div className="mt-12 rounded-lg border border-zinc-700/50 bg-zinc-950/70 p-4 text-center text-xs text-slate-500">
+          <p>{companyFooter}</p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,8 +5,10 @@ export const DEFAULT_COMPANY_PROFILE = {
   cnpj: null,
   address: null,
   phone: null,
+  email: null,
   logoUrl: "/logo.png",
   certificateA1: null,
+  settings: {},
   debitRate: 1.99,
   creditRate: 3.99,
   taxPix: 0,
@@ -21,8 +23,10 @@ export type CompanyProfile = {
   document: string | null;
   address: string | null;
   phone: string | null;
+  email: string | null;
   logoUrl: string | null;
   certificateA1: string | null;
+  settings: Record<string, unknown> | null;
   debitRate: number;
   creditRate: number;
   taxPix: number;
@@ -35,8 +39,10 @@ type CompanyProfileInput = Partial<{
   document: string | null;
   address: string | null;
   phone: string | null;
+  email: string | null;
   logoUrl: string | null;
   certificateA1: string | null;
+  settings: Record<string, unknown> | null;
   debitRate: number | string | null;
   creditRate: number | string | null;
   taxPix: number | string | null;
@@ -81,8 +87,10 @@ const buildProfileResponse = (
     cnpj: string | null;
     address: string | null;
     phone: string | null;
+    email: string | null;
     logoUrl: string | null;
     certificateA1: string | null;
+    settings: unknown;
   },
   config: {
     debitRate: number;
@@ -98,8 +106,13 @@ const buildProfileResponse = (
   document: company.cnpj || null,
   address: company.address || null,
   phone: company.phone || null,
+  email: company.email || null,
   logoUrl: normalizeOptionalString(company.logoUrl) || DEFAULT_COMPANY_PROFILE.logoUrl,
   certificateA1: company.certificateA1 || null,
+  settings:
+    company.settings && typeof company.settings === "object"
+      ? (company.settings as Record<string, unknown>)
+      : DEFAULT_COMPANY_PROFILE.settings,
   debitRate: Number(config.debitRate ?? DEFAULT_COMPANY_PROFILE.debitRate),
   creditRate: Number(config.creditRate ?? DEFAULT_COMPANY_PROFILE.creditRate),
   taxPix: Number(config.taxPix ?? DEFAULT_COMPANY_PROFILE.taxPix),
@@ -117,6 +130,7 @@ export async function ensureCompanyProfile(
         id: companyId,
         name: DEFAULT_COMPANY_PROFILE.name,
         logoUrl: DEFAULT_COMPANY_PROFILE.logoUrl,
+        settings: DEFAULT_COMPANY_PROFILE.settings,
       },
     }),
     prisma.companyConfig.upsert({
@@ -138,6 +152,7 @@ export async function ensureCompanyProfile(
     cnpj?: string | null;
     address?: string | null;
     phone?: string | null;
+    email?: string | null;
     logoUrl?: string | null;
   } = {};
 
@@ -159,6 +174,13 @@ export async function ensureCompanyProfile(
     const legacyPhone = normalizeOptionalString((configRecord as any).phone);
     if (legacyPhone) {
       companyPatch.phone = legacyPhone;
+    }
+  }
+
+  if (!companyRecord.email) {
+    const legacyEmail = normalizeOptionalString((configRecord as any).email);
+    if (legacyEmail) {
+      companyPatch.email = legacyEmail;
     }
   }
 
@@ -207,8 +229,13 @@ export async function updateCompanyProfile(
         cnpj: resolvedCnpj,
         address: normalizeOptionalString(input.address),
         phone: normalizeOptionalString(input.phone),
+        email: normalizeOptionalString(input.email),
         logoUrl: resolvedLogoUrl,
         certificateA1: normalizeOptionalString(input.certificateA1),
+        settings:
+          input.settings && typeof input.settings === "object"
+            ? input.settings
+            : current.settings || DEFAULT_COMPANY_PROFILE.settings,
       },
       create: {
         id: companyId,
@@ -216,8 +243,13 @@ export async function updateCompanyProfile(
         cnpj: resolvedCnpj,
         address: normalizeOptionalString(input.address),
         phone: normalizeOptionalString(input.phone),
+        email: normalizeOptionalString(input.email),
         logoUrl: resolvedLogoUrl,
         certificateA1: normalizeOptionalString(input.certificateA1),
+        settings:
+          input.settings && typeof input.settings === "object"
+            ? input.settings
+            : DEFAULT_COMPANY_PROFILE.settings,
       },
     }),
     prisma.companyConfig.upsert({

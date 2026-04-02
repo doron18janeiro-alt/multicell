@@ -164,8 +164,10 @@ model Company {
   cnpj               String?
   address            String?
   phone              String?
+  email              String?
   logoUrl            String?        @default("/logo.png") @map("logo_url")
   certificateA1      String?        @map("certificate_a1")
+  settings           Json?
   trialEndsAt        DateTime       @default(dbgenerated("(now() + interval '7 days')")) @map("trial_ends_at")
   subscriptionStatus String         @default("trialing") @map("subscription_status")
   mpSubscriptionId   String?        @map("mp_subscription_id")
