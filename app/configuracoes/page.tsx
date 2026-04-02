@@ -6,8 +6,6 @@ import {
   Settings,
   Save,
   Lock,
-  Building2,
-  Store,
   CreditCard,
   TriangleAlert,
   Users,
@@ -17,11 +15,6 @@ import {
 } from "lucide-react";
 
 interface CompanyConfig {
-  name: string;
-  document: string;
-  phone: string;
-  address: string;
-  logoUrl: string;
   debitRate: number;
   creditRate: number;
   taxPix: number;
@@ -50,11 +43,6 @@ const createEmptyTeamForm = () => ({
 
 export default function Configuracoes() {
   const [config, setConfig] = useState<CompanyConfig>({
-    name: "",
-    document: "",
-    phone: "",
-    address: "",
-    logoUrl: "",
     debitRate: 1.99,
     creditRate: 3.99,
     taxPix: 0,
@@ -82,11 +70,6 @@ export default function Configuracoes() {
       const data = await res.json();
       if (data && !data.error) {
         setConfig({
-          name: data.name || "",
-          document: data.document || "",
-          phone: data.phone || "",
-          address: data.address || "",
-          logoUrl: data.logoUrl || "",
           debitRate: data.debitRate ?? 1.99,
           creditRate: data.creditRate ?? 3.99,
           taxPix: data.taxPix ?? 0,
@@ -107,7 +90,12 @@ export default function Configuracoes() {
       const resConfig = await fetch("/api/config", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          debitRate: config.debitRate,
+          creditRate: config.creditRate,
+          taxPix: config.taxPix,
+          taxCash: config.taxCash,
+        }),
       });
 
       // 2. Save User Settings (if changed)
@@ -125,7 +113,7 @@ export default function Configuracoes() {
       }
 
       if (resConfig.ok) {
-        let text = "✅ Dados da empresa salvos!";
+        let text = "✅ Taxas da maquininha salvas!";
         if (userUpdated) {
           text += " Credenciais atualizadas!";
           setNewPassword("");
@@ -315,86 +303,25 @@ export default function Configuracoes() {
         <header className="mb-8 border-b border-slate-800 pb-6">
           <h1 className="flex items-center gap-3 text-2xl font-light text-white sm:text-3xl">
             <Settings className="text-[#D4AF37]" size={32} strokeWidth={1.5} />
-            Configurações do Sistema
+            Configurações do World Tech Manager
           </h1>
           <p className="text-slate-400 mt-2 ml-11">
-            Gerencie dados, taxas financeiras e segurança
+            Gerencie taxas, segurança, assinatura e equipe em um painel limpo.
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
-          {/* Company Settings */}
-          <section className="bg-[#112240]/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
-              <Store size={120} />
-            </div>
-
-            <h2 className="text-xl font-semibold text-[#D4AF37] mb-6 flex items-center gap-2 border-b border-slate-700 pb-2">
-              <Building2 size={20} />
-              Dados da Loja
-            </h2>
-
-            <div className="space-y-4 relative z-10">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">
-                  Nome da Loja
-                </label>
-                <input
-                  type="text"
-                  value={config.name}
-                  onChange={(e) =>
-                    setConfig({ ...config, name: e.target.value })
-                  }
-                  className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">
-                  CNPJ / Documento
-                </label>
-                <input
-                  type="text"
-                  value={config.document}
-                  onChange={(e) =>
-                    setConfig({ ...config, document: e.target.value })
-                  }
-                  className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">
-                  Endereço
-                </label>
-                <input
-                  type="text"
-                  value={config.address}
-                  onChange={(e) =>
-                    setConfig({ ...config, address: e.target.value })
-                  }
-                  className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">
-                  Telefone
-                </label>
-                <input
-                  type="text"
-                  value={config.phone}
-                  onChange={(e) =>
-                    setConfig({ ...config, phone: e.target.value })
-                  }
-                  className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
-                />
-              </div>
-            </div>
+        <div className="max-w-6xl space-y-8">
+          <section className="rounded-2xl border border-[#FACC15]/20 bg-[#112240]/80 p-5 shadow-xl">
+            <p className="text-sm font-medium text-[#FACC15]">
+              Dados da empresa foram centralizados.
+            </p>
+            <p className="mt-2 text-sm text-slate-300">
+              Nome, CNPJ, endereço, telefone e logo agora ficam apenas em
+              <span className="font-semibold text-white"> Minha Empresa</span>.
+            </p>
           </section>
 
-          {/* Taxas e Segurança */}
-          <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl">
             {/* Taxas do Cartão */}
             <section className="bg-[#112240]/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none">
@@ -517,7 +444,7 @@ export default function Configuracoes() {
               className="w-full bg-[#D4AF37] text-black font-semibold py-4 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2 text-lg"
             >
               <Save size={20} />
-              SALVAR TODAS AS ALTERAÇÕES
+              SALVAR TAXAS E SEGURANÇA
             </button>
 
             <section className="bg-[#112240]/80 backdrop-blur-sm border border-red-500/25 rounded-2xl p-6 shadow-xl">

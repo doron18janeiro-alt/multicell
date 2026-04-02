@@ -182,7 +182,7 @@ export function SetupWizard({
             World Tech Manager
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            Gestão Global de Tecnologia e Negócios
+            World Tech Manager - Gestão Inteligente
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">
             Defina o DNA da operação e complete a identidade da empresa antes
@@ -214,9 +214,6 @@ export function SetupWizard({
 
           <div className="mt-8">
             <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#FACC15]">
-                Etapa 1
-              </p>
               <h3 className="mt-2 text-2xl font-semibold text-white">
                 Escolha o segmento da empresa
               </h3>
@@ -268,14 +265,12 @@ export function SetupWizard({
 
           <div className="mt-10 border-t border-white/10 pt-8">
             <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#FACC15]">
-                Etapa 2
-              </p>
               <h3 className="mt-2 text-2xl font-semibold text-white">
                 Identidade da empresa
               </h3>
               <p className="mt-2 text-sm text-slate-400">
-                Esses dados vão alimentar cabeçalhos, documentos e impressão.
+                Preencha os dados essenciais do World Tech Manager para liberar
+                documentos e impressão.
               </p>
             </div>
 
@@ -289,7 +284,7 @@ export function SetupWizard({
                   type="text"
                   value={companyProfile.name}
                   onChange={handleProfileChange("name")}
-                  placeholder="Ex: World Tech Auto Center"
+                  placeholder="Ex: World Tech Manager Auto Center"
                   className="w-full rounded-2xl border border-white/10 bg-[#0b1121] px-4 py-3 text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#FACC15]/60"
                   disabled={!canEdit || saving}
                 />
@@ -304,7 +299,7 @@ export function SetupWizard({
                   type="text"
                   value={companyProfile.cnpj}
                   onChange={handleProfileChange("cnpj")}
-                  placeholder="00.000.000/0001-00"
+                  placeholder="CNPJ da World Tech Manager"
                   className="w-full rounded-2xl border border-white/10 bg-[#0b1121] px-4 py-3 text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#FACC15]/60"
                   disabled={!canEdit || saving}
                 />
@@ -319,7 +314,7 @@ export function SetupWizard({
                   type="text"
                   value={companyProfile.phone}
                   onChange={handleProfileChange("phone")}
-                  placeholder="(00) 00000-0000"
+                  placeholder="Telefone principal da World Tech Manager"
                   className="w-full rounded-2xl border border-white/10 bg-[#0b1121] px-4 py-3 text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#FACC15]/60"
                   disabled={!canEdit || saving}
                 />
@@ -334,7 +329,7 @@ export function SetupWizard({
                   value={companyProfile.address}
                   onChange={handleProfileChange("address")}
                   rows={3}
-                  placeholder="Rua, número, bairro, cidade e estado"
+                  placeholder="Endereco principal da World Tech Manager"
                   className="w-full resize-none rounded-2xl border border-white/10 bg-[#0b1121] px-4 py-3 text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#FACC15]/60"
                   disabled={!canEdit || saving}
                 />
@@ -379,7 +374,7 @@ export function SetupWizard({
                     Salvando configuração...
                   </>
                 ) : (
-                  "Entrar no Dashboard"
+                  "Salvar e Entrar"
                 )}
               </button>
             </div>

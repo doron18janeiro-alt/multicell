@@ -194,7 +194,7 @@ export const isAdminUser = (
 ) => user?.role === "ADMIN";
 
 export const getResponsibleEngineerEmail = () =>
-  normalizeEmail(process.env.ADMIN_EMAIL) || "admin@worldtechmanager.com.br";
+  normalizeEmail(process.env.ADMIN_EMAIL) || "seu-email@teste.com";
 
 export const isResponsibleEngineerUser = (
   user: Pick<AuthenticatedUser, "email" | "role"> | null | undefined,

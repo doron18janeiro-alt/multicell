@@ -131,7 +131,7 @@ export default function ClientLayout({
             <div className="px-4 pb-6 pl-0 sm:px-5 md:px-8 md:pb-8">
               {isDeveloperBypass ? (
                 <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100 shadow-[0_0_18px_rgba(250,204,21,0.08)]">
-                  Modo Desenvolvedor: Segmento não definido
+                  MODO DESENVOLVEDOR
                 </div>
               ) : null}
               {children}

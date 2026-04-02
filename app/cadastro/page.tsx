@@ -127,7 +127,7 @@ export default function CadastroPage() {
                 informar cartao agora.
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Gestão Global de Tecnologia e Negócios
+                World Tech Manager - Gestão Inteligente
               </p>
             </div>
 

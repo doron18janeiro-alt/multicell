@@ -171,11 +171,11 @@ export function CompanyProfileSettings() {
               </p>
               <h1 className="mt-2 flex items-center gap-3 text-3xl font-black text-white">
                 <Building2 className="h-8 w-8 text-[#FACC15]" />
-                Cadastro da Empresa
+                Cadastro da Empresa World Tech Manager
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                Estes dados alimentam cupom, O.S., garantia e PDF. O cadastro e
-                a edicao ficam restritos a administradores.
+                O World Tech Manager usa estes dados em cupom, O.S., garantia e
+                PDF. O cadastro e a edicao ficam restritos a administradores.
               </p>
             </div>
 
@@ -204,7 +204,7 @@ export function CompanyProfileSettings() {
                     }))
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FACC15]"
-                  placeholder="Ex.: Assistencia Central"
+                  placeholder="Ex.: World Tech Manager Auto Center"
                 />
               </div>
 
@@ -286,7 +286,7 @@ export function CompanyProfileSettings() {
             <h2 className="text-lg font-bold text-white">Logo da empresa</h2>
             <p className="mt-2 text-sm leading-6 text-slate-400">
               A imagem enviada sera usada nos documentos. Se nenhuma logo for
-              cadastrada, o sistema utiliza a logo padrao.
+              cadastrada, o World Tech Manager utiliza a logo padrao.
             </p>
 
             <div className="mt-6 overflow-hidden rounded-[24px] border border-dashed border-slate-700 bg-[#0B1120] p-5">

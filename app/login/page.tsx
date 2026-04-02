@@ -159,7 +159,7 @@ export default function LoginPage() {
                 Acesso ao Ecossistema
               </p>
               <p className="mt-2 text-center text-sm text-slate-500">
-                Gestão Global de Tecnologia e Negócios
+                World Tech Manager - Gestão Inteligente
               </p>
             </div>
 
@@ -267,7 +267,7 @@ export default function LoginPage() {
               reservados.
             </p>
             <p className="mt-1 text-[11px] text-slate-500">
-              Gestão Global de Tecnologia e Negócios
+              World Tech Manager - Gestão Inteligente
             </p>
             <div className="mt-2 flex items-center justify-center gap-2 text-[11px] text-slate-500">
               <Link

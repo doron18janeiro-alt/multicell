@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://multicellsystem.com.br"),
   applicationName: "World Tech Manager",
   title: "World Tech Manager",
-  description: "Gestão Global de Tecnologia e Negócios",
+  description: "World Tech Manager - Gestão Inteligente",
   manifest: "/manifest.json",
   icons: {
     icon: "/logo.png",
