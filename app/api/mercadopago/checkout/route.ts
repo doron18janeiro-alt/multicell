@@ -12,8 +12,8 @@ export const dynamic = "force-dynamic";
 type PlanType = "monthly" | "annual";
 
 const PLAN_PRICES: Record<PlanType, number> = {
-  monthly: 99.9,
-  annual: 899,
+  monthly: 119.9,
+  annual: 1199,
 };
 const MONTHLY_TRIAL_DAYS = 7;
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
 
     if (plan === "monthly") {
       const preapprovalPayload = {
-        reason: "Multicell SaaS - Plano Mensal",
+        reason: "Multicell System - Plano Profissional Mensal",
         external_reference: externalReference,
         metadata: getMetadata(companyId, plan),
         payer_email: currentUser.email,
@@ -105,8 +105,8 @@ export async function POST(request: Request) {
     const preferencePayload = {
       items: [
         {
-          id: "multicell-anual",
-          title: "Multicell SaaS - Plano Anual",
+          id: "multicell-profissional-anual",
+          title: "Multicell System - Plano Profissional Anual",
           quantity: 1,
           currency_id: "BRL",
           unit_price: PLAN_PRICES.annual,

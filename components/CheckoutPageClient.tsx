@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Crown } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Crown,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 
 type PlanType = "monthly" | "annual";
 
@@ -17,15 +23,62 @@ interface SubscriptionPayload {
     | "canceled";
 }
 
-const PLAN_LABEL: Record<PlanType, string> = {
-  monthly: "COMEÇAR 7 DIAS GRÁTIS",
-  annual: "PAGAR PLANO ANUAL",
+const PLAN_COPY = {
+  monthly: {
+    eyebrow: "Plano Profissional",
+    title: "Mensal",
+    price: "R$ 119,90",
+    period: "/mês",
+    description:
+      "Experimente grátis por 7 dias. A cobrança de R$ 119,90 só acontece após o período de teste.",
+    button: "Assinar Mensal",
+    accent: "amber",
+  },
+  annual: {
+    eyebrow: "Plano Profissional",
+    title: "Anual",
+    price: "R$ 1.199,00",
+    period: "/ano",
+    description:
+      "Pague 10 meses e leve 12. Ideal para reduzir custo e travar o melhor valor do ano.",
+    button: "Assinar Anual",
+    accent: "gold",
+  },
+} as const;
+
+const SUPPORT_NOTE =
+  "Pagamento processado via Mercado Pago. O plano anual pode ser parcelado em até 12x no cartão de crédito ou pago via Pix à vista.";
+
+const ANNUAL_SAVINGS = "ECONOMIZE R$ 239,80";
+
+const cardClasses: Record<
+  PlanType,
+  { base: string; badge: string; button: string; selected: string; ring: string }
+> = {
+  monthly: {
+    base: "border-amber-400/20 bg-zinc-900/60",
+    badge: "border-amber-400/30 bg-amber-400/10 text-amber-100",
+    button:
+      "bg-amber-400 text-black hover:bg-amber-300 disabled:bg-amber-400/60",
+    selected: "border-amber-300/60 shadow-[0_20px_80px_rgba(250,204,21,0.16)]",
+    ring: "bg-amber-300",
+  },
+  annual: {
+    base: "border-yellow-300/25 bg-zinc-900/70",
+    badge: "border-yellow-300/35 bg-yellow-300/12 text-yellow-100",
+    button:
+      "bg-gradient-to-r from-yellow-300 via-amber-300 to-yellow-200 text-black hover:brightness-105 disabled:brightness-90",
+    selected:
+      "border-yellow-300/70 shadow-[0_24px_90px_rgba(250,204,21,0.22)]",
+    ring: "bg-yellow-200",
+  },
 };
 
 export default function CheckoutPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanType>("annual");
   const [subscription, setSubscription] = useState<SubscriptionPayload | null>(
     null,
   );
@@ -34,10 +87,20 @@ export default function CheckoutPageClient() {
 
   useEffect(() => {
     const status = searchParams.get("status");
+    const plan = searchParams.get("plan");
+
+    if (plan === "monthly" || plan === "annual") {
+      setSelectedPlan(plan);
+    }
+
     if (status === "approved") {
-      setStatusMessage("Pagamento aprovado! Estamos liberando seu acesso automaticamente.");
+      setStatusMessage(
+        "Pagamento aprovado. Estamos liberando seu acesso automaticamente.",
+      );
     } else if (status === "pending") {
-      setStatusMessage("Pagamento em análise. Assim que confirmar, o Dashboard será liberado automaticamente.");
+      setStatusMessage(
+        "Pagamento em análise. Assim que confirmar, o Dashboard será liberado automaticamente.",
+      );
     } else if (status === "failed") {
       setStatusMessage("Falha no pagamento. Tente novamente.");
     }
@@ -66,7 +129,7 @@ export default function CheckoutPageClient() {
       }
     };
 
-    fetchSubscription();
+    void fetchSubscription();
   }, []);
 
   useEffect(() => {
@@ -111,10 +174,16 @@ export default function CheckoutPageClient() {
     }
   }, [router, searchParams, subscription?.subscriptionStatus]);
 
+  const selectedPlanCopy = useMemo(
+    () => PLAN_COPY[selectedPlan],
+    [selectedPlan],
+  );
+
   const handleCheckout = async (plan: PlanType) => {
     try {
       setError("");
       setLoadingPlan(plan);
+      setSelectedPlan(plan);
 
       const response = await fetch("/api/mercadopago/checkout", {
         method: "POST",
@@ -141,90 +210,176 @@ export default function CheckoutPageClient() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#060b18] text-white relative overflow-hidden">
-      <div className="absolute -top-32 -left-20 w-96 h-96 bg-amber-400/20 blur-3xl rounded-full" />
-      <div className="absolute -bottom-24 -right-16 w-96 h-96 bg-cyan-500/20 blur-3xl rounded-full" />
+  const renderPlanCard = (plan: PlanType) => {
+    const planData = PLAN_COPY[plan];
+    const isSelected = selectedPlan === plan;
+    const styles = cardClasses[plan];
+    const isAnnual = plan === "annual";
 
-      <div className="relative z-10 container mx-auto px-6 py-12 max-w-5xl">
-        <div className="mb-10 flex items-center justify-between">
-          <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
-            <Crown className="w-9 h-9 text-amber-300" />
-            Checkout Multicell SaaS
-          </h1>
+    return (
+      <section
+        key={plan}
+        className={`relative rounded-[28px] border p-8 transition-all ${styles.base} ${isSelected ? styles.selected : "hover:border-slate-600/70"}`}
+      >
+        {isAnnual && (
+          <div className="absolute -top-4 left-6 inline-flex items-center gap-2 rounded-full border border-yellow-300/40 bg-gradient-to-r from-yellow-300 via-amber-200 to-yellow-100 px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-black shadow-[0_14px_40px_rgba(250,204,21,0.18)]">
+            <Sparkles className="h-3.5 w-3.5" />
+            2 MESES GRÁTIS
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setSelectedPlan(plan)}
+          className="w-full text-left"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-400">
+                {planData.eyebrow}
+              </p>
+              <h3 className="mt-3 text-3xl font-black text-white">
+                {planData.title}
+              </h3>
+            </div>
+
+            <span
+              className={`mt-1 h-4 w-4 rounded-full ring-4 ring-white/5 ${isSelected ? styles.ring : "bg-slate-700"}`}
+            />
+          </div>
+
+          <div className="mt-5 flex items-end gap-2">
+            <span className="text-5xl font-black tracking-tight text-white">
+              {planData.price}
+            </span>
+            <span className="pb-1 text-sm font-semibold text-slate-400">
+              {planData.period}
+            </span>
+          </div>
+
+          <p className="mt-4 text-sm leading-6 text-slate-300">
+            {planData.description}
+          </p>
+
+          {isAnnual && (
+            <div className="mt-5 inline-flex rounded-full border border-yellow-300/30 bg-yellow-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-yellow-100">
+              {ANNUAL_SAVINGS}
+            </div>
+          )}
+        </button>
+
+        <button
+          onClick={() => handleCheckout(plan)}
+          disabled={loadingPlan !== null || !subscription}
+          className={`mt-8 min-h-14 w-full rounded-2xl px-6 text-base font-extrabold transition-all disabled:cursor-not-allowed disabled:opacity-70 ${styles.button}`}
+        >
+          {loadingPlan === plan ? "Carregando Checkout..." : planData.button}
+        </button>
+
+        <div className="mt-5 flex items-center gap-2 text-xs text-slate-400">
+          <ShieldCheck className="h-4 w-4" />
+          <span>
+            {plan === "monthly"
+              ? "Teste grátis de 7 dias antes da primeira cobrança."
+              : "Plano recomendado para reduzir custo anual."}
+          </span>
+        </div>
+      </section>
+    );
+  };
+
+  return (
+    <div className="relative min-h-screen overflow-hidden bg-[#060b18] text-white">
+      <div className="absolute -left-24 -top-32 h-96 w-96 rounded-full bg-amber-400/20 blur-3xl" />
+      <div className="absolute -bottom-24 -right-16 h-96 w-96 rounded-full bg-cyan-500/20 blur-3xl" />
+
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-12">
+        <div className="mb-10 flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h1 className="flex items-center gap-3 text-4xl font-black tracking-tight">
+              <Crown className="h-9 w-9 text-amber-300" />
+              Assinatura Multicell System
+            </h1>
+            <p className="mt-3 max-w-2xl text-slate-300">
+              Escolha o ciclo ideal para liberar o Dashboard. O anual recebe o
+              maior destaque porque reduz custo e mantém o acesso previsível.
+            </p>
+          </div>
+
           <Link
             href="/dashboard"
-            className="px-4 py-2 rounded-lg border border-zinc-600/80 bg-zinc-900/60 hover:bg-zinc-800/70 transition-colors text-sm"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-zinc-600/80 bg-zinc-900/60 px-4 text-sm transition-colors hover:bg-zinc-800/70"
           >
             Voltar ao Sistema
           </Link>
         </div>
 
-        <div className="rounded-3xl border border-amber-300/35 bg-white/5 backdrop-blur-xl p-8 shadow-[0_20px_80px_rgba(250,204,21,0.15)] mb-8">
-          <h2 className="text-2xl md:text-3xl font-black">
-            Escolha seu plano para liberar o Dashboard
-          </h2>
-          <p className="text-slate-300 mt-2">
-            Experimente grátis por 7 dias. A cobrança de R$ 99,90 só será
-            realizada após o período de teste. Cancele quando quiser
-            diretamente no seu painel.
-          </p>
+        <div className="mb-8 rounded-[32px] border border-slate-700/70 bg-white/5 p-6 backdrop-blur-xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-300">
+                Tabela de Planos
+              </p>
+              <h2 className="mt-2 text-2xl font-black text-white md:text-3xl">
+                Plano Profissional com oferta anual
+              </h2>
+            </div>
+
+            <div className="inline-flex rounded-2xl border border-slate-700 bg-[#0B1120]/80 p-1.5">
+              <button
+                type="button"
+                onClick={() => setSelectedPlan("monthly")}
+                className={`rounded-xl px-5 py-3 text-sm font-bold transition-colors ${
+                  selectedPlan === "monthly"
+                    ? "bg-amber-400 text-black"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                Mensal
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPlan("annual")}
+                className={`rounded-xl px-5 py-3 text-sm font-bold transition-colors ${
+                  selectedPlan === "annual"
+                    ? "bg-yellow-300 text-black"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                Anual (2 MESES OFF)
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+            <span className="font-bold">{selectedPlanCopy.title} selecionado:</span>{" "}
+            {selectedPlan === "monthly"
+              ? "teste grátis de 7 dias e cobrança recorrente após o trial."
+              : "melhor custo anual, com economia equivalente a 2 meses."}
+          </div>
         </div>
 
         {statusMessage && (
-          <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 p-4 flex items-center gap-3">
-            <CheckCircle2 className="w-5 h-5" />
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-300">
+            <CheckCircle2 className="h-5 w-5" />
             <span>{statusMessage}</span>
           </div>
         )}
 
         {error && (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 text-red-300 p-4 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5" />
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-300">
+            <AlertTriangle className="h-5 w-5" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <section className="rounded-2xl border border-amber-400/40 bg-zinc-900/55 backdrop-blur-xl p-8">
-            <p className="text-xs uppercase tracking-[0.2em] text-amber-300 mb-2">
-              Assinatura Recorrente
-            </p>
-            <h3 className="text-4xl font-black mb-3">R$ 99,90/mês</h3>
-            <p className="text-slate-300 text-sm mb-6">
-              Experimente grátis por 7 dias. A cobrança de R$ 99,90 só será
-              realizada após o período de teste. Cancele quando quiser
-              diretamente no seu painel.
-            </p>
-            <button
-              onClick={() => handleCheckout("monthly")}
-              disabled={loadingPlan !== null || !subscription}
-              className="w-full py-5 text-lg rounded-2xl bg-amber-400 text-black font-extrabold hover:bg-amber-300 transition-colors disabled:opacity-60"
-            >
-              {loadingPlan === "monthly"
-                ? "Carregando Checkout..."
-                : PLAN_LABEL.monthly}
-            </button>
-          </section>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {renderPlanCard("monthly")}
+          {renderPlanCard("annual")}
+        </div>
 
-          <section className="rounded-2xl border border-cyan-400/35 bg-zinc-900/55 backdrop-blur-xl p-8">
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-300 mb-2">
-              Pagamento Único
-            </p>
-            <h3 className="text-4xl font-black mb-3">R$ 899,00/ano</h3>
-            <p className="text-slate-300 text-sm mb-6">
-              Pague com cartao de credito em ate 12x, debito ou PIX.
-            </p>
-            <button
-              onClick={() => handleCheckout("annual")}
-              disabled={loadingPlan !== null || !subscription}
-              className="w-full py-5 text-lg rounded-2xl bg-cyan-500 text-white font-extrabold hover:bg-cyan-400 transition-colors disabled:opacity-60"
-            >
-              {loadingPlan === "annual"
-                ? "Carregando Checkout..."
-                : PLAN_LABEL.annual}
-            </button>
-          </section>
+        <div className="mt-8 rounded-2xl border border-slate-700/70 bg-[#0B1120]/85 p-5 text-sm leading-6 text-slate-300">
+          {SUPPORT_NOTE}
         </div>
       </div>
     </div>

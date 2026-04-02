@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useRef, Suspense, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  Suspense,
+  useCallback,
+  useMemo,
+} from "react";
 import { useReactToPrint } from "react-to-print";
 import {
   Search,
@@ -16,6 +23,7 @@ import {
   ScanBarcode,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 
@@ -37,6 +45,16 @@ interface Customer {
   name: string;
 }
 
+interface CompanyConfig {
+  name: string;
+  document: string;
+  address: string;
+  phone: string;
+  logoUrl: string;
+  debitRate: number;
+  creditRate: number;
+}
+
 function PDVContent() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -48,8 +66,20 @@ function PDVContent() {
   const [loading, setLoading] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
+  const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
+    name: "Multicell",
+    document: "",
+    address: "",
+    phone: "",
+    logoUrl: "/logo.png",
+    debitRate: 0,
+    creditRate: 0,
+  });
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeMessage, setBarcodeMessage] = useState("");
+  const [appBaseUrl, setAppBaseUrl] = useState(
+    process.env.NEXT_PUBLIC_APP_URL || "",
+  );
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -61,7 +91,20 @@ function PDVContent() {
     contentRef: printRef,
   });
 
+  const termsUrl = useMemo(() => {
+    const fallbackUrl =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const normalizedBase = (appBaseUrl || fallbackUrl || "").replace(/\/$/, "");
+    return normalizedBase ? `${normalizedBase}/termos` : "/termos";
+  }, [appBaseUrl]);
+
   // Polling para sincronização automática
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAppBaseUrl(process.env.NEXT_PUBLIC_APP_URL || window.location.origin);
+    }
+  }, []);
+
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
@@ -150,6 +193,15 @@ function PDVContent() {
         setRates({
           debit: data.debitRate ?? 1.99,
           credit: data.creditRate ?? 3.99,
+        });
+        setCompanyConfig({
+          name: data.name || "Multicell",
+          document: data.document || "",
+          address: data.address || "",
+          phone: data.phone || "",
+          logoUrl: data.logoUrl || "/logo.png",
+          debitRate: data.debitRate ?? 1.99,
+          creditRate: data.creditRate ?? 3.99,
         });
       }
     } catch (e) {
@@ -577,53 +629,13 @@ function PDVContent() {
         onDetected={handleBarcodeDetected}
       />
 
-      {/* Hidden Receipt for Printing */}
-      <div style={{ display: "none" }}>
-        <div
+      <div className="pointer-events-none fixed -left-[10000px] top-0 opacity-0">
+        <SaleReceiptThermal
           ref={printRef}
-          className="p-4 text-black bg-white w-[80mm] font-mono text-xs"
-        >
-          <div className="text-center mb-4">
-            <h2 className="font-bold text-lg">MULTICELL</h2>
-            <p>Av Paraná, 470 - Bela Vista</p>
-            <p>Cândido de Abreu - PR</p>
-            <p>CNPJ: 48.002.640.0001/67</p>
-            <p>Tel: (43) 99603-1208</p>
-          </div>
-          <div className="border-b border-black mb-2"></div>
-          <div className="mb-2">
-            <p className="font-bold">Cliente:</p>
-            <p>{lastSale?.customer?.name || "Consumidor Final"}</p>
-            {lastSale?.customer?.phone && (
-              <p>Tel: {lastSale?.customer?.phone}</p>
-            )}
-          </div>
-          <p className="font-bold text-center mb-2">CUPOM NÃO FISCAL</p>
-          <p>Venda #{lastSale?.id}</p>
-          <p>Data: {new Date().toLocaleString()}</p>
-          <div className="border-b border-black my-2"></div>
-          <div className="space-y-1">
-            {lastSale?.items.map((item: any) => (
-              <div key={item.id} className="flex justify-between">
-                <span>
-                  {item.quantity}x {item.product?.name}
-                </span>
-                <span>
-                  R$ {((item.unitPrice || 0) * (item.quantity || 0)).toFixed(2)}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="border-b border-black my-2"></div>
-          <div className="flex justify-between font-bold text-sm">
-            <span>TOTAL</span>
-            <span>R$ {(lastSale?.total || 0).toFixed(2)}</span>
-          </div>
-          <p className="mt-2">Pagamento: {lastSale?.paymentMethod}</p>
-          <div className="text-center mt-6">
-            <p>Obrigado pela preferência!</p>
-          </div>
-        </div>
+          sale={lastSale}
+          config={companyConfig}
+          termsUrl={termsUrl}
+        />
       </div>
     </div>
   );

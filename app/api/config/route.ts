@@ -9,10 +9,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isAdminUser(currentUser)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     let config = await prisma.companyConfig.findFirst({
       where: { companyId: currentUser.companyId },
     });
