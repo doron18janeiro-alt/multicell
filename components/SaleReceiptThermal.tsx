@@ -62,6 +62,7 @@ type WarrantyReceiptData = Pick<
 
 type CompanyReceiptConfig = {
   name: string;
+  cnpj?: string | null;
   document?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -187,7 +188,7 @@ export const SaleReceiptThermal = React.forwardRef<
   const normalizedLogoUrl = config.logoUrl?.trim() || "/logo.png";
   const resolvedResponsibleName = normalizeText(
     sale?.seller?.fullName || sale?.seller?.name || responsibleName,
-    "Equipe Multicell",
+    "Responsavel nao informado",
   );
 
   if (mode === "warranty") {
@@ -264,6 +265,7 @@ export const SaleReceiptThermal = React.forwardRef<
             <DocumentBrandHeader
               compact
               companyName={config.name}
+              cnpj={config.cnpj}
               document={config.document}
               address={config.address}
               phone={config.phone}
@@ -365,7 +367,7 @@ export const SaleReceiptThermal = React.forwardRef<
               </section>
 
               <p className="pb-[1mm] text-center text-[11px] font-semibold text-slate-900">
-                Obrigado por confiar na Multicell! ✨
+                Obrigado pela preferencia! ✨
               </p>
             </div>
           </div>
@@ -441,6 +443,7 @@ export const SaleReceiptThermal = React.forwardRef<
           <DocumentBrandHeader
             compact
             companyName={config.name}
+            cnpj={config.cnpj}
             document={config.document}
             address={config.address}
             phone={config.phone}

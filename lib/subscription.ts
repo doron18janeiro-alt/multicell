@@ -51,7 +51,8 @@ export async function ensureCompanySubscription(companyId: string) {
     update: {},
     create: {
       id: companyId,
-      name: companyId,
+      name: "Minha Empresa",
+      logoUrl: "/logo.png",
       trialEndsAt: calculateInitialTrialEndsAt(),
       subscriptionStatus: getInitialSubscriptionStatus(),
     },

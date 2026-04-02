@@ -82,7 +82,8 @@ export async function POST(request: Request) {
       await tx.company.create({
         data: {
           id: companyId,
-          name,
+          name: "Minha Empresa",
+          logoUrl: "/logo.png",
           subscriptionStatus: initialSubscriptionStatus,
           trialEndsAt,
         },
@@ -91,7 +92,6 @@ export async function POST(request: Request) {
       await tx.companyConfig.create({
         data: {
           companyId,
-          name: "Multicell",
         },
       });
 

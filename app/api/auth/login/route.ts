@@ -27,8 +27,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Obtém companyId do banco ou usa fallback
-    const companyId = user.companyId || "multicell-oficial";
+    // 2. Obtém companyId do banco
+    const companyId = user.companyId;
 
     // 2.1 Garante provisioning do SaaS para empresa nova
     await ensureCompanySubscription(companyId);

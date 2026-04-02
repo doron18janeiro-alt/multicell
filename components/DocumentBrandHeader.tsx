@@ -2,6 +2,7 @@ import { Building2, FileText, MapPin, MessageCircle } from "lucide-react";
 
 type DocumentBrandHeaderProps = {
   companyName: string;
+  cnpj?: string | null;
   document?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -13,6 +14,7 @@ type DocumentBrandHeaderProps = {
 
 export function DocumentBrandHeader({
   companyName,
+  cnpj,
   document,
   address,
   phone,
@@ -22,6 +24,8 @@ export function DocumentBrandHeader({
   compact = false,
 }: DocumentBrandHeaderProps) {
   const normalizedLogoUrl = logoUrl?.trim() || "/logo.png";
+  const resolvedCompanyName = companyName?.trim() || "Sua Empresa";
+  const resolvedDocument = cnpj?.trim() || document?.trim() || "";
   const metaClassName = compact
     ? "text-[10px] leading-[1.45]"
     : "text-xs leading-[1.55] sm:text-sm";
@@ -35,19 +39,19 @@ export function DocumentBrandHeader({
       <div className="mx-auto max-w-3xl text-center">
         <img
           src={normalizedLogoUrl}
-          alt={companyName || "Multicell"}
+          alt={resolvedCompanyName}
           className={`document-logo mx-auto w-auto object-contain ${logoClassName}`}
         />
 
         <div className={`mt-3 space-y-1 text-slate-600 ${metaClassName}`}>
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-900">
-            {companyName || "Multicell"}
+            {resolvedCompanyName}
           </p>
 
-          {document ? (
+          {resolvedDocument ? (
             <p className="inline-flex max-w-full flex-wrap items-center justify-center gap-2">
               <Building2 className={`${iconClassName} text-[#F59E0B]`} />
-              <span>CNPJ: {document}</span>
+              <span>CNPJ: {resolvedDocument}</span>
             </p>
           ) : null}
 

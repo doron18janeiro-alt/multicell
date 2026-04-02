@@ -14,6 +14,7 @@ import { DocumentBrandHeader } from "@/components/DocumentBrandHeader";
 
 export type DocumentCompanyConfig = {
   name: string;
+  cnpj?: string | null;
   document?: string | null;
   address?: string | null;
   phone?: string | null;
@@ -221,7 +222,7 @@ export function ServiceOrderDocument({
   const hasBudget = totalAmount > 0 || partsAmount > 0 || serviceAmount > 0;
   const resolvedResponsibleName = normalizeText(
     responsibleName,
-    "Equipe Multicell",
+    "Responsavel nao informado",
   );
   const clientAddress = data.customer?.address || null;
   const clientFields = [
@@ -294,6 +295,7 @@ export function ServiceOrderDocument({
     >
       <DocumentBrandHeader
         companyName={config.name}
+        cnpj={config.cnpj}
         document={config.document}
         address={config.address}
         phone={config.phone}

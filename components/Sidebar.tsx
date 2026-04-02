@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Building2,
   Search,
   LayoutDashboard,
   ShoppingCart,
@@ -98,6 +99,7 @@ export default function Sidebar({
     { name: "Estoque", icon: Package, path: "/estoque" },
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
+    { name: "Minha Empresa", icon: Building2, path: "/configuracoes/empresa" },
     { name: "Configurações", icon: Settings, path: "/configuracoes" },
   ];
 
@@ -107,6 +109,7 @@ export default function Sidebar({
       (
         item.path === "/financeiro" ||
         item.path === "/configuracoes" ||
+        item.path === "/configuracoes/empresa" ||
         item.path === "/relatorios"
       )
     ) {
@@ -118,6 +121,7 @@ export default function Sidebar({
       (
         item.path === "/financeiro" ||
         item.path === "/configuracoes" ||
+        item.path === "/configuracoes/empresa" ||
         item.path === "/relatorios"
       )
     ) {

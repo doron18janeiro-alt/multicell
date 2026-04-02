@@ -47,6 +47,7 @@ interface Customer {
 
 interface CompanyConfig {
   name: string;
+  cnpj?: string;
   document: string;
   address: string;
   phone: string;
@@ -67,7 +68,8 @@ function PDVContent() {
   const [lastSale, setLastSale] = useState<any>(null);
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
-    name: "Multicell",
+    name: "Minha Empresa",
+    cnpj: "",
     document: "",
     address: "",
     phone: "",
@@ -195,8 +197,9 @@ function PDVContent() {
           credit: data.creditRate ?? 3.99,
         });
         setCompanyConfig({
-          name: data.name || "Multicell",
-          document: data.document || "",
+          name: data.name || "Minha Empresa",
+          cnpj: data.cnpj || data.document || "",
+          document: data.cnpj || data.document || "",
           address: data.address || "",
           phone: data.phone || "",
           logoUrl: data.logoUrl || "/logo.png",

@@ -28,10 +28,11 @@ import {
 } from "lucide-react";
 
 const defaultCompanyConfig: DocumentCompanyConfig = {
-  name: "Multicell",
-  document: "48.002.640.0001/67",
-  address: "Av Paraná, 470 - Bela Vista - Cândido de Abreu (PR)",
-  phone: "(43) 99603-1208",
+  name: "Minha Empresa",
+  cnpj: null,
+  document: null,
+  address: null,
+  phone: null,
   logoUrl: "/logo.png",
 };
 
@@ -50,7 +51,9 @@ export default function OrderDetails() {
   const [os, setOs] = useState<ServiceOrderDocumentData | null>(null);
   const [companyConfig, setCompanyConfig] =
     useState<DocumentCompanyConfig>(defaultCompanyConfig);
-  const [currentUserName, setCurrentUserName] = useState("Equipe Multicell");
+  const [currentUserName, setCurrentUserName] = useState(
+    "Responsavel nao informado",
+  );
   const [appBaseUrl, setAppBaseUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL || "",
   );
@@ -99,7 +102,8 @@ export default function OrderDetails() {
       setCompanyConfig((current) => ({
         ...current,
         name: data.name || current.name,
-        document: data.document || current.document,
+        cnpj: data.cnpj || data.document || current.cnpj || current.document,
+        document: data.cnpj || data.document || current.document,
         address: data.address || current.address,
         phone: data.phone || current.phone,
         logoUrl: data.logoUrl || current.logoUrl,
@@ -117,7 +121,7 @@ export default function OrderDetails() {
       }
 
       const data = await res.json();
-      setCurrentUserName(data.fullName || "Equipe Multicell");
+      setCurrentUserName(data.fullName || "Responsavel nao informado");
     } catch (error) {
       console.error("Erro ao carregar usuário da sessão:", error);
     }

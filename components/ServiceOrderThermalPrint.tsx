@@ -14,9 +14,11 @@ interface ServiceOrderData {
 
 interface CompanyConfig {
   name: string;
-  document: string;
-  address: string;
-  phone: string;
+  cnpj?: string | null;
+  document?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  logoUrl?: string | null;
 }
 
 export const ServiceOrderThermalPrint = React.forwardRef<
@@ -24,15 +26,57 @@ export const ServiceOrderThermalPrint = React.forwardRef<
   { data: ServiceOrderData }
 >(({ data }, ref) => {
   const [config, setConfig] = useState<CompanyConfig>({
-    name: "MULTICELL",
-    document: "48.002.640.0001/67",
-    address: "Av Paraná, 470 - Bela Vista",
-    phone: "(43) 99603-1208",
+    name: "Minha Empresa",
+    cnpj: null,
+    document: null,
+    address: null,
+    phone: null,
+    logoUrl: "/logo.png",
   });
+  const [responsibleName, setResponsibleName] = useState(
+    "Responsavel nao informado",
+  );
 
   useEffect(() => {
-    // Fetch config logic if needed, or stick to static/default for now
+    let isMounted = true;
+
+    fetch("/api/config")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!isMounted || !payload) {
+          return;
+        }
+
+        setConfig((current) => ({
+          ...current,
+          name: payload.name || current.name,
+          cnpj: payload.cnpj || payload.document || current.cnpj,
+          document: payload.cnpj || payload.document || current.document,
+          address: payload.address || current.address,
+          phone: payload.phone || current.phone,
+          logoUrl: payload.logoUrl || current.logoUrl,
+        }));
+      })
+      .catch(() => {});
+
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!isMounted || !payload) {
+          return;
+        }
+
+        setResponsibleName(payload.fullName || "Responsavel nao informado");
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const resolvedDocument = config.cnpj || config.document;
+  const resolvedLogoUrl = config.logoUrl?.trim() || "/logo.png";
 
   return (
     <div
@@ -40,10 +84,15 @@ export const ServiceOrderThermalPrint = React.forwardRef<
       className="bg-white text-black font-mono text-xs w-[80mm] p-4 box-border relative"
     >
       <div className="text-center mb-4">
+        <img
+          src={resolvedLogoUrl}
+          alt={config.name || "Logo da empresa"}
+          className="mx-auto mb-3 max-h-12 w-auto object-contain"
+        />
         <h2 className="font-bold text-lg uppercase">{config.name}</h2>
-        <p>{config.address}</p>
-        <p>CNPJ: {config.document}</p>
-        <p>Tel/WhatsApp: {config.phone}</p>
+        {config.address ? <p>{config.address}</p> : null}
+        {resolvedDocument ? <p>CNPJ: {resolvedDocument}</p> : null}
+        {config.phone ? <p>Tel/WhatsApp: {config.phone}</p> : null}
       </div>
 
       <div className="border-b border-black mb-2 border-dashed"></div>
@@ -56,7 +105,11 @@ export const ServiceOrderThermalPrint = React.forwardRef<
         <p>
           <span className="font-bold">Cliente:</span> {data.clientName}
         </p>
-        <p>{data.clientPhone}</p>
+        {data.clientPhone ? <p>{data.clientPhone}</p> : null}
+        <p>
+          <span className="font-bold">Atendente/Responsavel:</span>{" "}
+          {responsibleName}
+        </p>
       </div>
 
       <div className="border-b border-black mb-2 border-dashed"></div>
@@ -101,7 +154,7 @@ export const ServiceOrderThermalPrint = React.forwardRef<
           {new Date(data.createdAt || new Date()).toLocaleString()}
         </p>
         <br />
-        <p>Obrigado pela preferência!</p>
+        <p>Obrigado pela preferencia!</p>
         <p>Consulte o status em nosso site.</p>
       </div>
     </div>
@@ -121,7 +174,7 @@ export const WarrantyTermPrint = React.forwardRef<
     >
       <div className="text-center mb-4">
         <h2 className="font-bold text-lg uppercase">TERMO DE GARANTIA</h2>
-        <p className="text-[10px] uppercase">Multicell Assistência Técnica</p>
+        <p className="text-[10px] uppercase">Sua Empresa</p>
       </div>
 
       <div className="border-b border-black mb-2 border-dashed"></div>
@@ -147,10 +200,9 @@ export const WarrantyTermPrint = React.forwardRef<
 
       <div className="text-[10px] text-justify space-y-2 mb-4">
         <p>
-          TERMO DE GARANTIA MULTICELL: Garantia de {warrantyDays} dias limitada
-          a defeitos de fabricação. A garantia NÃO COBRE: danos por quedas,
-          telas quebradas, contato com líquidos (oxidação), selos rompidos ou
-          reparos por terceiros.
+          Garantia de {warrantyDays} dias limitada ao serviço executado. A
+          garantia nao cobre quedas, telas quebradas, contato com liquidos,
+          lacres rompidos ou reparos por terceiros.
         </p>
       </div>
 

@@ -8,10 +8,11 @@ import {
 } from "@/components/ServiceOrderDocument";
 
 const defaultConfig: DocumentCompanyConfig = {
-  name: "Multicell",
-  document: "48.002.640.0001/67",
-  address: "Av Paraná, 470 - Bela Vista - Cândido de Abreu (PR)",
-  phone: "(43) 99603-1208",
+  name: "Minha Empresa",
+  cnpj: null,
+  document: null,
+  address: null,
+  phone: null,
   logoUrl: "/logo.png",
 };
 
@@ -52,7 +53,8 @@ export const ServiceOrderPrint = React.forwardRef<
         setConfig((current) => ({
           ...current,
           name: cfg.name || current.name,
-          document: cfg.document || current.document,
+          cnpj: cfg.cnpj || cfg.document || current.cnpj || current.document,
+          document: cfg.cnpj || cfg.document || current.document,
           address: cfg.address || current.address,
           phone: cfg.phone || current.phone,
           logoUrl: cfg.logoUrl || current.logoUrl,
