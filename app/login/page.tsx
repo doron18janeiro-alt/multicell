@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Mail,
@@ -115,17 +115,20 @@ export default function LoginPage() {
 
           <div className="p-8 md:p-10">
             <div className="mb-6">
-              <Link
-                href="/"
+              <button
+                type="button"
+                onClick={() => router.push("/")}
                 className="inline-flex items-center text-sm font-medium text-slate-400 transition-colors hover:text-amber-300"
               >
                 {"<- Voltar para Escolha de Segmento"}
-              </Link>
+              </button>
             </div>
             {/* Header / Logo */}
             <div className="flex flex-col items-center mb-8">
               <motion.div
                 className="relative mb-4 group"
+                animate={{ y: [0, -7, 0], scale: [1, 1.01, 1] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 whileHover={{ scale: 1.05 }}
               >
                 <Image
@@ -233,15 +236,14 @@ export default function LoginPage() {
                 )}
               </button>
 
-              <Link href="/">
-                <motion.div
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className="w-full mt-3 border border-amber-400/40 text-amber-300 font-bold py-3 rounded-xl text-center hover:bg-amber-400/10 transition-all"
+              <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                <Link
+                  href="/"
+                  className="mt-3 block w-full rounded-xl border border-amber-400/40 py-3 text-center font-bold text-amber-300 transition-all hover:bg-amber-400/10"
                 >
                   VOLTAR PARA ESCOLHA DE SEGMENTO
-                </motion.div>
-              </Link>
+                </Link>
+              </motion.div>
             </form>
           </div>
 

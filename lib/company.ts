@@ -128,7 +128,7 @@ const buildProfileResponse = (
   address: company.address || null,
   phone: company.phone || null,
   email: company.email || null,
-  logoUrl: normalizeOptionalString(company.logoUrl) || DEFAULT_COMPANY_PROFILE.logoUrl,
+  logoUrl: normalizeOptionalString(company.logoUrl),
   certificateA1: company.certificateA1 || null,
   companyData:
     company.companyData && typeof company.companyData === "object"
@@ -215,13 +215,6 @@ export async function ensureCompanyProfile(
     }
   }
 
-  if (!normalizeOptionalString(companyRecord.logoUrl)) {
-    const legacyLogoUrl =
-      normalizeOptionalString((configRecord as any).logoUrl) ||
-      DEFAULT_COMPANY_PROFILE.logoUrl;
-    companyPatch.logoUrl = legacyLogoUrl;
-  }
-
   const legacyName = normalizeOptionalString((configRecord as any).name);
 
   if (
@@ -250,7 +243,9 @@ export async function updateCompanyProfile(
   const current = await ensureCompanyProfile(companyId);
   const resolvedCnpj = normalizeOptionalString(input.cnpj ?? input.document);
   const resolvedLogoUrl =
-    normalizeOptionalString(input.logoUrl) || DEFAULT_COMPANY_PROFILE.logoUrl;
+    input.logoUrl === undefined
+      ? current.logoUrl
+      : normalizeOptionalString(input.logoUrl);
 
   const [company, config] = await prisma.$transaction([
     prisma.company.upsert({
@@ -289,7 +284,7 @@ export async function updateCompanyProfile(
         address: normalizeOptionalString(input.address),
         phone: normalizeOptionalString(input.phone),
         email: normalizeOptionalString(input.email),
-        logoUrl: resolvedLogoUrl,
+        logoUrl: resolvedLogoUrl ?? DEFAULT_COMPANY_PROFILE.logoUrl,
         certificateA1: normalizeOptionalString(input.certificateA1),
         companyData:
           input.companyData && typeof input.companyData === "object"
@@ -311,6 +306,11 @@ export async function updateCompanyProfile(
     prisma.companyConfig.upsert({
       where: { companyId },
       update: {
+        name: normalizeName(input.name, current.name),
+        address: normalizeOptionalString(input.address),
+        phone: normalizeOptionalString(input.phone),
+        document: resolvedCnpj,
+        logoUrl: resolvedLogoUrl,
         debitRate: normalizeNumber(input.debitRate, current.debitRate),
         creditRate: normalizeNumber(input.creditRate, current.creditRate),
         taxPix: normalizeNumber(input.taxPix, current.taxPix),
@@ -318,6 +318,11 @@ export async function updateCompanyProfile(
       },
       create: {
         companyId,
+        name: normalizeName(input.name, current.name),
+        address: normalizeOptionalString(input.address),
+        phone: normalizeOptionalString(input.phone),
+        document: resolvedCnpj,
+        logoUrl: resolvedLogoUrl ?? DEFAULT_COMPANY_PROFILE.logoUrl,
         debitRate: normalizeNumber(input.debitRate, current.debitRate),
         creditRate: normalizeNumber(input.creditRate, current.creditRate),
         taxPix: normalizeNumber(input.taxPix, current.taxPix),

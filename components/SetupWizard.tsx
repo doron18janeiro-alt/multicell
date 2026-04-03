@@ -4,6 +4,7 @@ import { type ChangeEvent, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import {
   Building2,
   Car,
@@ -193,6 +194,19 @@ export function SetupWizard({
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#050c1a] px-4 py-10 text-white sm:px-6 lg:px-8">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.18),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(56,189,248,0.12),_transparent_28%)]" />
+      <motion.div
+        className="pointer-events-none absolute left-1/2 top-10 w-[480px] max-w-[72vw] -translate-x-1/2 opacity-[0.08]"
+        animate={{ y: [0, -14, 0], scale: [1, 1.015, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Image
+          src="/logo-wtm.png"
+          alt=""
+          width={720}
+          height={480}
+          className="h-auto w-full object-contain"
+        />
+      </motion.div>
 
       <div className="relative mx-auto max-w-6xl">
         <div className="mx-auto max-w-3xl text-center">
@@ -206,7 +220,11 @@ export function SetupWizard({
               </Link>
             </div>
           ) : null}
-          <div className="mx-auto flex max-w-[360px] items-center justify-center">
+          <motion.div
+            className="mx-auto flex max-w-[360px] items-center justify-center"
+            animate={{ y: [0, -9, 0], scale: [1, 1.01, 1] }}
+            transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
+          >
             <Image
               src="/logo-wtm.png"
               alt="World Tech Manager"
@@ -215,7 +233,7 @@ export function SetupWizard({
               priority
               className="h-auto w-full max-w-[320px] object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.16)]"
             />
-          </div>
+          </motion.div>
           <p className="mt-4 text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15]">
             World Tech Manager
           </p>

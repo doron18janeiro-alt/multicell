@@ -199,10 +199,10 @@ export default function ServiceOrders() {
                           />
                         </div>
                         <Link
-                          href={`/os/${os.id}`}
+                          href={`/ordens-servico/${os.id}`}
                           className="inline-flex items-center text-sm bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded transition-colors"
                         >
-                          Detalhes
+                          Ver Detalhes
                         </Link>
                       </div>
                     </td>

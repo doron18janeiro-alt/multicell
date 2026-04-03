@@ -32,13 +32,14 @@ type CompanyFormState = {
   phone: string;
   email: string;
   address: string;
-  logoUrl: string;
+  logoUrl: string | null;
   nfeBalance: number;
   autoTopUp: boolean;
   nfeLogs: NfeLogEntry[];
 };
 
 const DEFAULT_LOGO = "/logo-wtm.png";
+const MAX_LOGO_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
@@ -57,14 +58,6 @@ const createInitialState = (): CompanyFormState => ({
   autoTopUp: false,
   nfeLogs: [],
 });
-
-const readFileAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
-    reader.readAsDataURL(file);
-  });
 
 export function CompanyProfileSettings() {
   const [form, setForm] = useState<CompanyFormState>(createInitialState);
@@ -88,7 +81,7 @@ export function CompanyProfileSettings() {
         phone: payload.phone || "",
         email: payload.email || "",
         address: payload.address || "",
-        logoUrl: payload.logoUrl || DEFAULT_LOGO,
+        logoUrl: payload.logoUrl || null,
         nfeBalance: Number(payload.nfeBalance || 0),
         autoTopUp: Boolean(payload.autoTopUp),
         nfeLogs: Array.isArray(payload.nfeLogs) ? payload.nfeLogs : [],
@@ -116,21 +109,77 @@ export function CompanyProfileSettings() {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setMessage("A logo deve ter no maximo 2 MB.");
+    if (file.size > MAX_LOGO_UPLOAD_SIZE) {
+      setMessage("A logo deve ter no maximo 10 MB.");
       return;
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      setSaving(true);
+      setMessage("");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/company/upload-logo", {
+        method: "POST",
+        body: formData,
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Nao foi possivel enviar a logo.");
+      }
+
       setForm((current) => ({
         ...current,
-        logoUrl: dataUrl,
+        logoUrl: payload?.logoUrl || null,
       }));
-      setMessage("Logo pronta para salvar.");
+      setMessage(payload?.message || "Logo enviada com sucesso.");
     } catch (error) {
       console.error(error);
-      setMessage("Nao foi possivel processar a imagem.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel processar a imagem.",
+      );
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      setSaving(true);
+      setMessage("");
+
+      const response = await fetch("/api/company/upload-logo", {
+        method: "DELETE",
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Nao foi possivel remover a logo.");
+      }
+
+      setForm((current) => ({
+        ...current,
+        logoUrl: null,
+      }));
+      setMessage(
+        payload?.message ||
+          "Logo removida. A logo padrao do World Tech Manager sera exibida.",
+      );
+    } catch (error) {
+      console.error(error);
+      setMessage(
+        error instanceof Error ? error.message : "Nao foi possivel remover a logo.",
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -166,7 +215,7 @@ export function CompanyProfileSettings() {
         phone: payload.phone || "",
         email: payload.email || "",
         address: payload.address || "",
-        logoUrl: payload.logoUrl || DEFAULT_LOGO,
+        logoUrl: payload.logoUrl || null,
         nfeBalance: Number(payload.nfeBalance || current.nfeBalance || 0),
         autoTopUp: Boolean(payload.autoTopUp),
         nfeLogs: Array.isArray(payload.nfeLogs) ? payload.nfeLogs : current.nfeLogs,
@@ -521,6 +570,9 @@ export function CompanyProfileSettings() {
               A imagem enviada sera usada nos documentos. Se nenhuma logo for
               cadastrada, o World Tech Manager utiliza a logo padrao.
             </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Formatos de imagem aceitos com ate 10 MB por arquivo.
+            </p>
 
             <div className="mt-6 overflow-hidden rounded-[24px] border border-dashed border-slate-700 bg-[#0B1120] p-5">
               <div className="flex min-h-[220px] items-center justify-center rounded-[20px] border border-slate-800 bg-white p-6">
@@ -534,27 +586,24 @@ export function CompanyProfileSettings() {
               <div className="mt-5 grid gap-3">
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-3 font-semibold text-slate-100 transition-colors hover:border-[#FACC15] hover:text-white">
                   <Upload className="h-4 w-4" />
-                  Enviar nova logo
+                  {saving ? "Processando logo..." : "Enviar nova logo"}
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleLogoUpload}
                     className="hidden"
+                    disabled={saving}
                   />
                 </label>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      logoUrl: DEFAULT_LOGO,
-                    }))
-                  }
+                  onClick={() => void handleRemoveLogo()}
+                  disabled={saving}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-transparent px-4 py-3 font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
                 >
                   <ImagePlus className="h-4 w-4" />
-                  Restaurar logo padrao
+                  Remover Logo
                 </button>
               </div>
             </div>
