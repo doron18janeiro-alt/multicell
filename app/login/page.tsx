@@ -47,6 +47,12 @@ const commercialHighlights = [
   },
 ];
 
+const ecosystemSignals = [
+  "Entrada segmentada antes do cadastro.",
+  "Badge WTM em destaque nas telas públicas.",
+  "Fiscal sob demanda protegido por cobrança por uso.",
+];
+
 const FloatingLogoBackground = () => {
   const [mounted, setMounted] = useState(false);
 
@@ -65,10 +71,10 @@ const FloatingLogoBackground = () => {
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/logo-wtm.png"
+          src="/wtm-badge.png"
           alt=""
           width={1200}
-          height={820}
+          height={1200}
           priority
           className="h-auto w-full object-contain"
         />
@@ -79,10 +85,10 @@ const FloatingLogoBackground = () => {
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/logo-wtm.png"
+          src="/wtm-badge.png"
           alt=""
           width={900}
-          height={615}
+          height={900}
           className="h-auto w-full object-contain"
         />
       </motion.div>
@@ -158,24 +164,27 @@ export default function LoginPage() {
                 transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
               >
                 <Image
-                  src="/logo-wtm.png"
+                  src="/wtm-badge.png"
                   alt="World Tech Manager"
                   width={420}
-                  height={290}
+                  height={420}
                   priority
-                  className="h-auto w-full max-w-[320px] object-contain drop-shadow-[0_0_22px_rgba(250,204,21,0.2)]"
+                  className="h-auto w-full max-w-[280px] object-contain drop-shadow-[0_0_22px_rgba(250,204,21,0.2)]"
                 />
               </motion.div>
+              <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15] lg:text-left">
+                WORLD TECH MANAGER
+              </p>
 
               <div className="mt-8 max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.4em] text-cyan-300/86">
                   Gestão Global de Tecnologia e Negócios
                 </p>
                 <h1 className="mt-4 text-4xl font-black tracking-tight text-white sm:text-5xl">
-                  Assinatura recorrente com fiscal sob demanda.
+                  Marca forte na entrada, assinatura recorrente e fiscal sob demanda.
                 </h1>
                 <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">
-                  O World Tech Manager combina PDV, atendimento, documentos e emissão fiscal em uma operação única, pronta para mensalidade, anual e lucro por nota.
+                  O World Tech Manager combina PDV, atendimento, documentos e emissão fiscal em uma operação única, com onboarding orientado por segmento e presença visual consistente desde o primeiro acesso.
                 </p>
               </div>
 
@@ -223,6 +232,17 @@ export default function LoginPage() {
                   Plano anual com entrada forte de caixa, plano mensal para baixa fricção comercial e NFC-e cobrada apenas quando o lojista realmente usa.
                 </p>
               </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                {ecosystemSignals.map((signal) => (
+                  <div
+                    key={signal}
+                    className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-slate-200"
+                  >
+                    {signal}
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.section>
 
@@ -254,12 +274,12 @@ export default function LoginPage() {
                     whileHover={{ scale: 1.05 }}
                   >
                     <Image
-                      src="/logo-wtm.png"
+                      src="/wtm-badge.png"
                       alt="World Tech Manager"
                       width={280}
-                      height={190}
+                      height={280}
                       priority
-                      className="relative z-10 h-auto w-full max-w-[230px] drop-shadow-[0_0_16px_rgba(250,204,21,0.2)]"
+                      className="relative z-10 h-auto w-full max-w-[210px] drop-shadow-[0_0_16px_rgba(250,204,21,0.2)]"
                     />
                   </motion.div>
                   <h2 className="text-2xl font-bold tracking-wide text-white">

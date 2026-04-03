@@ -49,7 +49,8 @@ export default function ClientLayout({
       return;
     }
 
-    if (!isAuthenticated) {
+    // Don't redirect from home page to login for unauthenticated users
+    if (!isAuthenticated && pathname !== "/") {
       router.replace("/login");
       return;
     }
@@ -77,6 +78,7 @@ export default function ClientLayout({
     router,
     showOS,
     shouldResolveSegment,
+    pathname,
   ]);
 
   const shouldHoldContent =

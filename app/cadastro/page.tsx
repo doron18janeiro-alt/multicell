@@ -126,10 +126,25 @@ function CadastroPageContent() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#020617] overflow-hidden font-sans">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#020617] font-sans">
       <div className="absolute inset-0 bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#020617]" />
-      <div className="absolute top-0 left-0 w-96 h-96 bg-amber-400/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+      <div className="absolute left-0 top-0 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-400/10 blur-3xl" />
+      <div className="absolute bottom-0 right-0 h-96 w-96 translate-x-1/2 translate-y-1/2 rounded-full bg-cyan-500/10 blur-3xl" />
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-12 w-[620px] max-w-[86vw] -translate-x-1/2 opacity-[0.1]"
+        animate={{ y: [0, -16, 0], scale: [1, 1.015, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Image
+          src="/wtm-badge.png"
+          alt=""
+          width={900}
+          height={900}
+          priority
+          className="h-auto w-full object-contain"
+        />
+      </motion.div>
 
       <motion.div
         initial={{ opacity: 0, y: 36 }}
@@ -144,20 +159,23 @@ function CadastroPageContent() {
             <div className="text-center mb-7">
               <div className="mb-4 flex justify-center">
                 <Image
-                  src="/logo-wtm.png"
+                  src="/wtm-badge.png"
                   alt="World Tech Manager"
-                  width={72}
-                  height={72}
+                  width={92}
+                  height={92}
                   priority
-                  className="h-[72px] w-auto drop-shadow-[0_0_14px_rgba(250,204,21,0.35)]"
+                  className="h-[92px] w-auto drop-shadow-[0_0_14px_rgba(250,204,21,0.35)]"
                 />
               </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-amber-300">
+                WORLD TECH MANAGER
+              </p>
               <h1 className="text-2xl font-black text-white tracking-wide">
                 CRIAR CONTA <span className="text-amber-300">WTM</span>
               </h1>
               <p className="text-slate-400 text-sm mt-1">
-                Comece com 7 dias de teste gratuito e explore o Dashboard sem
-                informar cartao agora.
+                Comece com 7 dias de teste gratuito, preserve a identidade WTM
+                desde a entrada e explore o Dashboard sem informar cartao agora.
               </p>
               {selectedSegmentTitle ? (
                 <p className="mt-3 inline-flex rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">

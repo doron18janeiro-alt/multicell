@@ -6,12 +6,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+  BadgeCheck,
   Building2,
   Car,
+  CircleDollarSign,
   FileText,
   Loader2,
   MapPin,
   Phone,
+  ReceiptText,
   ShoppingBag,
   Sparkles,
   UtensilsCrossed,
@@ -69,6 +72,41 @@ const segmentOptions: Array<{
     description: "Pedidos rápidos, itens de balcão e operação objetiva.",
     icon: UtensilsCrossed,
   },
+];
+
+const publicBenefits: Array<{
+  title: string;
+  description: string;
+  icon: typeof Wrench;
+  accent: string;
+}> = [
+  {
+    title: "Implantação guiada",
+    description:
+      "O cadastro já nasce com segmento, linguagem e atalhos alinhados ao perfil da empresa.",
+    icon: BadgeCheck,
+    accent: "border-[#FACC15]/28 bg-[#FACC15]/8 text-[#FACC15]",
+  },
+  {
+    title: "Cobrança híbrida",
+    description:
+      "Mensal, anual e operação fiscal sob demanda dentro do mesmo ecossistema comercial.",
+    icon: CircleDollarSign,
+    accent: "border-cyan-400/24 bg-cyan-400/8 text-cyan-300",
+  },
+  {
+    title: "Fiscal conectado",
+    description:
+      "Atendimento, venda e emissão andam juntos para reduzir fricção na operação diária.",
+    icon: ReceiptText,
+    accent: "border-emerald-400/24 bg-emerald-400/8 text-emerald-300",
+  },
+];
+
+const publicProofs = [
+  "PDV, atendimento e estoque no mesmo fluxo.",
+  "Segmento pré-selecionado antes mesmo do cadastro.",
+  "Marca WTM forte desde o primeiro acesso.",
 ];
 
 export function SetupWizard({
@@ -200,10 +238,10 @@ export function SetupWizard({
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/logo-wtm.png"
+          src="/wtm-badge.png"
           alt=""
           width={720}
-          height={480}
+          height={720}
           className="h-auto w-full object-contain"
         />
       </motion.div>
@@ -226,23 +264,25 @@ export function SetupWizard({
             transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <Image
-              src="/logo-wtm.png"
+              src="/wtm-badge.png"
               alt="World Tech Manager"
               width={360}
-              height={250}
+              height={360}
               priority
-              className="h-auto w-full max-w-[320px] object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.16)]"
+              className="h-auto w-full max-w-[280px] object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.16)]"
             />
           </motion.div>
           <p className="mt-4 text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15]">
-            World Tech Manager
+            WORLD TECH MANAGER
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-            World Tech Manager - Gestão Inteligente
+            {isPublicMode
+              ? "Entre no ecossistema WTM com marca forte e segmento certo."
+              : "World Tech Manager - Gestão Inteligente"}
           </h1>
           <p className="mt-4 text-base leading-7 text-slate-300 sm:text-lg">
             {isPublicMode
-              ? "Escolha o DNA da sua operação e siga para criar a conta já com o segmento certo."
+              ? "A imagem da sua operação já começa no primeiro passo: escolha o segmento, avance para o cadastro e conecte atendimento, vendas e fiscal no mesmo fluxo."
               : "Defina o DNA da operação e complete a identidade da empresa antes de entrar no dashboard."}
           </p>
         </div>
@@ -269,6 +309,78 @@ export function SetupWizard({
               </div>
             </div>
           )}
+
+          {isPublicMode ? (
+            <div className="mt-8 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+              <motion.div
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: "easeOut" }}
+                className="relative overflow-hidden rounded-[32px] border border-white/10 bg-[#07101e] p-6 shadow-[0_0_40px_rgba(0,0,0,0.22)]"
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(250,204,21,0.14),_transparent_42%),radial-gradient(circle_at_bottom_right,_rgba(56,189,248,0.12),_transparent_34%)]" />
+                <div className="relative">
+                  <div className="inline-flex rounded-full border border-[#FACC15]/25 bg-[#FACC15]/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[#FACC15]">
+                    Brand Signal WTM
+                  </div>
+                  <h2 className="mt-5 max-w-xl text-3xl font-semibold tracking-tight text-white">
+                    Sua operação entra no sistema com presença visual e fluxo comercial definidos.
+                  </h2>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
+                    O badge oficial da World Tech Manager abre o onboarding com mais impacto visual e deixa clara a proposta: gestão, atendimento e faturamento dentro de uma mesma plataforma.
+                  </p>
+
+                  <div className="mt-8 flex justify-center">
+                    <div className="rounded-[32px] border border-white/10 bg-[#040913]/70 p-4 shadow-[0_0_35px_rgba(250,204,21,0.08)]">
+                      <Image
+                        src="/wtm-badge.png"
+                        alt="Selo oficial World Tech Manager"
+                        width={520}
+                        height={520}
+                        className="h-auto w-full max-w-[320px] object-contain"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                    {publicProofs.map((proof) => (
+                      <div
+                        key={proof}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-6 text-slate-200"
+                      >
+                        {proof}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+
+              <div className="grid gap-4">
+                {publicBenefits.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <div
+                      key={item.title}
+                      className="rounded-[28px] border border-white/10 bg-[#060d18]/90 p-5"
+                    >
+                      <div
+                        className={`inline-flex rounded-2xl border p-3 ${item.accent}`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <h3 className="mt-4 text-xl font-semibold text-white">
+                        {item.title}
+                      </h3>
+                      <p className="mt-3 text-sm leading-7 text-slate-300">
+                        {item.description}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {!isPublicMode && !canEdit ? (
             <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-5 text-sm leading-6 text-amber-100">
@@ -426,7 +538,7 @@ export function SetupWizard({
               <p className="mt-2 text-sm text-slate-400">
                 {selectedOption?.description ||
                   (isPublicMode
-                    ? "Cliente antigo faz login. Novo cliente escolhe o segmento e segue para criar a conta."
+                    ? "Cliente antigo faz login. Novo cliente escolhe o segmento, mantém a identidade WTM em destaque e segue para criar a conta."
                     : "Depois disso o menu lateral, os labels e os módulos passam a refletir o perfil da empresa.")}
               </p>
               {error ? (
