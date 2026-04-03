@@ -7,7 +7,6 @@ import {
   Building2,
   CarFront,
   ClipboardCheck,
-  Globe2,
   Search,
   LayoutDashboard,
   ShoppingCart,
@@ -152,14 +151,11 @@ export default function Sidebar({
 
   const SidebarBrand = () => (
     <div className="flex flex-col items-center text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#FACC15]/30 bg-[#FACC15]/10 shadow-[0_0_24px_rgba(250,204,21,0.14)]">
-        <Globe2 className="h-7 w-7 text-[#FACC15]" />
-      </div>
-      <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.38em] text-slate-400">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.48em] text-[#FACC15]/82">
         World Tech
       </p>
-      <p className="mt-1 text-2xl font-black tracking-[0.42em] text-[#FACC15]">
-        WTM
+      <p className="mt-1 text-[24px] font-black uppercase tracking-[0.24em] text-[#FACC15]">
+        Manager
       </p>
     </div>
   );

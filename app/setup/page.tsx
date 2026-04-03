@@ -20,6 +20,7 @@ export default async function SetupPage() {
 
   return (
     <SetupWizard
+      mode="private"
       canEdit={isAdminUser(currentUser)}
       companyName={companyProfile.name || currentUser.companyName || "Sua Empresa Aqui"}
       companyDocument={companyProfile.cnpj || ""}

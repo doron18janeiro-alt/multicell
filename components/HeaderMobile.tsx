@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Globe2, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 
 type HeaderMobileProps = {
   onOpenMenu: () => void;
@@ -24,11 +24,11 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
           href="/dashboard"
           className="flex min-w-0 flex-1 flex-col items-center justify-center"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#FACC15]/30 bg-[#FACC15]/10">
-            <Globe2 className="h-5 w-5 text-[#FACC15]" />
-          </div>
-          <span className="mt-1 text-[11px] font-black tracking-[0.38em] text-[#FACC15]">
-            WTM
+          <span className="text-[9px] font-semibold uppercase tracking-[0.44em] text-[#FACC15]/82">
+            World Tech
+          </span>
+          <span className="mt-1 text-[16px] font-black uppercase tracking-[0.24em] text-[#FACC15]">
+            Manager
           </span>
         </Link>
 

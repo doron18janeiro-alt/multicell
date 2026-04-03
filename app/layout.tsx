@@ -7,7 +7,7 @@ import KeyboardShortcuts from "@/components/KeyboardShortcuts";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://multicellsystem.com.br"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   applicationName: "World Tech Manager",
   title: "World Tech Manager",
   description: "World Tech Manager - Gestão Inteligente",
