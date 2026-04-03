@@ -144,7 +144,7 @@ function CadastroPageContent() {
             <div className="text-center mb-7">
               <div className="mb-4 flex justify-center">
                 <Image
-                  src="/logo.png"
+                  src="/logo-wtm.png"
                   alt="World Tech Manager"
                   width={72}
                   height={72}

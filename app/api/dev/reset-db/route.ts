@@ -15,6 +15,10 @@ export async function POST() {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const nfeLogs = await tx.nfeLog.deleteMany({
+        where: {},
+      });
+
       const saleItems = await tx.saleItem.deleteMany({
         where: {},
       });
@@ -51,6 +55,7 @@ export async function POST() {
         products: products.count,
         expenses: expenses.count,
         customers: customers.count,
+        nfeLogs: nfeLogs.count,
       };
     });
 

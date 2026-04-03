@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 
@@ -22,14 +23,16 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
 
         <Link
           href="/dashboard"
-          className="flex min-w-0 flex-1 flex-col items-center justify-center"
+          className="flex min-w-0 flex-1 items-center justify-center"
         >
-          <span className="text-[9px] font-semibold uppercase tracking-[0.44em] text-[#FACC15]/82">
-            World Tech
-          </span>
-          <span className="mt-1 text-[16px] font-black uppercase tracking-[0.24em] text-[#FACC15]">
-            Manager
-          </span>
+          <Image
+            src="/logo-wtm.png"
+            alt="World Tech Manager"
+            width={180}
+            height={120}
+            priority
+            className="h-10 w-auto object-contain drop-shadow-[0_0_16px_rgba(250,204,21,0.14)]"
+          />
         </Link>
 
         <div className="h-10 w-10 shrink-0" aria-hidden="true" />

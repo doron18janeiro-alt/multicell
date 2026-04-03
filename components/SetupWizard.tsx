@@ -1,13 +1,13 @@
 "use client";
 
 import { type ChangeEvent, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Building2,
   Car,
   FileText,
-  Globe2,
   Loader2,
   MapPin,
   Phone,
@@ -202,14 +202,21 @@ export function SetupWizard({
                 href="/login"
                 className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:border-[#FACC15]/35 hover:text-[#FACC15]"
               >
-                Já sou cliente? Fazer Login
+                Já sou cliente? Acessar Sistema
               </Link>
             </div>
           ) : null}
-          <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full border border-[#FACC15]/30 bg-[#FACC15]/10 shadow-[0_0_30px_rgba(250,204,21,0.14)]">
-            <Globe2 className="h-11 w-11 text-[#FACC15]" />
+          <div className="mx-auto flex max-w-[360px] items-center justify-center">
+            <Image
+              src="/logo-wtm.png"
+              alt="World Tech Manager"
+              width={360}
+              height={250}
+              priority
+              className="h-auto w-full max-w-[320px] object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.16)]"
+            />
           </div>
-          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15]">
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15]">
             World Tech Manager
           </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
@@ -423,7 +430,7 @@ export function SetupWizard({
                   href="/login"
                   className="rounded-2xl border border-white/10 px-5 py-3 text-center text-sm font-medium text-slate-300 transition-colors hover:border-white/20 hover:text-white"
                 >
-                  Já sou cliente? Fazer Login
+                  Já sou cliente? Acessar Sistema
                 </Link>
               )}
               {!isPublicMode ? (

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { NFE_EMISSION_COST } from "@/lib/nfe-wallet";
+import {
+  emitirNota,
+  FocusNfeError,
+  registerSuccessfulNfeEmission,
+} from "@/lib/focus-nfe";
 
 export async function GET(request: Request) {
   try {
@@ -72,6 +77,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let currentNfeBalance = 0;
+
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -87,17 +94,64 @@ export async function POST(request: Request) {
     let feeAmount = 0;
     let netAmount = total;
 
-    // Fetch config for rates
     const config = await prisma.companyConfig.findFirst({
       where: { companyId },
     });
     const company = issueNfe
       ? await prisma.company.findUnique({
           where: { id: companyId },
-          select: { nfeBalance: true },
+          select: {
+            id: true,
+            name: true,
+            cnpj: true,
+            address: true,
+            phone: true,
+            email: true,
+            companyData: true,
+            nfeBalance: true,
+          },
         })
       : null;
-    const currentNfeBalance = Number(company?.nfeBalance || 0);
+    const customer =
+      issueNfe && customerId
+        ? await prisma.customer.findFirst({
+            where: {
+              id: customerId,
+              companyId,
+            },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              document: true,
+            },
+          })
+        : null;
+    const productIds: string[] = Array.from(
+      new Set(
+        items
+          .map((item: any) => String(item?.productId || "").trim())
+          .filter(Boolean),
+      ),
+    );
+    const products = productIds.length
+      ? await prisma.product.findMany({
+          where: {
+            companyId,
+            id: {
+              in: productIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            barcode: true,
+          },
+        })
+      : [];
+    const productMap = new Map(products.map((product) => [product.id, product]));
+
+    currentNfeBalance = Number(company?.nfeBalance || 0);
 
     if (issueNfe && currentNfeBalance < NFE_EMISSION_COST) {
       return NextResponse.json(
@@ -111,7 +165,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Normalizing payment methods and calculating fees
+    if (issueNfe && !company) {
+      return NextResponse.json(
+        { error: "Empresa nao encontrada para emissao fiscal." },
+        { status: 404 },
+      );
+    }
+
     if (paymentMethod === "DEBITO" || paymentMethod === "CREDITO") {
       cardType = paymentMethod;
       finalPaymentMethod = "CARTAO";
@@ -125,9 +185,59 @@ export async function POST(request: Request) {
       netAmount = total - feeAmount;
     }
 
-    // Transaction to ensure data consistency
+    const focusResult =
+      issueNfe && company
+        ? await emitirNota({
+            reference: `wtm-sale-${companyId}-${Date.now()}`,
+            company: {
+              companyId,
+              name: company.name,
+              cnpj: company.cnpj,
+              address: company.address,
+              phone: company.phone,
+              email: company.email,
+              companyData:
+                company.companyData && typeof company.companyData === "object"
+                  ? (company.companyData as Record<string, unknown>)
+                  : null,
+            },
+            customer: customer
+              ? {
+                  id: customer.id,
+                  name: customer.name,
+                  phone: customer.phone,
+                  document: customer.document,
+                }
+              : null,
+            items: items.map((item: any) => {
+              const productId = String(item.productId || "").trim();
+              const product = productMap.get(productId);
+
+              if (!product) {
+                throw new FocusNfeError(
+                  `Produto ${productId} nao encontrado para emissao fiscal.`,
+                  {
+                    code: "FOCUS_NFE_PRODUCT_NOT_FOUND",
+                    status: 422,
+                  },
+                );
+              }
+
+              return {
+                productId,
+                description: product.name,
+                quantity: Number(item.quantity || 0),
+                unitPrice: Number(item.unitPrice || 0),
+                barcode: product.barcode || null,
+              };
+            }),
+            paymentMethod,
+            total: Number(total || 0),
+          })
+        : null;
+
+    let remainingNfeBalance = currentNfeBalance;
     const sale = await prisma.$transaction(async (tx) => {
-      // 1. Create the Sale
       const newSale = await tx.sale.create({
         data: {
           companyId,
@@ -152,7 +262,7 @@ export async function POST(request: Request) {
               product: true,
             },
           },
-          customer: true, // Includes customer for Receipt
+          customer: true,
           seller: {
             select: {
               id: true,
@@ -164,7 +274,6 @@ export async function POST(request: Request) {
         },
       });
 
-      // 2. Update Stock for each item
       for (const item of items) {
         await tx.product.update({
           where: { id: item.productId },
@@ -176,23 +285,12 @@ export async function POST(request: Request) {
         });
       }
 
-      if (issueNfe) {
-        await tx.company.update({
-          where: { id: companyId },
-          data: {
-            nfeBalance: {
-              decrement: NFE_EMISSION_COST,
-            },
-          },
-        });
-
-        await tx.nfeLog.create({
-          data: {
-            companyId,
-            saleId: newSale.id,
-            documentNumber: `Nota #${newSale.id}`,
-            amount: NFE_EMISSION_COST,
-          },
+      if (issueNfe && focusResult) {
+        remainingNfeBalance = await registerSuccessfulNfeEmission(tx, {
+          companyId,
+          saleId: newSale.id,
+          documentNumber: String(focusResult.documentNumber),
+          amount: NFE_EMISSION_COST,
         });
       }
 
@@ -204,13 +302,27 @@ export async function POST(request: Request) {
         ...sale,
         nfeIssued: Boolean(issueNfe),
         nfeCost: issueNfe ? NFE_EMISSION_COST : 0,
-        remainingNfeBalance: issueNfe
-          ? Number((currentNfeBalance - NFE_EMISSION_COST).toFixed(2))
-          : currentNfeBalance,
+        remainingNfeBalance: issueNfe ? remainingNfeBalance : currentNfeBalance,
+        nfeDocumentNumber: focusResult?.documentNumber || null,
+        nfeAccessKey: focusResult?.accessKey || null,
+        nfeStatus: focusResult?.status || null,
       },
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof FocusNfeError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          nfeBalance: currentNfeBalance,
+          requiredAmount: NFE_EMISSION_COST,
+        },
+        { status: error.status },
+      );
+    }
+
     console.error("Erro ao processar venda:", error);
     return NextResponse.json(
       { error: "Erro ao processar venda" },

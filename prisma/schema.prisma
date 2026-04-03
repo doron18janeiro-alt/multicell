@@ -154,7 +154,7 @@ model CompanyConfig {
   creditRate Float    @default(3.99) @map("credit_rate")
   debitRate  Float    @default(1.99) @map("debit_rate")
   document   String?
-  logoUrl    String?  @default("/logo.png") @map("logo_url")
+  logoUrl    String?  @default("/logo-wtm.png") @map("logo_url")
   updatedAt  DateTime @updatedAt @map("updated_at")
   taxPix     Float    @default(0) @map("tax_pix")
   taxCash    Float    @default(0) @map("tax_cash")
@@ -172,7 +172,7 @@ model Company {
   address            String?
   phone              String?
   email              String?
-  logoUrl            String?             @default("/logo.png") @map("logo_url")
+  logoUrl            String?             @default("/logo-wtm.png") @map("logo_url")
   certificateA1      String?             @map("certificate_a1")
   companyData        Json?               @map("company_data")
   settings           Json?

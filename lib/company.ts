@@ -9,7 +9,7 @@ export const DEFAULT_COMPANY_PROFILE = {
   address: null,
   phone: null,
   email: null,
-  logoUrl: "/logo.png",
+  logoUrl: "/logo-wtm.png",
   certificateA1: null,
   companyData: null,
   settings: {},

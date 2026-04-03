@@ -6,35 +6,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  Smartphone,
-  Headphones,
-  Speaker,
-  Watch,
-  Tablet,
-  Gamepad,
-  Cable,
   Mail,
   Lock,
   Eye,
   EyeOff,
   ArrowRight,
   Loader2,
-  Cpu,
 } from "lucide-react";
 import { resetSegmentSessionCache } from "@/hooks/useSegment";
 
-const FloatingIcons = () => {
+const FloatingLogoBackground = () => {
   const [mounted, setMounted] = useState(false);
-  const icons = [
-    Smartphone,
-    Headphones,
-    Speaker,
-    Watch,
-    Tablet,
-    Gamepad,
-    Cable,
-    Cpu,
-  ];
 
   useEffect(() => {
     setMounted(true);
@@ -43,38 +25,35 @@ const FloatingIcons = () => {
   if (!mounted) return null;
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {Array.from({ length: 20 }).map((_, i) => {
-        const Icon = icons[i % icons.length];
-        const randomX = Math.random() * 100;
-        const randomY = Math.random() * 100;
-
-        return (
-          <motion.div
-            key={i}
-            className="absolute text-cyan-500/10"
-            style={{
-              left: `${randomX}%`,
-              top: `${randomY}%`,
-            }}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{
-              y: [0, -50, 0],
-              x: [0, 30, 0],
-              rotate: [0, 180, 360],
-              opacity: [0.1, 0.3, 0.1],
-              scale: [1, 1.2, 1],
-            }}
-            transition={{
-              duration: 15 + Math.random() * 10,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-          >
-            <Icon size={24 + Math.random() * 24} strokeWidth={1.5} />
-          </motion.div>
-        );
-      })}
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <motion.div
+        className="absolute left-1/2 top-[10%] w-[900px] max-w-[88vw] -translate-x-1/2 opacity-[0.16] blur-[0.3px]"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 0.16, y: [0, -18, 0] }}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Image
+          src="/logo-wtm.png"
+          alt=""
+          width={1200}
+          height={820}
+          priority
+          className="h-auto w-full object-contain"
+        />
+      </motion.div>
+      <motion.div
+        className="absolute bottom-[-10%] right-[-6%] w-[520px] max-w-[58vw] opacity-[0.08] blur-sm"
+        animate={{ x: [0, -18, 0], y: [0, 12, 0] }}
+        transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <Image
+          src="/logo-wtm.png"
+          alt=""
+          width={900}
+          height={615}
+          className="h-auto w-full object-contain"
+        />
+      </motion.div>
     </div>
   );
 };
@@ -121,8 +100,7 @@ export default function LoginPage() {
       <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
 
-      {/* Floating Product Icons */}
-      <FloatingIcons />
+      <FloatingLogoBackground />
 
       {/* Main Card */}
       <motion.div
@@ -136,20 +114,27 @@ export default function LoginPage() {
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500 to-transparent shadow-[0_0_10px_#06b6d4]"></div>
 
           <div className="p-8 md:p-10">
+            <div className="mb-6">
+              <Link
+                href="/"
+                className="inline-flex items-center text-sm font-medium text-slate-400 transition-colors hover:text-amber-300"
+              >
+                {"<- Voltar para Escolha de Segmento"}
+              </Link>
+            </div>
             {/* Header / Logo */}
             <div className="flex flex-col items-center mb-8">
               <motion.div
                 className="relative mb-4 group"
                 whileHover={{ scale: 1.05 }}
               >
-                <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full group-hover:bg-cyan-500/40 transition-all"></div>
                 <Image
-                  src="/logo.png"
+                  src="/logo-wtm.png"
                   alt="World Tech Manager"
-                  width={80}
-                  height={80}
+                  width={280}
+                  height={190}
                   priority
-                  className="w-20 h-auto relative z-10 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]"
+                  className="h-auto w-full max-w-[230px] relative z-10 drop-shadow-[0_0_16px_rgba(250,204,21,0.2)]"
                 />
               </motion.div>
               <h1 className="text-2xl font-bold text-white tracking-wide">
@@ -254,7 +239,7 @@ export default function LoginPage() {
                   whileTap={{ scale: 0.99 }}
                   className="w-full mt-3 border border-amber-400/40 text-amber-300 font-bold py-3 rounded-xl text-center hover:bg-amber-400/10 transition-all"
                 >
-                  ESCOLHER SEGMENTO E CRIAR CONTA
+                  VOLTAR PARA ESCOLHA DE SEGMENTO
                 </motion.div>
               </Link>
             </form>

@@ -5,7 +5,11 @@ import {
   ensureCompanySubscription,
   getCompanySubscriptionState,
 } from "@/lib/subscription";
-import { createAuthSessionSnapshot, setAuthSession } from "@/lib/auth";
+import {
+  createAuthSessionSnapshot,
+  isResponsibleEngineerUser,
+  setAuthSession,
+} from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
@@ -46,12 +50,16 @@ export async function POST(request: Request) {
 
     // 2. Obtém companyId do banco
     const companyId = user.companyId;
+    const isDeveloperLogin = isResponsibleEngineerUser({
+      email: user.email,
+      role: user.role,
+    });
 
     // 2.1 Garante provisioning do SaaS para empresa nova
     await ensureCompanySubscription(companyId);
     const subscription = await getCompanySubscriptionState(companyId);
 
-    if (subscription.subscriptionStatus === "canceled") {
+    if (subscription.subscriptionStatus === "canceled" && !isDeveloperLogin) {
       return NextResponse.json(
         {
           error:
@@ -79,6 +87,7 @@ export async function POST(request: Request) {
       segment: user.company?.segment || null,
       cpf: user.cpf,
       birthDate: user.birthDate?.toISOString() ?? null,
+      isDeveloper: isDeveloperLogin,
     });
     await setAuthSession(sessionSnapshot);
 

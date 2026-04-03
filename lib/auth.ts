@@ -193,11 +193,19 @@ export const isAdminUser = (
   user: Pick<AuthenticatedUser, "role"> | null | undefined,
 ) => user?.role === "ADMIN";
 
+export const getResponsibleEngineerEmails = () => {
+  const envEmail = normalizeEmail(process.env.ADMIN_EMAIL);
+
+  return new Set(
+    [envEmail, "admin@teste.com", "seu-email@wtm.com"].filter(Boolean),
+  );
+};
+
 export const getResponsibleEngineerEmail = () =>
-  normalizeEmail(process.env.ADMIN_EMAIL) || "admin@teste.com";
+  Array.from(getResponsibleEngineerEmails())[0] || "admin@teste.com";
 
 export const isResponsibleEngineerUser = (
   user: Pick<AuthenticatedUser, "email" | "role"> | null | undefined,
 ) =>
   user?.role === "ADMIN" &&
-  normalizeEmail(user?.email) === getResponsibleEngineerEmail();
+  getResponsibleEngineerEmails().has(normalizeEmail(user?.email));

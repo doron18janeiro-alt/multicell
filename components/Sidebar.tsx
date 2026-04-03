@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -151,11 +152,16 @@ export default function Sidebar({
 
   const SidebarBrand = () => (
     <div className="flex flex-col items-center text-center">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.48em] text-[#FACC15]/82">
-        World Tech
-      </p>
-      <p className="mt-1 text-[24px] font-black uppercase tracking-[0.24em] text-[#FACC15]">
-        Manager
+      <Image
+        src="/logo-wtm.png"
+        alt="World Tech Manager"
+        width={220}
+        height={150}
+        priority
+        className="h-auto w-full max-w-[150px] object-contain drop-shadow-[0_0_18px_rgba(250,204,21,0.16)]"
+      />
+      <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-[#FACC15]/82">
+        World Tech Manager
       </p>
     </div>
   );

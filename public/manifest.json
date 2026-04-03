@@ -10,7 +10,7 @@
   "theme_color": "#0A192F",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/logo-wtm.png",
       "sizes": "500x500",
       "purpose": "any maskable",
       "type": "image/png"

@@ -23,7 +23,7 @@ export function DocumentBrandHeader({
   subtitle,
   compact = false,
 }: DocumentBrandHeaderProps) {
-  const normalizedLogoUrl = logoUrl?.trim() || "/logo.png";
+  const normalizedLogoUrl = logoUrl?.trim() || "/logo-wtm.png";
   const resolvedCompanyName = companyName?.trim() || "Sua Empresa";
   const resolvedDocument = cnpj?.trim() || document?.trim() || "";
   const metaClassName = compact

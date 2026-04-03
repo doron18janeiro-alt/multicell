@@ -52,7 +52,7 @@ export async function ensureCompanySubscription(companyId: string) {
     create: {
       id: companyId,
       name: "Minha Empresa",
-      logoUrl: "/logo.png",
+      logoUrl: "/logo-wtm.png",
       trialEndsAt: calculateInitialTrialEndsAt(),
       subscriptionStatus: getInitialSubscriptionStatus(),
     },

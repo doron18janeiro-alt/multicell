@@ -38,7 +38,7 @@ type CompanyFormState = {
   nfeLogs: NfeLogEntry[];
 };
 
-const DEFAULT_LOGO = "/logo.png";
+const DEFAULT_LOGO = "/logo-wtm.png";
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat("pt-BR", {
