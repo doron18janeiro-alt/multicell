@@ -1,5 +1,6 @@
 import type { Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizeCurrencyNumber } from "@/lib/nfe-wallet";
 
 export const DEFAULT_COMPANY_PROFILE = {
   name: "Sua Empresa Aqui",
@@ -12,6 +13,8 @@ export const DEFAULT_COMPANY_PROFILE = {
   certificateA1: null,
   companyData: null,
   settings: {},
+  nfeBalance: 0,
+  autoTopUp: false,
   debitRate: 1.99,
   creditRate: 3.99,
   taxPix: 0,
@@ -32,6 +35,8 @@ export type CompanyProfile = {
   certificateA1: string | null;
   companyData: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
+  nfeBalance: number;
+  autoTopUp: boolean;
   debitRate: number;
   creditRate: number;
   taxPix: number;
@@ -50,6 +55,8 @@ type CompanyProfileInput = Partial<{
   certificateA1: string | null;
   companyData: Record<string, unknown> | null;
   settings: Record<string, unknown> | null;
+  nfeBalance: number | string | null;
+  autoTopUp: boolean | null;
   debitRate: number | string | null;
   creditRate: number | string | null;
   taxPix: number | string | null;
@@ -102,6 +109,8 @@ const buildProfileResponse = (
     certificateA1: string | null;
     companyData: unknown;
     settings: unknown;
+    nfeBalance: unknown;
+    autoTopUp: boolean;
   },
   config: {
     debitRate: number;
@@ -129,6 +138,8 @@ const buildProfileResponse = (
     company.settings && typeof company.settings === "object"
       ? (company.settings as Record<string, unknown>)
       : DEFAULT_COMPANY_PROFILE.settings,
+  nfeBalance: normalizeCurrencyNumber(company.nfeBalance),
+  autoTopUp: Boolean(company.autoTopUp),
   debitRate: Number(config.debitRate ?? DEFAULT_COMPANY_PROFILE.debitRate),
   creditRate: Number(config.creditRate ?? DEFAULT_COMPANY_PROFILE.creditRate),
   taxPix: Number(config.taxPix ?? DEFAULT_COMPANY_PROFILE.taxPix),
@@ -149,6 +160,8 @@ export async function ensureCompanyProfile(
         logoUrl: DEFAULT_COMPANY_PROFILE.logoUrl,
         companyData: DEFAULT_COMPANY_PROFILE.companyData,
         settings: DEFAULT_COMPANY_PROFILE.settings,
+        nfeBalance: DEFAULT_COMPANY_PROFILE.nfeBalance,
+        autoTopUp: DEFAULT_COMPANY_PROFILE.autoTopUp,
       },
     }),
     prisma.companyConfig.upsert({
@@ -260,6 +273,13 @@ export async function updateCompanyProfile(
           input.settings && typeof input.settings === "object"
             ? input.settings
             : current.settings || DEFAULT_COMPANY_PROFILE.settings,
+        nfeBalance: normalizeCurrencyNumber(
+          input.nfeBalance ?? current.nfeBalance,
+        ),
+        autoTopUp:
+          input.autoTopUp === undefined || input.autoTopUp === null
+            ? current.autoTopUp
+            : Boolean(input.autoTopUp),
       },
       create: {
         id: companyId,
@@ -279,6 +299,13 @@ export async function updateCompanyProfile(
           input.settings && typeof input.settings === "object"
             ? input.settings
             : DEFAULT_COMPANY_PROFILE.settings,
+        nfeBalance: normalizeCurrencyNumber(
+          input.nfeBalance ?? DEFAULT_COMPANY_PROFILE.nfeBalance,
+        ),
+        autoTopUp:
+          input.autoTopUp === undefined || input.autoTopUp === null
+            ? DEFAULT_COMPANY_PROFILE.autoTopUp
+            : Boolean(input.autoTopUp),
       },
     }),
     prisma.companyConfig.upsert({

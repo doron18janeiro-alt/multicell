@@ -19,6 +19,7 @@ import { WeeklyRevenueChart } from "@/components/WeeklyRevenueChart";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
 import { PaymentMethodsChart } from "@/components/ReportsCharts";
+import { NfeWalletAlertBanner } from "@/components/NfeWalletAlertBanner";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import {
   getDailyProfit,
@@ -444,6 +445,8 @@ function DashboardContent() {
             </p>
           </div>
         )}
+
+        <NfeWalletAlertBanner />
 
         <div className="mb-2 flex flex-col gap-4 md:mb-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">

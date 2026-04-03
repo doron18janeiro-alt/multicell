@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { NFE_EMISSION_COST } from "@/lib/nfe-wallet";
 
 export async function GET(request: Request) {
   try {
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 
     const companyId = currentUser.companyId || "multicell-oficial";
     const body = await request.json();
-    const { items, paymentMethod, total, customerId } = body;
+    const { items, paymentMethod, total, customerId, issueNfe } = body;
 
     let finalPaymentMethod = paymentMethod;
     let cardType = null;
@@ -90,6 +91,25 @@ export async function POST(request: Request) {
     const config = await prisma.companyConfig.findFirst({
       where: { companyId },
     });
+    const company = issueNfe
+      ? await prisma.company.findUnique({
+          where: { id: companyId },
+          select: { nfeBalance: true },
+        })
+      : null;
+    const currentNfeBalance = Number(company?.nfeBalance || 0);
+
+    if (issueNfe && currentNfeBalance < NFE_EMISSION_COST) {
+      return NextResponse.json(
+        {
+          error: "Saldo insuficiente para emitir nota. Recarregue agora.",
+          code: "NFE_BALANCE_LOW",
+          nfeBalance: currentNfeBalance,
+          requiredAmount: NFE_EMISSION_COST,
+        },
+        { status: 402 },
+      );
+    }
 
     // Normalizing payment methods and calculating fees
     if (paymentMethod === "DEBITO" || paymentMethod === "CREDITO") {
@@ -156,10 +176,40 @@ export async function POST(request: Request) {
         });
       }
 
+      if (issueNfe) {
+        await tx.company.update({
+          where: { id: companyId },
+          data: {
+            nfeBalance: {
+              decrement: NFE_EMISSION_COST,
+            },
+          },
+        });
+
+        await tx.nfeLog.create({
+          data: {
+            companyId,
+            saleId: newSale.id,
+            documentNumber: `Nota #${newSale.id}`,
+            amount: NFE_EMISSION_COST,
+          },
+        });
+      }
+
       return newSale;
     });
 
-    return NextResponse.json(sale, { status: 201 });
+    return NextResponse.json(
+      {
+        ...sale,
+        nfeIssued: Boolean(issueNfe),
+        nfeCost: issueNfe ? NFE_EMISSION_COST : 0,
+        remainingNfeBalance: issueNfe
+          ? Number((currentNfeBalance - NFE_EMISSION_COST).toFixed(2))
+          : currentNfeBalance,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("Erro ao processar venda:", error);
     return NextResponse.json(

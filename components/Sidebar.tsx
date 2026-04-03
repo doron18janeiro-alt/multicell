@@ -22,6 +22,7 @@ import {
   X,
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
+import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
 
 type SidebarProps = {
   isMobileOpen: boolean;
@@ -35,6 +36,7 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
+  const [hasLowNfeBalance, setHasLowNfeBalance] = useState(false);
   const { showOS, hasInventoryGrade, labels, fullName, role, segment } = useSegment();
   const ServiceIcon = segment === "AUTO" ? ClipboardCheck : Wrench;
   const StockIcon = segment === "AUTO" ? CarFront : Package;
@@ -64,6 +66,25 @@ export default function Sidebar({
     checkAlerts();
     const interval = setInterval(checkAlerts, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/config", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) {
+          return null;
+        }
+
+        return response.json();
+      })
+      .then((payload) => {
+        if (!payload) {
+          return;
+        }
+
+        setHasLowNfeBalance(Number(payload?.nfeBalance || 0) < LOW_BALANCE_THRESHOLD);
+      })
+      .catch((error) => console.error(error));
   }, []);
 
   const handleLogout = async () => {
@@ -211,6 +232,12 @@ export default function Sidebar({
                 {item.path === "/estoque" && alertCount > 0 && (
                   <span className="z-10 ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
                     {alertCount}
+                  </span>
+                )}
+
+                {item.path === "/configuracoes/empresa" && hasLowNfeBalance && (
+                  <span className="z-10 ml-auto rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                    saldo baixo
                   </span>
                 )}
 

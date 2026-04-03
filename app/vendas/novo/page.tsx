@@ -15,17 +15,28 @@ import {
   Trash2,
   ShoppingCart,
   CreditCard,
+  AlertTriangle,
   Banknote,
+  FileText,
+  LoaderCircle,
   QrCode,
   Plus,
   ArrowLeft,
   User,
   ScanBarcode,
+  X,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { NfeWalletAlertBanner } from "@/components/NfeWalletAlertBanner";
 import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
+import {
+  DEFAULT_NFE_RECHARGE_AMOUNT,
+  LOW_BALANCE_THRESHOLD,
+  NFE_EMISSION_COST,
+  canIssueNfe,
+} from "@/lib/nfe-wallet";
 
 interface Product {
   id: string;
@@ -54,6 +65,7 @@ interface CompanyConfig {
   logoUrl: string;
   debitRate: number;
   creditRate: number;
+  nfeBalance: number;
 }
 
 function PDVContent() {
@@ -76,12 +88,16 @@ function PDVContent() {
     logoUrl: "/logo.png",
     debitRate: 0,
     creditRate: 0,
+    nfeBalance: 0,
   });
   const [scannerOpen, setScannerOpen] = useState(false);
   const [barcodeMessage, setBarcodeMessage] = useState("");
   const [appBaseUrl, setAppBaseUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL || "",
   );
+  const [rechargeModalOpen, setRechargeModalOpen] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletMessage, setWalletMessage] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -205,6 +221,7 @@ function PDVContent() {
           logoUrl: data.logoUrl || "/logo.png",
           debitRate: data.debitRate ?? 1.99,
           creditRate: data.creditRate ?? 3.99,
+          nfeBalance: Number(data.nfeBalance || 0),
         });
       }
     } catch (e) {
@@ -327,7 +344,63 @@ function PDVContent() {
     handleBarcodeDetected(normalized);
   };
 
-  const handleFinalize = async () => {
+  const handleRecharge = async () => {
+    setWalletLoading(true);
+    setWalletMessage("");
+
+    const checkoutWindow =
+      typeof window !== "undefined"
+        ? window.open("about:blank", "_blank", "noopener,noreferrer")
+        : null;
+
+    try {
+      const response = await fetch("/api/mercadopago/nfe-wallet/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount: DEFAULT_NFE_RECHARGE_AMOUNT,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || !payload?.checkoutUrl) {
+        throw new Error(
+          payload?.error || "Nao foi possivel abrir a recarga agora.",
+        );
+      }
+
+      if (checkoutWindow) {
+        checkoutWindow.location.href = payload.checkoutUrl;
+      } else {
+        window.location.href = payload.checkoutUrl;
+      }
+
+      setWalletMessage("Checkout aberto em nova aba para recarga de saldo.");
+    } catch (error) {
+      if (checkoutWindow) {
+        checkoutWindow.close();
+      }
+
+      console.error(error);
+      setWalletMessage(
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel iniciar a recarga.",
+      );
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const handleFinalize = async (issueNfe = false) => {
+    if (issueNfe && !canIssueNfe(companyConfig.nfeBalance)) {
+      setRechargeModalOpen(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -339,6 +412,7 @@ function PDVContent() {
         paymentMethod,
         total,
         customerId: selectedCustomerId || null,
+        issueNfe,
       };
 
       const res = await fetch("/api/sales", {
@@ -352,6 +426,14 @@ function PDVContent() {
         setLastSale(sale);
         setCart([]);
         setPaymentMethod("DINHEIRO");
+        if (issueNfe) {
+          setCompanyConfig((current) => ({
+            ...current,
+            nfeBalance: Number(
+              sale?.remainingNfeBalance ?? current.nfeBalance ?? 0,
+            ),
+          }));
+        }
         // alert("Venda realizada com sucesso!");
         // Imprimir automaticamente ou perguntar?
         if (confirm("Venda realizada! Deseja imprimir o comprovante?")) {
@@ -359,7 +441,20 @@ function PDVContent() {
         }
         fetchProducts(); // Refresh stock immediately
       } else {
-        alert("Erro ao finalizar venda.");
+        const errorPayload = await res.json().catch(() => null);
+        if (errorPayload?.code === "NFE_BALANCE_LOW") {
+          setCompanyConfig((current) => ({
+            ...current,
+            nfeBalance: Number(errorPayload?.nfeBalance || 0),
+          }));
+          setWalletMessage(
+            errorPayload?.error || "Saldo insuficiente para emitir nota.",
+          );
+          setRechargeModalOpen(true);
+          return;
+        }
+
+        alert(errorPayload?.error || "Erro ao finalizar venda.");
       }
     } catch (error) {
       console.error(error);
@@ -374,6 +469,10 @@ function PDVContent() {
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 lg:flex-row">
         {/* Left: Product Selection */}
         <div className="flex-1 min-w-0 flex flex-col">
+          <div className="mb-6">
+            <NfeWalletAlertBanner />
+          </div>
+
           <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2 flex items-center gap-3">
@@ -545,6 +644,40 @@ function PDVContent() {
               </span>
             </div>
 
+            <div className="rounded-xl border border-slate-700 bg-[#0B1120] px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    Saldo para Emissão
+                  </p>
+                  <p
+                    className={`mt-1 text-lg font-bold ${
+                      companyConfig.nfeBalance < LOW_BALANCE_THRESHOLD
+                        ? "text-amber-300"
+                        : "text-emerald-300"
+                    }`}
+                  >
+                    R$ {companyConfig.nfeBalance.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-right text-xs text-slate-400">
+                  <p>Custo por nota</p>
+                  <p className="mt-1 font-semibold text-white">
+                    R$ {NFE_EMISSION_COST.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              {!canIssueNfe(companyConfig.nfeBalance) ? (
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                  <span>
+                    Saldo insuficiente para emitir nota. Recarregue agora.
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setPaymentMethod("DINHEIRO")}
@@ -614,11 +747,23 @@ function PDVContent() {
               )}
 
             <button
-              onClick={handleFinalize}
+              onClick={() => handleFinalize(false)}
               disabled={loading || cart.length === 0}
               className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Processando..." : "FINALIZAR VENDA"}
+            </button>
+
+            <button
+              onClick={() => handleFinalize(true)}
+              disabled={loading || cart.length === 0}
+              className={`w-full rounded-lg border py-4 font-bold transition-colors ${
+                canIssueNfe(companyConfig.nfeBalance)
+                  ? "border-[#FACC15] bg-[#FACC15] text-[#0B1120] hover:bg-yellow-300"
+                  : "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              {loading ? "Processando..." : "FINALIZAR VENDA + NOTA"}
             </button>
           </div>
         </div>
@@ -640,6 +785,69 @@ function PDVContent() {
           termsUrl={termsUrl}
         />
       </div>
+
+      {rechargeModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-[#112240] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">
+                  Carteira WTM
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-white">
+                  Saldo insuficiente para emitir nota
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRechargeModalOpen(false)}
+                className="rounded-xl border border-slate-700 p-2 text-slate-400 transition-colors hover:border-slate-500 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-amber-400/25 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+              <p>
+                Saldo atual: <strong>R$ {companyConfig.nfeBalance.toFixed(2)}</strong>
+              </p>
+              <p className="mt-2">
+                Cada emissao custa <strong>R$ {NFE_EMISSION_COST.toFixed(2)}</strong>.
+                Recarregue agora para liberar o fluxo "Finalizar Venda + Nota".
+              </p>
+            </div>
+
+            {walletMessage ? (
+              <div className="mt-4 rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-sm text-slate-200">
+                {walletMessage}
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setRechargeModalOpen(false)}
+                className="w-full rounded-2xl border border-slate-700 px-4 py-3 font-semibold text-slate-300 transition-colors hover:border-slate-500 hover:text-white"
+              >
+                Voltar ao PDV
+              </button>
+              <button
+                type="button"
+                onClick={handleRecharge}
+                disabled={walletLoading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-4 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {walletLoading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                {walletLoading ? "Abrindo checkout..." : "Recarregar Agora"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

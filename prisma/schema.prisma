@@ -124,6 +124,7 @@ model Sale {
   company        Company    @relation(fields: [companyId], references: [id])
   items          SaleItem[]
   customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  nfeLogs        NfeLog[]
   seller         User?      @relation("SellerSales", fields: [sellerId], references: [id], onDelete: SetNull)
 
   @@index([companyId], map: "idx_sales_company_id")
@@ -164,24 +165,28 @@ model CompanyConfig {
 }
 
 model Company {
-  id                 String         @id
-  name               String         @default("Minha Empresa")
+  id                 String              @id
+  name               String              @default("Minha Empresa")
   segment            Segment?
   cnpj               String?
   address            String?
   phone              String?
   email              String?
-  logoUrl            String?        @default("/logo.png") @map("logo_url")
-  certificateA1      String?        @map("certificate_a1")
-  companyData        Json?          @map("company_data")
+  logoUrl            String?             @default("/logo.png") @map("logo_url")
+  certificateA1      String?             @map("certificate_a1")
+  companyData        Json?               @map("company_data")
   settings           Json?
-  trialEndsAt        DateTime       @default(dbgenerated("(now() + interval '7 days')")) @map("trial_ends_at")
-  subscriptionStatus String         @default("trialing") @map("subscription_status")
-  mpSubscriptionId   String?        @map("mp_subscription_id")
-  createdAt          DateTime       @default(now()) @map("created_at")
-  updatedAt          DateTime       @updatedAt @map("updated_at")
+  nfeBalance         Decimal             @default(0) @map("nfe_balance") @db.Decimal(10, 2)
+  autoTopUp          Boolean             @default(false) @map("auto_top_up")
+  trialEndsAt        DateTime            @default(dbgenerated("(now() + interval '7 days')")) @map("trial_ends_at")
+  subscriptionStatus String              @default("trialing") @map("subscription_status")
+  mpSubscriptionId   String?             @map("mp_subscription_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
   config             CompanyConfig?
   expenses           Expense[]
+  nfeLogs            NfeLog[]
+  nfeWalletRecharges NfeWalletRecharge[]
   products           Product[]
   sales              Sale[]
   serviceOrders      ServiceOrder[]
@@ -208,6 +213,35 @@ model User {
 
   @@index([companyId], map: "idx_users_company_id")
   @@map("users")
+}
+
+model NfeLog {
+  id             String   @id @default(cuid())
+  companyId      String   @map("company_id")
+  saleId         Int?     @map("sale_id")
+  documentNumber String   @map("document_number")
+  amount         Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
+  company        Company  @relation(fields: [companyId], references: [id])
+  sale           Sale?    @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt], map: "idx_nfe_logs_company_created_at")
+  @@index([saleId], map: "idx_nfe_logs_sale_id")
+  @@map("nfe_logs")
+}
+
+model NfeWalletRecharge {
+  id          String   @id @default(cuid())
+  companyId   String   @map("company_id")
+  mpPaymentId String   @unique @map("mp_payment_id")
+  amount      Decimal  @db.Decimal(10, 2)
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  company     Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, createdAt], map: "idx_nfe_wallet_recharges_company_created_at")
+  @@map("nfe_wallet_recharges")
 }
 
 model Expense {

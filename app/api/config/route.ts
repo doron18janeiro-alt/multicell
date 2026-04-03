@@ -5,7 +5,24 @@ import {
   isAdminUser,
   setAuthSession,
 } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { ensureCompanyProfile, updateCompanyProfile } from "@/lib/company";
+
+const getRecentNfeLogs = async (companyId: string) => {
+  const logs = await prisma.nfeLog.findMany({
+    where: { companyId },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+  });
+
+  return logs.map((log) => ({
+    id: log.id,
+    saleId: log.saleId,
+    documentNumber: log.documentNumber,
+    amount: Number(log.amount),
+    createdAt: log.createdAt.toISOString(),
+  }));
+};
 
 export async function GET() {
   try {
@@ -15,7 +32,11 @@ export async function GET() {
     }
 
     const profile = await ensureCompanyProfile(currentUser.companyId);
-    return NextResponse.json(profile);
+    const nfeLogs = await getRecentNfeLogs(currentUser.companyId);
+    return NextResponse.json({
+      ...profile,
+      nfeLogs,
+    });
   } catch (error) {
     console.error("[api/config][GET] Error:", error);
     return NextResponse.json(
@@ -38,22 +59,26 @@ export async function PUT(req: Request) {
 
     const data = await req.json();
     const profile = await updateCompanyProfile(currentUser.companyId, data);
+    const nfeLogs = await getRecentNfeLogs(currentUser.companyId);
     await setAuthSession(
       createAuthSessionSnapshot({
-      id: currentUser.id,
-      email: currentUser.email,
-      companyId: currentUser.companyId,
-      role: currentUser.role,
-      fullName: currentUser.fullName,
-      companyName: profile.name,
-      segment: profile.segment,
-      cpf: currentUser.cpf,
-      birthDate: currentUser.birthDate?.toISOString() ?? null,
-      isDeveloper: currentUser.isDeveloper,
+        id: currentUser.id,
+        email: currentUser.email,
+        companyId: currentUser.companyId,
+        role: currentUser.role,
+        fullName: currentUser.fullName,
+        companyName: profile.name,
+        segment: profile.segment,
+        cpf: currentUser.cpf,
+        birthDate: currentUser.birthDate?.toISOString() ?? null,
+        isDeveloper: currentUser.isDeveloper,
       }),
     );
 
-    return NextResponse.json(profile);
+    return NextResponse.json({
+      ...profile,
+      nfeLogs,
+    });
   } catch (error) {
     console.error("[api/config][PUT] Error:", error);
     return NextResponse.json(

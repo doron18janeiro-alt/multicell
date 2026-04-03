@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import {
   activateCompanySubscription,
   expireCompanySubscription,
 } from "@/lib/subscription";
 import { mercadoPagoRequest } from "@/lib/mercadopago";
+import { DEFAULT_NFE_RECHARGE_AMOUNT } from "@/lib/nfe-wallet";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +141,69 @@ const parseRequestBody = async (request: Request) => {
   }
 };
 
+const isWalletRechargeResource = (resource: any) =>
+  String(resource?.metadata?.checkout_type || "").trim() === "nfe_wallet";
+
+const resolveRechargeAmount = (resource: any) => {
+  const metadataAmount = Number(resource?.metadata?.recharge_amount);
+  if (Number.isFinite(metadataAmount) && metadataAmount > 0) {
+    return Number(metadataAmount.toFixed(2));
+  }
+
+  const transactionAmount = Number(resource?.transaction_amount);
+  if (Number.isFinite(transactionAmount) && transactionAmount > 0) {
+    return Number(transactionAmount.toFixed(2));
+  }
+
+  return DEFAULT_NFE_RECHARGE_AMOUNT;
+};
+
+async function syncWalletRecharge(resource: any, fallbackId?: string) {
+  const companyId = resolveCompanyId(
+    resource?.metadata,
+    resource?.external_reference,
+  );
+
+  if (!companyId) return;
+
+  const mpPaymentId = String(resource?.id || fallbackId || "").trim();
+  if (!mpPaymentId) return;
+
+  const status = getResourceStatus(resource);
+  const amount = resolveRechargeAmount(resource);
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.nfeWalletRecharge.findUnique({
+      where: { mpPaymentId },
+    });
+
+    await tx.nfeWalletRecharge.upsert({
+      where: { mpPaymentId },
+      update: {
+        status,
+        amount,
+      },
+      create: {
+        companyId,
+        mpPaymentId,
+        amount,
+        status,
+      },
+    });
+
+    if (isApprovedStatus(status) && existing?.status !== "approved") {
+      await tx.company.update({
+        where: { id: companyId },
+        data: {
+          nfeBalance: {
+            increment: amount,
+          },
+        },
+      });
+    }
+  });
+}
+
 const isSimulationAllowed = () => process.env.NODE_ENV !== "production";
 
 const isSimulationPayload = (body: any) => {
@@ -155,6 +220,11 @@ const isSimulationPayload = (body: any) => {
 };
 
 async function processSimulationPayload(body: any) {
+  if (isWalletRechargeResource(body)) {
+    await syncWalletRecharge(body);
+    return;
+  }
+
   const companyId = resolveCompanyId(body?.metadata, body?.external_reference);
   const status = getResourceStatus(body);
   const referenceId = String(body?.id || body?.external_reference || companyId);
@@ -178,6 +248,11 @@ async function processNotification(notificationType: string, resourceId: string)
       method: "GET",
     },
   );
+
+  if (notificationType === "payment" && isWalletRechargeResource(resource)) {
+    await syncWalletRecharge(resource, resourceId);
+    return;
+  }
 
   const companyId = resolveCompanyId(
     resource?.metadata,
