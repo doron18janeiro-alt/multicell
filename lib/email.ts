@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const RESEND_FROM = "World Tech Manager <contato@wtm.com>";
+const RESEND_FROM = "World Tech Manager <contato@wtm.com.br>";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 

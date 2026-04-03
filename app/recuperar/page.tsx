@@ -32,7 +32,7 @@ export default function RecuperarPage() {
       }
 
       setSuccess(
-        "E-mail enviado para sua caixa de entrada! Verifique o remetente contato@wtm.com",
+        "E-mail enviado para sua caixa de entrada! Verifique o remetente contato@wtm.com.br",
       );
     } catch (requestError) {
       console.error(requestError);

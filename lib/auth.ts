@@ -197,7 +197,7 @@ export const getResponsibleEngineerEmails = () => {
   const envEmail = normalizeEmail(process.env.ADMIN_EMAIL);
 
   return new Set(
-    [envEmail, "admin@teste.com", "seu-email@wtm.com"].filter(Boolean),
+    [envEmail, "admin@teste.com", "seu-email@wtm.com.br"].filter(Boolean),
   );
 };
 

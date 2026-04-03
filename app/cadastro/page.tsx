@@ -210,7 +210,7 @@ function CadastroPageContent() {
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 h-5 w-5" />
                 <input
                   type="email"
-                  placeholder="seu-email@wtm.com"
+                  placeholder="seu-email@wtm.com.br"
                   className="w-full bg-[#020617]/55 border border-slate-700 text-slate-100 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-all"
                   value={form.email}
                   onChange={(e) => handleChange("email", e.target.value)}

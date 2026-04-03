@@ -491,7 +491,7 @@ export function CompanyProfileSettings() {
                     }))
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FACC15]"
-                  placeholder="contato@wtm.com"
+                  placeholder="contato@wtm.com.br"
                 />
               </div>
 
