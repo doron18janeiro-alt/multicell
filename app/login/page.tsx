@@ -356,15 +356,6 @@ export default function LoginPage() {
                       </>
                     )}
                   </button>
-
-                  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
-                    <Link
-                      href="/"
-                      className="mt-3 block w-full rounded-xl border border-amber-400/40 py-3 text-center font-bold text-amber-300 transition-all hover:bg-amber-400/10"
-                    >
-                      VOLTAR PARA ESCOLHA DE SEGMENTO
-                    </Link>
-                  </motion.div>
                 </form>
               </div>
 

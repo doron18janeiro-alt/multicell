@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { shouldBlockSubscriptionAccess } from "@/lib/billing-mode";
 
 const PUBLIC_PATHS = [
+  "/",
   "/login",
   "/cadastro",
   "/recuperar",
