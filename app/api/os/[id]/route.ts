@@ -6,6 +6,7 @@ import {
   formatAuditCurrency,
   getAuditActorName,
 } from "@/lib/audit";
+import { normalizeVehiclePlate } from "@/lib/segment-specialization";
 
 const parseOrderId = (value: string) => Number.parseInt(value, 10);
 
@@ -69,7 +70,10 @@ export async function PUT(
         id: orderId,
         companyId: currentUser.companyId,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        serialNumber: true,
+      },
     });
 
     if (!existingOrder) {
@@ -95,6 +99,37 @@ export async function PUT(
       where: { id: existingOrder.id },
       data,
     });
+
+    if (status) {
+      const normalizedVehiclePlate = normalizeVehiclePlate(
+        existingOrder.serialNumber,
+      );
+
+      if (normalizedVehiclePlate) {
+        const nextVehicleStatus =
+          status === "FINALIZADO" || status === "CANCELADO"
+            ? "DISPONIVEL"
+            : "MANUTENCAO";
+        const vehicleWhere: Record<string, unknown> = {
+          companyId: currentUser.companyId,
+          category: "VEICULO",
+          vehiclePlate: normalizedVehiclePlate,
+        };
+
+        if (nextVehicleStatus === "MANUTENCAO") {
+          vehicleWhere.NOT = {
+            vehicleStatus: "VENDIDO",
+          };
+        }
+
+        await prisma.product.updateMany({
+          where: vehicleWhere,
+          data: {
+            vehicleStatus: nextVehicleStatus,
+          },
+        });
+      }
+    }
 
     return NextResponse.json(updatedOrder);
   } catch (error) {
@@ -133,11 +168,32 @@ export async function DELETE(
           id: osId,
           companyId: currentUser.companyId,
         },
-        select: { id: true },
+        select: {
+          id: true,
+          serialNumber: true,
+        },
       });
 
       if (!existingOrder) {
         throw new Error("Ordem de Serviço não encontrada");
+      }
+
+      const normalizedVehiclePlate = normalizeVehiclePlate(
+        existingOrder.serialNumber,
+      );
+
+      if (normalizedVehiclePlate) {
+        await tx.product.updateMany({
+          where: {
+            companyId: currentUser.companyId,
+            category: "VEICULO",
+            vehiclePlate: normalizedVehiclePlate,
+            vehicleStatus: "MANUTENCAO",
+          },
+          data: {
+            vehicleStatus: "DISPONIVEL",
+          },
+        });
       }
 
       const linkedSales = await tx.sale.findMany({
@@ -160,17 +216,26 @@ export async function DELETE(
                 id: item.productId,
                 companyId: currentUser.companyId,
               },
-              select: { id: true },
+              select: {
+                id: true,
+                category: true,
+              },
             });
 
             if (product) {
               await tx.product.update({
                 where: { id: product.id },
-                data: {
-                  stock: {
-                    increment: item.quantity,
-                  },
-                },
+                data:
+                  product.category === "VEICULO"
+                    ? {
+                        stock: 1,
+                        vehicleStatus: "DISPONIVEL",
+                      }
+                    : {
+                        stock: {
+                          increment: item.quantity,
+                        },
+                      },
               });
             }
           } catch (stockError) {

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { normalizeVehiclePlate } from "@/lib/segment-specialization";
+import {
+  formatVehiclePlate,
+  getVehicleFuelLabel,
+  getVehicleInventoryStatusLabel,
+  getVehicleSteeringLabel,
+  normalizeVehiclePlate,
+} from "@/lib/segment-specialization";
 
 const normalizeCode = (value: string) =>
   value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
@@ -60,6 +66,109 @@ const buildWarrantyCoverageDescription = ({
   return `A garantia cobre o serviço executado na O.S. #${serviceOrderId || "-"} e as peças efetivamente aplicadas nessa ordem. Não cobre mau uso, quedas, contato com líquidos, oxidação ou intervenção de terceiros.`;
 };
 
+const buildVehicleCoverageChecklist = ({
+  vehicle,
+  checklist,
+  coveredParts,
+}: {
+  vehicle:
+    | {
+        vehiclePlate?: string | null;
+        vehicleChassis?: string | null;
+        vehicleRenavam?: string | null;
+        vehicleEngine?: string | null;
+        vehicleFuel?: string | null;
+        vehicleSteering?: string | null;
+        vehicleStatus?: string | null;
+        vehicleAirConditioning?: boolean | null;
+        vehicleAirbag?: boolean | null;
+        vehiclePowerWindows?: boolean | null;
+        vehicleAlarm?: boolean | null;
+        vehicleMultimedia?: boolean | null;
+      }
+    | null
+    | undefined;
+  checklist:
+    | {
+        plate?: string | null;
+        fuelLevel?: string | null;
+        mileage?: string | null;
+        color?: string | null;
+        externalDamage?: string | null;
+      }
+    | null
+    | undefined;
+  coveredParts: string[];
+}) => {
+  const accessories = [
+    vehicle?.vehicleAirConditioning ? "Ar Condicionado" : null,
+    vehicle?.vehicleAirbag ? "Airbag" : null,
+    vehicle?.vehiclePowerWindows ? "Vidro Elétrico" : null,
+    vehicle?.vehicleAlarm ? "Alarme" : null,
+    vehicle?.vehicleMultimedia ? "Som / Multimídia" : null,
+  ].filter(Boolean);
+
+  return [
+    {
+      label: "Placa",
+      value: formatVehiclePlate(
+        checklist?.plate || vehicle?.vehiclePlate || null,
+      ) || "Não informada",
+    },
+    {
+      label: "Status do Veículo",
+      value: getVehicleInventoryStatusLabel(vehicle?.vehicleStatus),
+    },
+    {
+      label: "Chassi",
+      value: vehicle?.vehicleChassis || "Não informado",
+    },
+    {
+      label: "Renavam",
+      value: vehicle?.vehicleRenavam || "Não informado",
+    },
+    {
+      label: "Motorização",
+      value: vehicle?.vehicleEngine || "Não informada",
+    },
+    {
+      label: "Combustível",
+      value: getVehicleFuelLabel(vehicle?.vehicleFuel),
+    },
+    {
+      label: "Direção",
+      value: getVehicleSteeringLabel(vehicle?.vehicleSteering),
+    },
+    {
+      label: "KM de Entrada",
+      value: checklist?.mileage || "Não informado",
+    },
+    {
+      label: "Nível de Combustível",
+      value: checklist?.fuelLevel || "Não informado",
+    },
+    {
+      label: "Cor Registrada",
+      value: checklist?.color || "Não informada",
+    },
+    {
+      label: "Avarias Externas",
+      value: checklist?.externalDamage || "Sem observações",
+    },
+    {
+      label: "Acessórios",
+      value: accessories.length > 0 ? accessories.join(", ") : "Não informados",
+    },
+    {
+      label: "Cobertura Aplicada",
+      value:
+        coveredParts.length > 0
+          ? coveredParts.join(", ")
+          : "Somente o serviço executado",
+    },
+  ];
+};
+
 export async function GET(request: Request) {
   try {
     const currentUser = await getCurrentUser();
@@ -86,6 +195,30 @@ export async function GET(request: Request) {
 
     const variants = buildVariants(code, isAutoLookup);
     const companyId = currentUser.companyId;
+    const matchedVehicles = isAutoLookup
+      ? await prisma.product.findMany({
+          where: {
+            companyId,
+            category: "VEICULO",
+            OR: variants.flatMap((variant) => [
+              {
+                vehiclePlate: {
+                  equals: variant,
+                  mode: "insensitive",
+                },
+              },
+              {
+                vehiclePlate: {
+                  contains: variant,
+                  mode: "insensitive",
+                },
+              },
+            ]),
+          },
+          orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+        })
+      : [];
+    const matchedVehicleIds = matchedVehicles.map((vehicle) => vehicle.id);
 
     const serviceOrders = await prisma.serviceOrder.findMany({
       where: {
@@ -121,6 +254,18 @@ export async function GET(request: Request) {
       saleSearchConditions.push({
         serviceOrderId: {
           in: serviceOrderIds,
+        },
+      });
+    }
+
+    if (matchedVehicleIds.length > 0) {
+      saleSearchConditions.push({
+        items: {
+          some: {
+            productId: {
+              in: matchedVehicleIds,
+            },
+          },
         },
       });
     }
@@ -198,7 +343,11 @@ export async function GET(request: Request) {
           array.findIndex((candidate) => candidate.id === order.id) === index,
       );
 
-    if (allServiceOrders.length === 0 && sales.length === 0) {
+    if (
+      allServiceOrders.length === 0 &&
+      sales.length === 0 &&
+      matchedVehicles.length === 0
+    ) {
       return NextResponse.json(
         {
           error: isAutoLookup
@@ -222,8 +371,27 @@ export async function GET(request: Request) {
 
     const latestServiceOrder = allServiceOrders[0] || null;
     const latestSale = sales[0] || null;
+    const latestVehicleProduct =
+      matchedVehicles[0] ||
+      sales
+        .flatMap((sale) => sale.items.map((item) => item.product))
+        .find(
+          (product) =>
+            product?.category === "VEICULO" &&
+            Boolean(product?.vehiclePlate) &&
+            variants.includes(normalizeVehiclePlate(product.vehiclePlate)),
+        ) ||
+      null;
     const latestAutoChecklist =
-      (latestServiceOrder?.checklist as { auto?: { plate?: string | null } } | null)
+      (latestServiceOrder?.checklist as {
+        auto?: {
+          plate?: string | null;
+          fuelLevel?: string | null;
+          mileage?: string | null;
+          color?: string | null;
+          externalDamage?: string | null;
+        };
+      } | null)
         ?.auto || null;
     const latestCoveredParts =
       latestServiceOrder
@@ -237,7 +405,10 @@ export async function GET(request: Request) {
           )
         : [];
     const warrantyBaseDate =
-      latestServiceOrder?.createdAt || latestSale?.createdAt || new Date();
+      latestServiceOrder?.createdAt ||
+      latestSale?.createdAt ||
+      latestVehicleProduct?.updatedAt ||
+      new Date();
     const warrantyExpiresAt = addDays(warrantyBaseDate, 90);
     const remainingDays = diffInDays(new Date(), warrantyExpiresAt);
     const withinWarranty = remainingDays >= 0;
@@ -268,9 +439,14 @@ export async function GET(request: Request) {
         date: sale.createdAt.toISOString(),
         title: sale.serviceOrderId
           ? `Venda vinculada à O.S. #${sale.serviceOrderId}`
-          : `Venda relacionada ao aparelho`,
+          : isAutoLookup
+            ? "Venda vinculada ao veículo"
+            : "Venda relacionada ao aparelho",
         subtitle: sale.customer?.name || "Cliente não vinculado",
-        description: `Pagamento via ${sale.paymentMethod}`,
+        description:
+          sale.paymentMethod === "FINANCIAMENTO" && sale.financingBank
+            ? `Pagamento via financiamento bancário • ${sale.financingBank}`
+            : `Pagamento via ${sale.paymentMethod}`,
         status: sale.status,
         value: sale.total,
         responsible:
@@ -289,15 +465,30 @@ export async function GET(request: Request) {
     );
 
     return NextResponse.json({
-      query: code,
+      query: isAutoLookup ? formatVehiclePlate(code) : code,
       summary: {
         lookupMode: isAutoLookup ? "PLATE" : "SERIAL",
         serialNumber:
           (isAutoLookup
-            ? latestAutoChecklist?.plate || latestServiceOrder?.serialNumber
+            ? formatVehiclePlate(
+                latestVehicleProduct?.vehiclePlate ||
+                  latestAutoChecklist?.plate ||
+                  latestServiceOrder?.serialNumber,
+              )
             : latestServiceOrder?.serialNumber) || code,
-        deviceBrand: latestServiceOrder?.deviceBrand || null,
-        deviceModel: latestServiceOrder?.deviceModel || null,
+        deviceBrand: isAutoLookup
+          ? latestVehicleProduct?.vehicleBrand ||
+            latestServiceOrder?.deviceBrand ||
+            null
+          : latestServiceOrder?.deviceBrand || null,
+        deviceModel: isAutoLookup
+          ? latestVehicleProduct?.vehicleModel ||
+            latestServiceOrder?.deviceModel ||
+            null
+          : latestServiceOrder?.deviceModel || null,
+        vehicleStatus: isAutoLookup
+          ? getVehicleInventoryStatusLabel(latestVehicleProduct?.vehicleStatus)
+          : null,
         lastServiceOrderId: latestServiceOrder?.id || null,
         totalVisits: allServiceOrders.length,
         totalLinkedSales: sales.length,
@@ -311,6 +502,13 @@ export async function GET(request: Request) {
           serviceOrderId: latestServiceOrder?.id || null,
           coveredParts: latestCoveredParts,
         }),
+        coverageChecklist: isAutoLookup
+          ? buildVehicleCoverageChecklist({
+              vehicle: latestVehicleProduct,
+              checklist: latestAutoChecklist,
+              coveredParts: latestCoveredParts,
+            })
+          : [],
       },
       timeline,
     });

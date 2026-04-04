@@ -50,6 +50,10 @@ export async function DELETE(
         try {
           const product = await tx.product.findUnique({
             where: { id: item.productId },
+            select: {
+              id: true,
+              category: true,
+            },
           });
 
           if (!product) {
@@ -61,9 +65,15 @@ export async function DELETE(
 
           await tx.product.update({
             where: { id: item.productId },
-            data: {
-              stock: { increment: item.quantity },
-            },
+            data:
+              product.category === "VEICULO"
+                ? {
+                    stock: 1,
+                    vehicleStatus: "DISPONIVEL",
+                  }
+                : {
+                    stock: { increment: item.quantity },
+                  },
           });
         } catch (stockError) {
           console.error(

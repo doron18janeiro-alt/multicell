@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { normalizeVehiclePlate } from "@/lib/segment-specialization";
 
 export async function POST(
   request: Request,
@@ -25,6 +26,7 @@ export async function POST(
       select: {
         id: true,
         companyId: true,
+        serialNumber: true,
       },
     });
 
@@ -73,6 +75,24 @@ export async function POST(
           servicePrice: total - cost,
         },
       });
+
+      const normalizedVehiclePlate = normalizeVehiclePlate(
+        serviceOrder.serialNumber,
+      );
+
+      if (normalizedVehiclePlate) {
+        await tx.product.updateMany({
+          where: {
+            companyId: currentUser.companyId,
+            category: "VEICULO",
+            vehiclePlate: normalizedVehiclePlate,
+            vehicleStatus: "MANUTENCAO",
+          },
+          data: {
+            vehicleStatus: "DISPONIVEL",
+          },
+        });
+      }
 
       const newSale = await tx.sale.create({
         data: {

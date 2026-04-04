@@ -286,8 +286,34 @@ export async function POST(request: Request) {
       });
 
       for (const item of items) {
+        const product = await tx.product.findFirst({
+          where: {
+            id: item.productId,
+            companyId,
+          },
+          select: {
+            id: true,
+            category: true,
+          },
+        });
+
+        if (!product) {
+          continue;
+        }
+
+        if (product.category === "VEICULO") {
+          await tx.product.update({
+            where: { id: product.id },
+            data: {
+              stock: 0,
+              vehicleStatus: "VENDIDO",
+            },
+          });
+          continue;
+        }
+
         await tx.product.update({
-          where: { id: item.productId },
+          where: { id: product.id },
           data: {
             stock: {
               decrement: item.quantity,

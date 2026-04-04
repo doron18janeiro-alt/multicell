@@ -20,7 +20,10 @@ export async function GET(request: Request) {
   const category = searchParams.get("category");
   const search = searchParams.get("search");
   const barcode = normalizeBarcode(searchParams.get("barcode"));
-  const plate = normalizeVehiclePlate(searchParams.get("plate"));
+  const plate = normalizeVehiclePlate(
+    searchParams.get("plate") || searchParams.get("licensePlate"),
+  );
+  const includeSold = searchParams.get("includeSold") === "1";
 
   try {
     const currentUser = await getCurrentUser();
@@ -31,6 +34,15 @@ export async function GET(request: Request) {
     const where: any = {
       companyId: currentUser.companyId,
     };
+
+    if (!includeSold) {
+      where.NOT = {
+        AND: [
+          { category: "VEICULO" },
+          { vehicleStatus: "VENDIDO" },
+        ],
+      };
+    }
 
     if (category && category !== "TODOS") {
       where.category = category;

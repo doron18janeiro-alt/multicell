@@ -24,6 +24,7 @@ type ConsultaResult = {
     lookupMode: "PLATE" | "SERIAL";
     deviceBrand: string | null;
     deviceModel: string | null;
+    vehicleStatus?: string | null;
     lastServiceOrderId: number | null;
     totalVisits: number;
     totalLinkedSales: number;
@@ -33,6 +34,10 @@ type ConsultaResult = {
     warrantyDaysRemaining: number;
     warrantyDaysExpired: number;
     warrantyCoverage: string;
+    coverageChecklist: Array<{
+      label: string;
+      value: string;
+    }>;
   };
   timeline: Array<{
     id: string;
@@ -156,7 +161,7 @@ export default function ConsultaPage() {
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={
                     isAutoSegment
-                      ? "Digite a Placa do Veículo"
+                      ? "Consultar Placa do Veículo"
                       : "Bipar IMEI ou Número de Série"
                   }
                   className="h-14 w-full rounded-2xl border border-slate-700 bg-[#0B1120] pl-12 pr-4 text-base text-white outline-none transition-colors placeholder:text-slate-500 focus:border-amber-400"
@@ -271,6 +276,20 @@ export default function ConsultaPage() {
                     </div>
                   </div>
 
+                  {isAutoSegment && result.summary.vehicleStatus ? (
+                    <div className="flex items-center gap-3">
+                      <CarFront className="h-5 w-5 text-amber-300" />
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                          Ciclo de Vida
+                        </p>
+                        <p className="font-semibold text-white">
+                          {result.summary.vehicleStatus}
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center gap-3">
                     <CalendarClock className="h-5 w-5 text-amber-300" />
                     <div>
@@ -325,12 +344,35 @@ export default function ConsultaPage() {
                 </div>
 
                 {isAutoSegment ? (
-                  <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4 text-sm leading-6 text-slate-200">
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-200">
-                      O que a garantia cobre
-                    </p>
-                    <p className="mt-3">{result.summary.warrantyCoverage}</p>
-                  </div>
+                  <>
+                    <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4 text-sm leading-6 text-slate-200">
+                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-200">
+                        O que a garantia cobre
+                      </p>
+                      <p className="mt-3">{result.summary.warrantyCoverage}</p>
+                    </div>
+
+                    <div className="mt-4">
+                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+                        Checklist de Cobertura Veicular
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {result.summary.coverageChecklist.map((item) => (
+                          <div
+                            key={item.label}
+                            className="rounded-2xl border border-slate-700 bg-[#0B1120]/60 p-4"
+                          >
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                              {item.label}
+                            </p>
+                            <p className="mt-2 text-sm font-semibold text-white">
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 ) : null}
               </div>
             </div>

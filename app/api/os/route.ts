@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { normalizeVehiclePlate } from "@/lib/segment-specialization";
 
 // GET: Listar todas as O.S.
 export async function GET() {
@@ -84,24 +85,48 @@ export async function POST(request: Request) {
     }
 
     // 2. Cria a O.S.
-    const serviceOrder = await prisma.serviceOrder.create({
-      data: {
-        companyId: session.user.companyId, // Vincular à empresa logada
-        clientName,
-        clientPhone,
-        clientCpf: clientDocument,
-        deviceBrand,
-        deviceModel,
-        serialNumber: imei, // Mapeando imei para serialNumber
-        devicePassword: passcode, // Mapeando passcode para devicePassword
-        deviceColor: color || checklist?.auto?.color || null,
-        problem: clientReport || "Não informado", // Mapeando clientReport para problem
-        observations: technicalObservations || null,
-        checklist: checklist || {},
-        totalPrice: totalPrice ? parseFloat(totalPrice) : 0,
-        customerId: customerId,
-        status: "ABERTO",
-      },
+    const normalizedVehiclePlate = normalizeVehiclePlate(
+      checklist?.auto?.plate || imei,
+    );
+
+    const serviceOrder = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.serviceOrder.create({
+        data: {
+          companyId: session.user.companyId, // Vincular à empresa logada
+          clientName,
+          clientPhone,
+          clientCpf: clientDocument,
+          deviceBrand,
+          deviceModel,
+          serialNumber: imei, // Mapeando imei para serialNumber
+          devicePassword: passcode, // Mapeando passcode para devicePassword
+          deviceColor: color || checklist?.auto?.color || null,
+          problem: clientReport || "Não informado", // Mapeando clientReport para problem
+          observations: technicalObservations || null,
+          checklist: checklist || {},
+          totalPrice: totalPrice ? parseFloat(totalPrice) : 0,
+          customerId: customerId,
+          status: "ABERTO",
+        },
+      });
+
+      if (normalizedVehiclePlate) {
+        await tx.product.updateMany({
+          where: {
+            companyId: session.user.companyId,
+            category: "VEICULO",
+            vehiclePlate: normalizedVehiclePlate,
+            NOT: {
+              vehicleStatus: "VENDIDO",
+            },
+          },
+          data: {
+            vehicleStatus: "MANUTENCAO",
+          },
+        });
+      }
+
+      return createdOrder;
     });
 
     return NextResponse.json(serviceOrder, { status: 201 });
