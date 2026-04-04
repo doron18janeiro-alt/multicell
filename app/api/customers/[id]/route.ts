@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 
+const normalizeOptionalText = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  return normalized || null;
+};
+
 const scopedCustomerWhere = (id: string, companyId: string) => ({
   id,
   companyId,
@@ -91,7 +101,7 @@ export async function PUT(
       data: {
         name,
         phone,
-        document,
+        document: normalizeOptionalText(document),
         birthDate: birthDate ? new Date(birthDate) : null,
       },
     });

@@ -38,7 +38,8 @@ export default function Sidebar({
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
   const [hasLowNfeBalance, setHasLowNfeBalance] = useState(false);
-  const { showOS, hasInventoryGrade, labels, fullName, role, segment } = useSegment();
+  const { hasInventoryGrade, labels, fullName, role, segment } = useSegment();
+  const supportsServiceOrders = segment === "TECH" || segment === "AUTO";
   const ServiceIcon = segment === "AUTO" ? ClipboardCheck : Wrench;
   const StockIcon = segment === "AUTO" ? CarFront : Package;
 
@@ -105,11 +106,11 @@ export default function Sidebar({
   const menuItems = [
     { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
     { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
-    ...(showOS
+    ...(supportsServiceOrders
       ? [{ name: labels.action, icon: ServiceIcon, path: "/os/novo" }]
       : []),
     { name: "Clientes", icon: Users, path: "/clientes" },
-    ...(showOS
+    ...(supportsServiceOrders
       ? [{ name: "Consulta Garantia", icon: Search, path: "/consulta" }]
       : []),
     {

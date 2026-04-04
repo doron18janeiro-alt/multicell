@@ -18,6 +18,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSegment } from "@/hooks/useSegment";
 
 interface Customer {
   id: string;
@@ -66,6 +67,9 @@ interface CustomerDetails extends Customer {
 
 export default function Clientes() {
   const router = useRouter();
+  const { segment, isReady } = useSegment();
+  const supportsServiceOrders = segment === "TECH" || segment === "AUTO";
+  const tableColumnCount = supportsServiceOrders ? 5 : 4;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -95,6 +99,14 @@ export default function Clientes() {
   useEffect(() => {
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    if (!isReady || supportsServiceOrders || activeTab !== "orders") {
+      return;
+    }
+
+    setActiveTab("sales");
+  }, [activeTab, isReady, supportsServiceOrders]);
 
   const fetchCustomers = async () => {
     setLoading(true);
@@ -144,11 +156,6 @@ export default function Clientes() {
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.birthDate) {
-      alert("A Data de Nascimento é OBRIGATÓRIA para cadastro.");
-      return;
-    }
-
     try {
       const url = editingId ? `/api/customers/${editingId}` : "/api/customers";
       const method = editingId ? "PUT" : "POST";
@@ -182,17 +189,24 @@ export default function Clientes() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Nome", "Telefone", "Documento", "Ordens de Serviço"];
+    const headers = supportsServiceOrders
+      ? ["Nome", "Telefone", "Documento", "Ordens de Serviço"]
+      : ["Nome", "Telefone", "Documento"];
     const csvContent = [
       headers.join(","),
-      ...customers.map((c) =>
-        [
+      ...customers.map((c) => {
+        const row = [
           `"${c.name}"`,
           `"${c.phone}"`,
           `"${c.document || ""}"`,
-          c._count?.serviceOrders || 0,
-        ].join(","),
-      ),
+        ];
+
+        if (supportsServiceOrders) {
+          row.push(String(c._count?.serviceOrders || 0));
+        }
+
+        return row.join(",");
+      }),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -273,7 +287,7 @@ export default function Clientes() {
             <Search className="absolute left-3 top-3 text-amber-300 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por nome, CPF ou protocolo..."
+              placeholder="Buscar por nome, telefone, documento ou código..."
               className="w-full bg-[#0B1120] border border-amber-400/40 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -295,9 +309,11 @@ export default function Clientes() {
                 <th className="p-4 font-medium border-b border-slate-700">
                   Documento
                 </th>
-                <th className="p-4 font-medium border-b border-slate-700 text-center">
-                  Ordens de Serviço
-                </th>
+                {supportsServiceOrders && (
+                  <th className="p-4 font-medium border-b border-slate-700 text-center">
+                    Ordens de Serviço
+                  </th>
+                )}
                 <th className="p-4 font-medium border-b border-slate-700 text-center">
                   Ações
                 </th>
@@ -306,27 +322,37 @@ export default function Clientes() {
             <tbody className="divide-y divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
+                  <td
+                    colSpan={tableColumnCount}
+                    className="p-8 text-center text-slate-500"
+                  >
                     Carregando...
                   </td>
                 </tr>
               ) : filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-500">
+                  <td
+                    colSpan={tableColumnCount}
+                    className="p-8 text-center text-slate-500"
+                  >
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
               ) : (
                 filteredCustomers.map((c) => {
-                  const hasPending = c.serviceOrders?.some(
-                    (os) =>
-                      !["FINALIZADO", "ENTREGUE", "CANCELADO"].includes(
-                        os.status,
-                      ),
-                  );
-                  const statusClass = hasPending
-                    ? "border-l-4 border-l-red-500 bg-red-500/5"
-                    : "border-l-4 border-l-emerald-500 bg-emerald-500/5";
+                  const hasPending =
+                    supportsServiceOrders &&
+                    c.serviceOrders?.some(
+                      (os) =>
+                        !["FINALIZADO", "ENTREGUE", "CANCELADO"].includes(
+                          os.status,
+                        ),
+                    );
+                  const statusClass = supportsServiceOrders
+                    ? hasPending
+                      ? "border-l-4 border-l-red-500 bg-red-500/5"
+                      : "border-l-4 border-l-emerald-500 bg-emerald-500/5"
+                    : "border-l-4 border-l-slate-700";
 
                   return (
                     <tr
@@ -337,13 +363,15 @@ export default function Clientes() {
                         className="p-4 text-white font-bold group-hover:text-[#FFD700] transition-colors cursor-pointer flex items-center gap-2"
                         onClick={() => handleViewDetails(c.id)}
                       >
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            hasPending
-                              ? "bg-red-500 animate-pulse"
-                              : "bg-emerald-500"
-                          }`}
-                        />
+                        {supportsServiceOrders && (
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              hasPending
+                                ? "bg-red-500 animate-pulse"
+                                : "bg-emerald-500"
+                            }`}
+                          />
+                        )}
                         {c.name}
                       </td>
                       <td className="p-4 text-slate-400">
@@ -354,13 +382,14 @@ export default function Clientes() {
                       <td className="p-4 text-slate-400">
                         {c.document || "—"}
                       </td>
-                      <td className="p-4 text-center">
-                        <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">
-                          {c._count?.serviceOrders || 0}
-                        </span>
-                      </td>
+                      {supportsServiceOrders && (
+                        <td className="p-4 text-center">
+                          <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">
+                            {c._count?.serviceOrders || 0}
+                          </span>
+                        </td>
+                      )}
                       <td className="p-4 flex gap-2 justify-center">
-                        {/* New Actions: Sale and OS */}
                         <button
                           onClick={() =>
                             router.push(`/vendas/novo?clienteId=${c.id}`)
@@ -371,15 +400,17 @@ export default function Clientes() {
                           <ShoppingBag size={18} />
                         </button>
 
-                        <button
-                          onClick={() =>
-                            router.push(`/os/novo?clienteId=${c.id}`)
-                          }
-                          className="bg-yellow-600/20 hover:bg-yellow-500 text-yellow-500 hover:text-black p-2 rounded transition-colors border border-yellow-600/30"
-                          title="Nova Ordem de Serviço"
-                        >
-                          <Wrench size={18} />
-                        </button>
+                        {supportsServiceOrders && (
+                          <button
+                            onClick={() =>
+                              router.push(`/os/novo?clienteId=${c.id}`)
+                            }
+                            className="bg-yellow-600/20 hover:bg-yellow-500 text-yellow-500 hover:text-black p-2 rounded transition-colors border border-yellow-600/30"
+                            title="Nova Ordem de Serviço"
+                          >
+                            <Wrench size={18} />
+                          </button>
+                        )}
 
                         <button
                           onClick={() => handleViewDetails(c.id)}
@@ -434,7 +465,7 @@ export default function Clientes() {
                           </span>
                           <span className="flex items-center gap-1">
                             <FileText size={14} />{" "}
-                            {viewingCustomer.document || "SEM CPF"}
+                            {viewingCustomer.document || "Sem documento"}
                           </span>
                         </div>
                       </div>
@@ -448,25 +479,27 @@ export default function Clientes() {
 
                     {/* Tabs */}
                     <div className="flex border-b border-slate-800 bg-[#0B1120]">
-                      <button
-                        onClick={() => setActiveTab("orders")}
-                        className={`flex-1 py-4 px-6 font-medium text-sm flex items-center justify-center gap-2 transition-colors border-b-2 ${
-                          activeTab === "orders"
-                            ? "border-[#FFD700] text-[#FFD700] bg-[#FFD700]/5"
-                            : "border-transparent text-slate-400 hover:text-white hover:bg-white/5"
-                        }`}
-                      >
-                        <Wrench size={18} />
-                        Ordens de Serviço (
-                        {viewingCustomer.serviceOrders?.length || 0})
-                      </button>
+                      {supportsServiceOrders && (
+                        <button
+                          onClick={() => setActiveTab("orders")}
+                          className={`flex-1 py-4 px-6 font-medium text-sm flex items-center justify-center gap-2 transition-colors border-b-2 ${
+                            activeTab === "orders"
+                              ? "border-[#FFD700] text-[#FFD700] bg-[#FFD700]/5"
+                              : "border-transparent text-slate-400 hover:text-white hover:bg-white/5"
+                          }`}
+                        >
+                          <Wrench size={18} />
+                          Ordens de Serviço (
+                          {viewingCustomer.serviceOrders?.length || 0})
+                        </button>
+                      )}
                       <button
                         onClick={() => setActiveTab("sales")}
-                        className={`flex-1 py-4 px-6 font-medium text-sm flex items-center justify-center gap-2 transition-colors border-b-2 ${
+                        className={`py-4 px-6 font-medium text-sm flex items-center justify-center gap-2 transition-colors border-b-2 ${
                           activeTab === "sales"
                             ? "border-[#FFD700] text-[#FFD700] bg-[#FFD700]/5"
                             : "border-transparent text-slate-400 hover:text-white hover:bg-white/5"
-                        }`}
+                        } ${supportsServiceOrders ? "flex-1" : "w-full"}`}
                       >
                         <ShoppingBag size={18} />
                         Histórico de Compras (
@@ -476,7 +509,7 @@ export default function Clientes() {
 
                     {/* Content */}
                     <div className="flex-1 overflow-y-auto p-6 bg-[#112240]">
-                      {activeTab === "orders" ? (
+                      {supportsServiceOrders && activeTab === "orders" ? (
                         <div className="space-y-4">
                           {viewingCustomer.serviceOrders?.length === 0 ? (
                             <div className="text-center py-12 text-slate-500">
@@ -663,11 +696,10 @@ export default function Clientes() {
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1">
-                    Data de Nascimento (Obrigatória)
+                    Data de Nascimento (Opcional)
                   </label>
                   <input
                     type="date"
-                    required
                     className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
                     value={formData.birthDate}
                     onChange={(e) =>
@@ -723,17 +755,22 @@ export default function Clientes() {
                 foi salvo com sucesso. O que deseja fazer agora?
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() =>
-                    router.push(`/os/novo?clienteId=${successCustomer.id}`)
-                  }
-                  className="bg-[#112240] border border-slate-600 hover:border-[#FFD700] hover:bg-[#1e293b] text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 group"
-                >
-                  <Wrench className="group-hover:text-[#FFD700]" />
-                  Abrir Nova O.S.
-                </button>
-
+              <div
+                className={`grid gap-4 ${
+                  supportsServiceOrders ? "grid-cols-2" : "grid-cols-1"
+                }`}
+              >
+                {supportsServiceOrders && (
+                  <button
+                    onClick={() =>
+                      router.push(`/os/novo?clienteId=${successCustomer.id}`)
+                    }
+                    className="bg-[#112240] border border-slate-600 hover:border-[#FFD700] hover:bg-[#1e293b] text-white py-4 rounded-xl font-bold transition-all flex flex-col items-center gap-2 group"
+                  >
+                    <Wrench className="group-hover:text-[#FFD700]" />
+                    Abrir Nova O.S.
+                  </button>
+                )}
                 <button
                   onClick={() =>
                     router.push(`/vendas/novo?clienteId=${successCustomer.id}`)

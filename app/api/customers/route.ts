@@ -2,6 +2,16 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
+const normalizeOptionalText = (value: unknown) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  return normalized || null;
+};
+
 export async function GET() {
   try {
     const session = await getSession();
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
       data: {
         name,
         phone,
-        document,
+        document: normalizeOptionalText(document),
         birthDate: birthDate ? new Date(birthDate) : null,
         companyId: session.user.companyId,
       },
