@@ -317,11 +317,31 @@ model Company {
   name               String              @default("Minha Empresa")
   segment            Segment?
   cnpj               String?
+  legalName          String?             @map("legal_name")
+  stateRegistration  String?             @map("state_registration")
+  municipalRegistration String?          @map("municipal_registration")
+  taxRegime          CompanyTaxRegime?   @map("tax_regime")
   address            String?
+  addressStreet      String?             @map("address_street")
+  addressNumber      String?             @map("address_number")
+  addressComplement  String?             @map("address_complement")
+  addressDistrict    String?             @map("address_district")
+  addressCity        String?             @map("address_city")
+  addressState       String?             @map("address_state")
+  zipCode            String?             @map("zip_code")
   phone              String?
   email              String?
   logoUrl            String?             @default("/wtm-float.png") @map("logo_url")
   certificateA1      String?             @map("certificate_a1")
+  certificateFileBase64 String?          @map("certificate_file_base64")
+  certificatePassword String?            @map("certificate_password")
+  certificateUploadedAt DateTime?        @map("certificate_uploaded_at")
+  cscId              String?             @map("csc_id")
+  cscToken           String?             @map("csc_token")
+  focusCompanyId     String?             @map("focus_company_id")
+  focusSyncStatus    String?             @map("focus_sync_status")
+  focusSyncMessage   String?             @map("focus_sync_message")
+  focusSyncedAt      DateTime?           @map("focus_synced_at")
   companyData        Json?               @map("company_data")
   settings           Json?
   nfeBalance         Decimal             @default(0) @map("nfe_balance") @db.Decimal(10, 2)
@@ -343,6 +363,7 @@ model Company {
   serviceOrders      ServiceOrder[]
   stockEntries       StockEntry[]
   tables             Table[]
+  xmlDownloadLogs    AccountantXmlDownloadLog[]
   users              User[]
 
   @@map("companies")
@@ -356,7 +377,7 @@ model User {
   cpf               String?   @unique
   birthDate         DateTime? @map("birth_date") @db.Date
   commissionRate    Decimal   @default(0.00) @map("commission_rate") @db.Decimal(5, 2)
-  role              UserRole  @default(ATTENDANT)
+  role              UserRole  @default(FUNCIONARIO)
   password          String
   resetToken        String?   @map("reset_token")
   resetTokenExpires DateTime? @map("reset_token_expires")
@@ -364,6 +385,7 @@ model User {
   company           Company   @relation(fields: [companyId], references: [id])
   sales             Sale[]    @relation("SellerSales")
   salaryAdvances    SalaryAdvance[] @relation("EmployeeSalaryAdvances")
+  xmlDownloadLogs   AccountantXmlDownloadLog[]
 
   @@index([companyId], map: "idx_users_company_id")
   @@map("users")
@@ -382,6 +404,25 @@ model NfeLog {
   @@index([companyId, createdAt], map: "idx_nfe_logs_company_created_at")
   @@index([saleId], map: "idx_nfe_logs_sale_id")
   @@map("nfe_logs")
+}
+
+model AccountantXmlDownloadLog {
+  id                String    @id @default(cuid())
+  companyId         String    @map("company_id")
+  requestedByUserId String?   @map("requested_by_user_id")
+  requestedByName   String?   @map("requested_by_name")
+  requestedByEmail  String?   @map("requested_by_email")
+  year              Int
+  month             Int
+  xmlZipUrl         String?   @map("xml_zip_url")
+  backupReference   String?   @map("backup_reference")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  company           Company   @relation(fields: [companyId], references: [id])
+  requestedBy       User?     @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt], map: "idx_accountant_xml_logs_company_created_at")
+  @@map("accountant_xml_download_logs")
 }
 
 model NfeWalletRecharge {
@@ -568,6 +609,15 @@ enum VehicleCondition {
   SEMINOVO
 }
 
+enum CompanyTaxRegime {
+  SIMPLES_NACIONAL
+  SIMPLES_EXCESSO_SUBLIMITE
+  REGIME_NORMAL
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+}
+
 enum TableStatus {
   DISPONIVEL
   OCUPADO
@@ -645,6 +695,8 @@ enum ExpensePaymentMethod {
 
 enum UserRole {
   ADMIN
+  FUNCIONARIO
+  CONTADOR
   ATTENDANT
 }
 

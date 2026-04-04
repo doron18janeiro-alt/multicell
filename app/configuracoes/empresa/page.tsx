@@ -11,6 +11,10 @@ export default async function CompanySettingsPage() {
     redirect("/login");
   }
 
+  if (currentUser.role === "CONTADOR") {
+    redirect("/configuracoes/contador?access=restricted");
+  }
+
   if (!isAdminUser(currentUser)) {
     redirect("/dashboard");
   }

@@ -17,6 +17,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
+import { getRoleLabel } from "@/lib/roles";
 
 interface CompanyConfig {
   debitRate: number;
@@ -33,17 +34,25 @@ interface TeamMember {
   email: string;
   cpf: string | null;
   birthDate: string | null;
-  role: "ATTENDANT";
+  role: "FUNCIONARIO" | "CONTADOR";
   commissionRate: number;
 }
 
-const createEmptyTeamForm = () => ({
+const createEmptyTeamForm = (): {
+  fullName: string;
+  email: string;
+  password: string;
+  cpf: string;
+  birthDate: string;
+  role: "FUNCIONARIO" | "CONTADOR";
+  commissionRate: string;
+} => ({
   fullName: "",
   email: "",
   password: "",
   cpf: "",
   birthDate: "",
-  role: "ATTENDANT" as const,
+  role: "FUNCIONARIO",
   commissionRate: "0.00",
 });
 
@@ -279,7 +288,7 @@ export default function Configuracoes() {
       birthDate: member.birthDate
         ? new Date(member.birthDate).toISOString().slice(0, 10)
         : "",
-      role: "ATTENDANT",
+      role: member.role,
       commissionRate: member.commissionRate.toFixed(2),
     });
   };
@@ -577,7 +586,7 @@ export default function Configuracoes() {
                 Gerenciar Equipe
               </h2>
               <p className="text-sm text-slate-400 mt-1">
-                Cadastre atendentes com acesso restrito ao atendimento.
+                Cadastre funcionarios e contadores com niveis de acesso distintos.
               </p>
             </div>
             <span className="text-xs text-slate-500">
@@ -599,7 +608,7 @@ export default function Configuracoes() {
                       setTeamForm({ ...teamForm, fullName: e.target.value })
                     }
                     className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
-                    placeholder="Nome do atendente"
+                    placeholder="Nome do colaborador"
                     required
                   />
                 </div>
@@ -683,12 +692,13 @@ export default function Configuracoes() {
                     onChange={(e) =>
                       setTeamForm({
                         ...teamForm,
-                        role: e.target.value as "ATTENDANT",
+                        role: e.target.value as "FUNCIONARIO" | "CONTADOR",
                       })
                     }
                     className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-[#D4AF37] outline-none"
                   >
-                    <option value="ATTENDANT">Atendente</option>
+                    <option value="FUNCIONARIO">Funcionario</option>
+                    <option value="CONTADOR">Contador</option>
                   </select>
                 </div>
 
@@ -727,8 +737,8 @@ export default function Configuracoes() {
                       ? "Salvando..."
                       : "Cadastrando..."
                     : editingMemberId
-                      ? "Salvar Alterações"
-                      : "Cadastrar Funcionário"}
+                      ? "Salvar Alteracoes"
+                      : "Cadastrar Colaborador"}
                 </button>
 
                 {editingMemberId && (
@@ -745,7 +755,7 @@ export default function Configuracoes() {
 
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-white">
-                Funcionários Cadastrados
+                Colaboradores Cadastrados
               </h3>
 
               {teamLoading ? (
@@ -754,7 +764,7 @@ export default function Configuracoes() {
                 </div>
               ) : teamMembers.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-700 bg-[#0B1120] p-6 text-center text-slate-400">
-                  Nenhum atendente cadastrado.
+                  Nenhum colaborador cadastrado.
                 </div>
               ) : (
                 teamMembers.map((member) => (
@@ -775,9 +785,14 @@ export default function Configuracoes() {
                             )
                           : "--"}
                       </p>
-                      <p className="text-xs text-[#D4AF37] mt-1 font-semibold">
-                        Comissão: {member.commissionRate.toFixed(2)}%
+                      <p className="text-xs text-cyan-300 mt-1 font-semibold">
+                        Cargo: {getRoleLabel(member.role)}
                       </p>
+                      {member.role !== "CONTADOR" ? (
+                        <p className="text-xs text-[#D4AF37] mt-1 font-semibold">
+                          Comissão: {member.commissionRate.toFixed(2)}%
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="flex gap-2">

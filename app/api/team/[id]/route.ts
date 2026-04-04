@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { isValidCpf, sanitizeCpf } from "@/lib/cpf";
+import { normalizeUserRole } from "@/lib/roles";
 
 const serializeUser = (user: {
   id: string;
@@ -11,7 +12,7 @@ const serializeUser = (user: {
   email: string;
   cpf: string | null;
   birthDate: Date | null;
-  role: "ADMIN" | "ATTENDANT";
+  role: "ADMIN" | "FUNCIONARIO" | "CONTADOR" | "ATTENDANT";
   commissionRate: { toString(): string } | number;
 }) => ({
   id: user.id,
@@ -19,7 +20,7 @@ const serializeUser = (user: {
   email: user.email,
   cpf: user.cpf,
   birthDate: user.birthDate?.toISOString() ?? null,
-  role: user.role,
+  role: normalizeUserRole(user.role) || "FUNCIONARIO",
   commissionRate: Number(user.commissionRate || 0),
 });
 
@@ -49,9 +50,11 @@ export async function PATCH(
     const cpf = sanitizeCpf(String(body.cpf || ""));
     const birthDateRaw = String(body.birthDate || "");
     const commissionRate = Number(body.commissionRate ?? 0);
-    const role = String(body.role || "ATTENDANT")
+    const role = normalizeUserRole(
+      String(body.role || "FUNCIONARIO")
       .trim()
-      .toUpperCase();
+      .toUpperCase() as "ADMIN" | "FUNCIONARIO" | "CONTADOR" | "ATTENDANT",
+    );
 
     if (!fullName || fullName.length < 3) {
       return NextResponse.json(
@@ -83,9 +86,9 @@ export async function PATCH(
       );
     }
 
-    if (role !== "ATTENDANT") {
+    if (role !== "FUNCIONARIO" && role !== "CONTADOR") {
       return NextResponse.json(
-        { error: "Somente atendentes podem ser editados aqui." },
+        { error: "Somente funcionarios e contadores podem ser editados aqui." },
         { status: 400 },
       );
     }
@@ -119,9 +122,9 @@ export async function PATCH(
       );
     }
 
-    if (targetUser.role !== "ATTENDANT") {
+    if (targetUser.role === "ADMIN") {
       return NextResponse.json(
-        { error: "Somente atendentes podem ser editados." },
+        { error: "O usuario selecionado nao pode ser editado aqui." },
         { status: 400 },
       );
     }
@@ -166,6 +169,7 @@ export async function PATCH(
         cpf,
         birthDate,
         commissionRate,
+        role,
         ...(password.length >= 6
           ? { password: await bcrypt.hash(password, 10) }
           : {}),
@@ -234,9 +238,9 @@ export async function DELETE(
       );
     }
 
-    if (targetUser.role !== "ATTENDANT") {
+    if (targetUser.role === "ADMIN") {
       return NextResponse.json(
-        { error: "Somente atendentes podem ser excluidos." },
+        { error: "O usuario selecionado nao pode ser excluido aqui." },
         { status: 400 },
       );
     }

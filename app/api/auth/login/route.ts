@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       companyId,
       segment: user.company?.segment || null,
       isDeveloper: sessionSnapshot.isDeveloper,
-      nextPath: "/dashboard",
+      nextPath: user.role === "CONTADOR" ? "/configuracoes/contador" : "/dashboard",
     });
   } catch (error) {
     console.error("Erro no login:", error);

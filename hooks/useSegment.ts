@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { normalizeUserRole, type LegacyCompatibleRole } from "@/lib/roles";
 
 export type CompanySegment =
   | "TECH"
@@ -20,7 +21,7 @@ type SessionSegmentSnapshot = {
   id?: string;
   email?: string;
   companyId?: string;
-  role?: "ADMIN" | "ATTENDANT";
+  role?: LegacyCompatibleRole;
   fullName?: string | null;
   companyName?: string | null;
   segment?: CompanySegment | null;
@@ -96,6 +97,7 @@ const normalizeSessionSnapshot = (
   return {
     ...payload,
     segment: normalizeSegment(payload.segment),
+    role: normalizeUserRole(payload.role),
     isDeveloper: Boolean(payload.isDeveloper),
   };
 };

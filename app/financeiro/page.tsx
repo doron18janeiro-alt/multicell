@@ -61,7 +61,7 @@ type EmployeeOption = {
   id: string;
   fullName: string;
   cpf: string | null;
-  role: "ADMIN" | "ATTENDANT";
+  role: "ADMIN" | "FUNCIONARIO" | "CONTADOR" | "ATTENDANT";
 };
 
 type ExpensesSummary = {

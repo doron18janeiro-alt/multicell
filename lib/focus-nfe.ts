@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { strToU8, unzipSync, zipSync } from "fflate";
 import { NFE_EMISSION_COST } from "@/lib/nfe-wallet";
 
 const FOCUS_NFE_TOKEN = process.env.FOCUS_NFE_TOKEN || "";
@@ -75,6 +76,47 @@ export type FocusReceivedNfeSummary = {
   payload: unknown;
 };
 
+export type FocusCompanySyncInput = {
+  companyId: string;
+  cnpj: string | null;
+  name: string;
+  legalName?: string | null;
+  stateRegistration?: string | null;
+  municipalRegistration?: string | null;
+  taxRegime?: string | null;
+  addressStreet?: string | null;
+  addressNumber?: string | null;
+  addressComplement?: string | null;
+  addressDistrict?: string | null;
+  addressCity?: string | null;
+  addressState?: string | null;
+  zipCode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  certificateFileBase64?: string | null;
+  certificatePassword?: string | null;
+  cscId?: string | null;
+  cscToken?: string | null;
+};
+
+export type FocusCompanySyncResult = {
+  id: string;
+  operation: "created" | "updated";
+  tokenProducao: string | null;
+  tokenHomologacao: string | null;
+  payload: unknown;
+};
+
+type FocusCompanyRecord = {
+  id?: string | number | null;
+  nome?: string | null;
+  nome_fantasia?: string | null;
+  cnpj?: string | null;
+  token_producao?: string | null;
+  token_homologacao?: string | null;
+  [key: string]: unknown;
+};
+
 export class FocusNfeError extends Error {
   code: string;
   status: number;
@@ -120,6 +162,32 @@ const toQuantity = (value: number) => Number(value || 0).toFixed(4);
 
 const buildAuthHeader = (token: string) =>
   `Basic ${Buffer.from(`${token}:`).toString("base64")}`;
+
+const normalizeFocusTaxRegimeCode = (value: string | null | undefined) => {
+  const normalized = getString(value);
+
+  if (!normalized) {
+    return "1";
+  }
+
+  if (normalized === "1" || normalized === "2" || normalized === "3") {
+    return normalized;
+  }
+
+  if (normalized === "SIMPLES_EXCESSO_SUBLIMITE") {
+    return "2";
+  }
+
+  if (
+    normalized === "REGIME_NORMAL" ||
+    normalized === "LUCRO_PRESUMIDO" ||
+    normalized === "LUCRO_REAL"
+  ) {
+    return "3";
+  }
+
+  return "1";
+};
 
 const getFocusSettings = (companyData: unknown): FocusNfeSettings => {
   const root = getObject(companyData);
@@ -619,4 +687,408 @@ export async function registerSuccessfulNfeEmission(
   });
 
   return Number(company?.nfeBalance || 0);
+}
+
+const getFocusCompanyManagementUrl = () => `${FOCUS_NFE_PRODUCTION_URL}/v2/empresas`;
+
+const buildFocusCompanyPayload = (input: FocusCompanySyncInput) => {
+  const regimeTributario = normalizeFocusTaxRegimeCode(input.taxRegime);
+
+  return {
+    nome: getString(input.legalName || input.name),
+    nome_fantasia: getString(input.name),
+    cnpj: requireField(getDigits(input.cnpj), "CNPJ da empresa"),
+    inscricao_estadual: getString(input.stateRegistration),
+    inscricao_municipal: getString(input.municipalRegistration),
+    logradouro: requireField(getString(input.addressStreet), "Logradouro"),
+    numero: requireField(getString(input.addressNumber), "Numero"),
+    complemento: getString(input.addressComplement),
+    bairro: requireField(getString(input.addressDistrict), "Bairro"),
+    municipio: requireField(getString(input.addressCity), "Municipio"),
+    uf: requireField(getString(input.addressState), "UF"),
+    cep: requireField(getDigits(input.zipCode), "CEP"),
+    telefone: getDigits(input.phone) || null,
+    email: getString(input.email),
+    regime_tributario: regimeTributario,
+    habilita_nfe: true,
+    habilita_nfce: true,
+    habilita_manifestacao: true,
+    ...(getString(input.certificateFileBase64)
+      ? {
+          arquivo_certificado_base64: getString(input.certificateFileBase64),
+          senha_certificado: requireField(
+            getString(input.certificatePassword),
+            "Senha do Certificado",
+          ),
+        }
+      : {}),
+    ...(getString(input.cscToken)
+      ? {
+          csc_nfce_producao: getString(input.cscToken),
+          csc_nfce_homologacao: getString(input.cscToken),
+        }
+      : {}),
+    ...(getString(input.cscId)
+      ? {
+          id_token_nfce_producao: getString(input.cscId),
+          id_token_nfce_homologacao: getString(input.cscId),
+        }
+      : {}),
+  };
+};
+
+const parseFocusCompanyRecord = (value: unknown): FocusCompanyRecord | null => {
+  const parsed = getObject(value);
+  return parsed ? (parsed as FocusCompanyRecord) : null;
+};
+
+const extractFocusCompanyId = (value: unknown) => {
+  const record = parseFocusCompanyRecord(value);
+  const rawId = record?.id;
+  return rawId === undefined || rawId === null ? null : String(rawId);
+};
+
+const fetchFocusCompaniesByCnpj = async (cnpj: string) => {
+  const response = await fetch(
+    `${getFocusCompanyManagementUrl()}?cnpj=${encodeURIComponent(cnpj)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const responseText = await response.text();
+  const payload = safeParseJson(responseText);
+
+  if (!response.ok) {
+    throw new FocusNfeError(
+      extractErrorMessage(payload, "Nao foi possivel consultar empresas na Focus."),
+      {
+        code: "FOCUS_COMPANY_LOOKUP_FAILED",
+        status: response.status,
+        details: payload,
+      },
+    );
+  }
+
+  return Array.isArray(payload)
+    ? payload.map(parseFocusCompanyRecord).filter(Boolean) as FocusCompanyRecord[]
+    : [];
+};
+
+export async function syncCompanyWithFocus(
+  input: FocusCompanySyncInput,
+): Promise<FocusCompanySyncResult> {
+  if (!FOCUS_NFE_TOKEN) {
+    throw new FocusNfeError(
+      "FOCUS_NFE_TOKEN nao configurado no ambiente. Defina a credencial antes de sincronizar a empresa.",
+      {
+        code: "FOCUS_NFE_TOKEN_MISSING",
+        status: 503,
+      },
+    );
+  }
+
+  const cnpj = requireField(getDigits(input.cnpj), "CNPJ da empresa");
+  const existingCompanies = await fetchFocusCompaniesByCnpj(cnpj);
+  const existingCompany = existingCompanies[0] || null;
+  const existingCompanyId = extractFocusCompanyId(existingCompany);
+  const method = existingCompanyId ? "PUT" : "POST";
+  const url = existingCompanyId
+    ? `${getFocusCompanyManagementUrl()}/${encodeURIComponent(existingCompanyId)}`
+    : getFocusCompanyManagementUrl();
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(buildFocusCompanyPayload(input)),
+    cache: "no-store",
+  });
+
+  const responseText = await response.text();
+  const payload = safeParseJson(responseText);
+
+  if (!response.ok) {
+    throw new FocusNfeError(
+      extractErrorMessage(
+        payload,
+        "Nao foi possivel sincronizar os dados fiscais com a Focus.",
+      ),
+      {
+        code: "FOCUS_COMPANY_SYNC_FAILED",
+        status: response.status,
+        details: payload,
+      },
+    );
+  }
+
+  const syncedCompany = parseFocusCompanyRecord(payload) || existingCompany || {};
+  const syncedCompanyId = extractFocusCompanyId(syncedCompany);
+
+  if (!syncedCompanyId) {
+    throw new FocusNfeError(
+      "A Focus respondeu sem o identificador da empresa sincronizada.",
+      {
+        code: "FOCUS_COMPANY_ID_MISSING",
+        status: 502,
+        details: payload,
+      },
+    );
+  }
+
+  return {
+    id: syncedCompanyId,
+    operation: existingCompanyId ? "updated" : "created",
+    tokenProducao: getString(syncedCompany.token_producao),
+    tokenHomologacao: getString(syncedCompany.token_homologacao),
+    payload,
+  };
+}
+
+type FocusBackupEntry = {
+  mes?: string | null;
+  xmls?: string | null;
+  [key: string]: unknown;
+};
+
+const parseFocusBackupEntry = (value: unknown): FocusBackupEntry | null => {
+  const parsed = getObject(value);
+  return parsed ? (parsed as FocusBackupEntry) : null;
+};
+
+const resolveFullFocusAssetUrl = (path: string | null | undefined) => {
+  if (!path) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  return new URL(path, FOCUS_NFE_PRODUCTION_URL).toString();
+};
+
+const resolveMonthlyKey = (year: number, month: number) =>
+  `${String(year).padStart(4, "0")}${String(month).padStart(2, "0")}`;
+
+const sanitizeZipEntryName = (value: string) =>
+  value.replace(/[^a-zA-Z0-9._/-]+/g, "_").replace(/^\/+/, "");
+
+const extractBinaryBody = async (response: Response) =>
+  new Uint8Array(await response.arrayBuffer());
+
+const downloadReceivedNfeSummaries = async (cnpj: string) => {
+  const response = await fetch(
+    `${FOCUS_NFE_PRODUCTION_URL}/v2/nfes_recebidas?cnpj=${encodeURIComponent(cnpj)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const responseText = await response.text();
+  const payload = safeParseJson(responseText);
+
+  if (!response.ok) {
+    throw new FocusNfeError(
+      extractErrorMessage(
+        payload,
+        "Nao foi possivel listar as NFe recebidas na Focus.",
+      ),
+      {
+        code: "FOCUS_RECEIVED_NFE_LIST_FAILED",
+        status: response.status,
+        details: payload,
+      },
+    );
+  }
+
+  return Array.isArray(payload)
+    ? payload.map((item) => getObject(item)).filter(Boolean) as JsonRecord[]
+    : [];
+};
+
+const resolveReceivedNfeAccessKey = (item: JsonRecord) =>
+  getString(
+    item.chave ||
+      item.chave_nfe ||
+      item.access_key ||
+      item.chave_acesso,
+  );
+
+const resolveReceivedNfeDate = (item: JsonRecord) => {
+  const rawDate = getString(
+    item.data_emissao ||
+      item.data_autorizacao ||
+      item.data_recebimento ||
+      item.updated_at,
+  );
+
+  if (!rawDate) {
+    return null;
+  }
+
+  const parsedDate = new Date(rawDate);
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
+
+export async function downloadMonthlyFocusXmlArchive(input: {
+  cnpj: string | null;
+  year: number;
+  month: number;
+}) {
+  if (!FOCUS_NFE_TOKEN) {
+    throw new FocusNfeError(
+      "FOCUS_NFE_TOKEN nao configurado no ambiente. Defina a credencial antes de baixar XMLs.",
+      {
+        code: "FOCUS_NFE_TOKEN_MISSING",
+        status: 503,
+      },
+    );
+  }
+
+  const cnpj = requireField(getDigits(input.cnpj), "CNPJ da empresa");
+  const backupResponse = await fetch(
+    `${FOCUS_NFE_PRODUCTION_URL}/v2/backups/${encodeURIComponent(cnpj)}.json`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const backupResponseText = await backupResponse.text();
+  const backupPayload = safeParseJson(backupResponseText);
+
+  if (!backupResponse.ok) {
+    throw new FocusNfeError(
+      extractErrorMessage(
+        backupPayload,
+        "Nao foi possivel consultar os backups mensais da Focus.",
+      ),
+      {
+        code: "FOCUS_BACKUP_LOOKUP_FAILED",
+        status: backupResponse.status,
+        details: backupPayload,
+      },
+    );
+  }
+
+  const targetMonthKey = resolveMonthlyKey(input.year, input.month);
+  const backups = Array.isArray(getObject(backupPayload)?.backups)
+    ? ((getObject(backupPayload)?.backups as unknown[])
+        .map(parseFocusBackupEntry)
+        .filter(Boolean) as FocusBackupEntry[])
+    : [];
+  const monthBackup =
+    backups.find((backup) => getString(backup.mes) === targetMonthKey) || null;
+
+  if (!monthBackup?.xmls) {
+    throw new FocusNfeError(
+      "Nao existe backup de XML emitido para o mes selecionado na Focus.",
+      {
+        code: "FOCUS_BACKUP_MONTH_NOT_FOUND",
+        status: 404,
+      },
+    );
+  }
+
+  const emittedZipUrl = resolveFullFocusAssetUrl(getString(monthBackup.xmls));
+
+  if (!emittedZipUrl) {
+    throw new FocusNfeError(
+      "A Focus retornou um caminho invalido para o backup mensal de XMLs.",
+      {
+        code: "FOCUS_BACKUP_XML_URL_INVALID",
+        status: 502,
+      },
+    );
+  }
+
+  const emittedZipResponse = await fetch(emittedZipUrl, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  if (!emittedZipResponse.ok) {
+    throw new FocusNfeError(
+      "Nao foi possivel baixar o ZIP mensal de XMLs emitidos.",
+      {
+        code: "FOCUS_BACKUP_XML_DOWNLOAD_FAILED",
+        status: emittedZipResponse.status,
+      },
+    );
+  }
+
+  const emittedZipEntries = unzipSync(await extractBinaryBody(emittedZipResponse));
+  const zipEntries: Record<string, Uint8Array> = {};
+
+  Object.entries(emittedZipEntries).forEach(([name, content]) => {
+    zipEntries[`emitidas/${sanitizeZipEntryName(name)}`] = content;
+  });
+
+  const receivedNfes = await downloadReceivedNfeSummaries(cnpj);
+  const filteredReceivedNfes = receivedNfes.filter((item) => {
+    const itemDate = resolveReceivedNfeDate(item);
+    if (!itemDate) {
+      return false;
+    }
+
+    return (
+      itemDate.getUTCFullYear() === input.year &&
+      itemDate.getUTCMonth() + 1 === input.month
+    );
+  });
+
+  for (const item of filteredReceivedNfes) {
+    const accessKey = resolveReceivedNfeAccessKey(item);
+
+    if (!accessKey) {
+      continue;
+    }
+
+    try {
+      const xml = await baixarXmlNfeRecebidaPorChave({
+        accessKey,
+        certificateA1: "configured",
+      });
+      zipEntries[`recebidas/${sanitizeZipEntryName(`${accessKey}.xml`)}`] = strToU8(
+        xml,
+      );
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Falha ao baixar XML recebido";
+      zipEntries[
+        `recebidas/erros/${sanitizeZipEntryName(`${accessKey}.txt`)}`
+      ] = strToU8(errorMessage);
+    }
+  }
+
+  zipEntries["README.txt"] = strToU8(
+    [
+      `Arquivo consolidado automaticamente pelo World Tech Manager.`,
+      `Mes de referencia: ${targetMonthKey}`,
+      `Emitidas incluídas: ${Object.keys(emittedZipEntries).length}`,
+      `Recebidas incluídas: ${filteredReceivedNfes.length}`,
+    ].join("\n"),
+  );
+
+  return {
+    filename: `xmls-${cnpj}-${targetMonthKey}.zip`,
+    buffer: Buffer.from(zipSync(zipEntries)),
+    backupReference: targetMonthKey,
+    emittedZipUrl,
+    receivedCount: filteredReceivedNfes.length,
+  };
 }

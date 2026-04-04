@@ -9,6 +9,7 @@ import {
   Cpu,
   Fuel,
   Search,
+  FileText,
   LayoutDashboard,
   ShoppingCart,
   Wrench,
@@ -26,6 +27,11 @@ import {
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
+import {
+  getRoleLabel,
+  isAccountantRole,
+  isEmployeeRole,
+} from "@/lib/roles";
 import LogoHolografica from "./LogoHolografica";
 
 type SidebarProps = {
@@ -190,15 +196,23 @@ export default function Sidebar({
     { name: "Financeiro", icon: Wallet, path: "/financeiro" },
     { name: "Relatórios", icon: BarChart3, path: "/relatorios" },
     { name: "Minha Empresa", icon: Building2, path: "/configuracoes/empresa" },
+    ...(role === "ADMIN" || role === "CONTADOR"
+      ? [{ name: "Espaço do Contador", icon: FileText, path: "/configuracoes/contador" }]
+      : []),
     { name: "Configurações", icon: Settings, path: "/configuracoes" },
   ];
 
   const visibleMenuItems = menuItems.filter((item) => {
+    if (isAccountantRole(role)) {
+      return item.path === "/configuracoes/contador";
+    }
+
     if (
-      role === "ATTENDANT" &&
+      isEmployeeRole(role) &&
       (
         item.path === "/financeiro" ||
         item.path === "/configuracoes" ||
+        item.path === "/configuracoes/contador" ||
         item.path === "/configuracoes/empresa" ||
         item.path === "/relatorios"
       )
@@ -330,9 +344,7 @@ export default function Sidebar({
                 {fullName || "Usuário"}
               </p>
               <p className="truncate text-[10px] text-slate-400">
-                {role === "ATTENDANT"
-                  ? "Atendente"
-                  : "Administrador"}
+                {getRoleLabel(role)}
               </p>
             </div>
             <button

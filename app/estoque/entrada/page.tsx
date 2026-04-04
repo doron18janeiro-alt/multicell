@@ -277,7 +277,7 @@ export default function EstoqueEntradaPage() {
     }
   };
 
-  if (isReady && role === "ATTENDANT") {
+  if (isReady && role === "FUNCIONARIO") {
     return (
       <div className="min-h-full bg-[#0B1120] px-6 py-10 text-slate-100">
         <div className="mx-auto max-w-3xl rounded-[28px] border border-amber-400/20 bg-[#112240]/85 p-8 shadow-2xl">

@@ -1,35 +1,17 @@
 import { NextResponse } from "next/server";
-import {
-  createAuthSessionSnapshot,
-  getCurrentUser,
-  isAdminUser,
-  setAuthSession,
-} from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { ensureCompanyProfile, updateCompanyProfile } from "@/lib/company";
 import { syncCompanyWithFocus } from "@/lib/focus-nfe";
+import { prisma } from "@/lib/prisma";
 
-const getRecentNfeLogs = async (companyId: string) => {
-  const logs = await prisma.nfeLog.findMany({
-    where: { companyId },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-  });
-
-  return logs.map((log) => ({
-    id: log.id,
-    saleId: log.saleId,
-    documentNumber: log.documentNumber,
-    amount: Number(log.amount),
-    createdAt: log.createdAt.toISOString(),
-  }));
-};
+const canAccessFiscalPortal = (role: string | null | undefined) =>
+  role === "ADMIN" || role === "CONTADOR";
 
 const getRecentXmlDownloadLogs = async (companyId: string) => {
   const logs = await prisma.accountantXmlDownloadLog.findMany({
     where: { companyId },
     orderBy: { createdAt: "desc" },
-    take: 5,
+    take: 10,
   });
 
   return logs.map((log) => ({
@@ -48,42 +30,47 @@ const getRecentXmlDownloadLogs = async (companyId: string) => {
 export async function GET() {
   try {
     const currentUser = await getCurrentUser();
+
     if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!canAccessFiscalPortal(currentUser.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const profile = await ensureCompanyProfile(currentUser.companyId);
-    const nfeLogs = await getRecentNfeLogs(currentUser.companyId);
     const xmlDownloadLogs = await getRecentXmlDownloadLogs(currentUser.companyId);
+
     return NextResponse.json({
       ...profile,
-      nfeLogs,
       xmlDownloadLogs,
     });
   } catch (error) {
-    console.error("[api/config][GET] Error:", error);
+    console.error("[api/config/contador][GET] Error:", error);
     return NextResponse.json(
-      { error: "Error fetching configuration" },
+      { error: "Erro ao carregar o portal fiscal." },
       { status: 500 },
     );
   }
 }
 
-export async function PUT(req: Request) {
+export async function PUT(request: Request) {
   try {
     const currentUser = await getCurrentUser();
+
     if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isAdminUser(currentUser)) {
+    if (!canAccessFiscalPortal(currentUser.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const data = await req.json();
-    let profile = await updateCompanyProfile(currentUser.companyId, data);
+    const body = await request.json();
+    let profile = await updateCompanyProfile(currentUser.companyId, body);
 
-    if (data.syncWithFocus) {
+    if (body.syncWithFocus) {
       try {
         const syncResult = await syncCompanyWithFocus({
           companyId: currentUser.companyId,
@@ -121,7 +108,7 @@ export async function PUT(req: Request) {
         const message =
           error instanceof Error
             ? error.message
-            : "Nao foi possivel sincronizar os dados fiscais com a Focus.";
+            : "Nao foi possivel sincronizar com a Focus.";
 
         profile = await updateCompanyProfile(currentUser.companyId, {
           focusSyncStatus: "error",
@@ -147,32 +134,16 @@ export async function PUT(req: Request) {
       }
     }
 
-    const nfeLogs = await getRecentNfeLogs(currentUser.companyId);
     const xmlDownloadLogs = await getRecentXmlDownloadLogs(currentUser.companyId);
-    await setAuthSession(
-      createAuthSessionSnapshot({
-        id: currentUser.id,
-        email: currentUser.email,
-        companyId: currentUser.companyId,
-        role: currentUser.role,
-        fullName: currentUser.fullName,
-        companyName: profile.name,
-        segment: profile.segment,
-        cpf: currentUser.cpf,
-        birthDate: currentUser.birthDate?.toISOString() ?? null,
-        isDeveloper: currentUser.isDeveloper,
-      }),
-    );
 
     return NextResponse.json({
       ...profile,
-      nfeLogs,
       xmlDownloadLogs,
     });
   } catch (error) {
-    console.error("[api/config][PUT] Error:", error);
+    console.error("[api/config/contador][PUT] Error:", error);
     return NextResponse.json(
-      { error: "Error updating configuration" },
+      { error: "Erro ao salvar configuracoes fiscais." },
       { status: 500 },
     );
   }

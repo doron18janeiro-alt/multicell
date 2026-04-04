@@ -110,7 +110,8 @@ export async function POST(request: Request) {
 
     if (
       currentUser.role !== "ADMIN" &&
-      currentUser.role !== "ATTENDANT"
+      currentUser.role !== "ATTENDANT" &&
+      currentUser.role !== "FUNCIONARIO"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

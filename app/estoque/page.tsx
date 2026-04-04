@@ -867,7 +867,7 @@ export default function Estoque() {
   return (
     <div className="min-h-full w-full bg-[#0B1120] text-slate-100">
       <main className="mx-auto w-full max-w-7xl">
-        {userRole === "ATTENDANT" && (
+        {userRole === "FUNCIONARIO" && (
           <div className="mb-6 rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-100">
             Cadastro liberado. Atendentes podem adicionar produtos, mas edição,
             exclusão e remessas continuam restritas ao administrador.
@@ -894,7 +894,7 @@ export default function Estoque() {
               <Download className="w-5 h-5" />
               Exportar
             </button>
-            {userRole !== "ATTENDANT" && (
+            {userRole !== "FUNCIONARIO" && (
               <>
                 <button
                   onClick={() => setShowSupplierForm(true)}
@@ -1150,7 +1150,7 @@ export default function Estoque() {
                               </button>
                             ) : null}
 
-                            {userRole !== "ATTENDANT" ? (
+                            {userRole !== "FUNCIONARIO" ? (
                               <>
                                 {!isVehicleItem ? (
                                   <button

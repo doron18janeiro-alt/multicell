@@ -26,7 +26,7 @@ const OPERATIONAL_PATHS = [
   "/consulta",
 ] as const;
 
-const ATTENDANT_ALLOWED_PATHS = [
+const EMPLOYEE_ALLOWED_PATHS = [
   "/dashboard",
   "/os",
   "/vendas",
@@ -34,6 +34,8 @@ const ATTENDANT_ALLOWED_PATHS = [
   "/clientes",
   "/consulta",
 ] as const;
+
+const ACCOUNTANT_ALLOWED_PATHS = ["/configuracoes/contador"] as const;
 
 const matchesPath = (pathname: string, route: string) =>
   pathname === route || pathname.startsWith(`${route}/`);
@@ -85,12 +87,23 @@ export async function proxy(request: NextRequest) {
       sessionAuthorized =
         !isOperationalPath ||
         role === "ADMIN" ||
-        (role === "ATTENDANT" &&
-          ATTENDANT_ALLOWED_PATHS.some((route) => matchesPath(pathname, route)));
+        ((role === "ATTENDANT" || role === "FUNCIONARIO") &&
+          EMPLOYEE_ALLOWED_PATHS.some((route) => matchesPath(pathname, route))) ||
+        (role === "CONTADOR" &&
+          ACCOUNTANT_ALLOWED_PATHS.some((route) => matchesPath(pathname, route)));
 
       console.log("[Auth Proxy] Check:", role, pathname, sessionAuthorized);
 
       if (!sessionAuthorized) {
+        if (role === "CONTADOR") {
+          return NextResponse.redirect(
+            new URL(
+              "/configuracoes/contador?access=restricted&message=Acesso%20restrito%20%C3%A0s%20ferramentas%20fiscais",
+              request.url,
+            ),
+          );
+        }
+
         return NextResponse.redirect(
           new URL("/dashboard?access=denied", request.url),
         );

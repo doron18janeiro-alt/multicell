@@ -6,6 +6,7 @@ import AdminStockRealtimeAlerts from "@/components/AdminStockRealtimeAlerts";
 import HeaderMobile from "@/components/HeaderMobile";
 import Sidebar from "@/components/Sidebar";
 import { useSegment } from "@/hooks/useSegment";
+import { isAccountantRole } from "@/lib/roles";
 
 export default function ClientLayout({
   children,
@@ -38,11 +39,13 @@ export default function ClientLayout({
   const isSetupPage = pathname === "/setup";
   const shouldResolveSegment =
     !isAuthPage && !isPublicStandalonePage && !isCheckoutPage;
-  const { isReady, isAuthenticated, hasSegment, isDeveloper, showOS } = useSegment({
+  const { isReady, isAuthenticated, hasSegment, isDeveloper, showOS, role } = useSegment({
     enabled: shouldResolveSegment,
   });
   const isDeveloperBypass = isDeveloper && !hasSegment;
   const isServicePath = pathname.startsWith("/os") || pathname.startsWith("/consulta");
+  const isAccountant = isAccountantRole(role);
+  const isAccountantPortalPath = pathname.startsWith("/configuracoes/contador");
 
   useEffect(() => {
     if (!shouldResolveSegment || !isReady) {
@@ -65,10 +68,17 @@ export default function ClientLayout({
       return;
     }
 
+    if (!isSetupPage && isAccountant && !isAccountantPortalPath) {
+      router.replace("/configuracoes/contador?access=restricted");
+      return;
+    }
+
     if (!isSetupPage && hasSegment && isServicePath && !showOS && !isDeveloperBypass) {
       router.replace("/dashboard");
     }
   }, [
+    isAccountant,
+    isAccountantPortalPath,
     hasSegment,
     isAuthenticated,
     isDeveloperBypass,
@@ -86,6 +96,7 @@ export default function ClientLayout({
     (!isReady ||
       !isAuthenticated ||
       (isSetupPage ? hasSegment : !hasSegment && !isDeveloperBypass) ||
+      (!isSetupPage && isAccountant && !isAccountantPortalPath) ||
       (!isSetupPage && hasSegment && isServicePath && !showOS && !isDeveloperBypass));
 
   if (shouldHoldContent) {

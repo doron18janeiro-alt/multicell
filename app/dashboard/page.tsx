@@ -21,6 +21,7 @@ import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
 import { PaymentMethodsChart } from "@/components/ReportsCharts";
 import { NfeWalletAlertBanner } from "@/components/NfeWalletAlertBanner";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { normalizeUserRole } from "@/lib/roles";
 import {
   getDailyProfit,
   getWeeklyEvolution,
@@ -141,7 +142,9 @@ function DashboardContent() {
   const [realtimeStatus, setRealtimeStatus] = useState<
     "connecting" | "active" | "inactive"
   >("connecting");
-  const [userRole, setUserRole] = useState<"ADMIN" | "ATTENDANT" | null>(null);
+  const [userRole, setUserRole] = useState<
+    "ADMIN" | "FUNCIONARIO" | "CONTADOR" | null
+  >(null);
   const [trialStatus, setTrialStatus] = useState<{
     subscriptionStatus: string;
     daysRemaining: number;
@@ -212,10 +215,10 @@ function DashboardContent() {
         const sessionData = sessionResponse.ok
           ? await sessionResponse.json()
           : null;
-        const role = sessionData?.role === "ATTENDANT" ? "ATTENDANT" : "ADMIN";
+        const role = normalizeUserRole(sessionData?.role) || "ADMIN";
         setUserRole(role);
 
-        if (role === "ATTENDANT") {
+        if (role === "FUNCIONARIO") {
           const [criticalData, totalItemsData, subscriptionResponse] =
             await Promise.all([
               getCriticalStockAlerts(),
@@ -422,7 +425,7 @@ function DashboardContent() {
       ? (expenseBreakdown.personal / totalPaidExpenses) * 100
       : 0;
   const isEmptyDashboard =
-    userRole === "ATTENDANT"
+    userRole === "FUNCIONARIO"
       ? totalItems === 0 && criticalAlerts.count === 0
       : totalItems === 0 &&
         criticalAlerts.count === 0 &&
@@ -538,7 +541,7 @@ function DashboardContent() {
               </Link>
             </div>
           </div>
-        ) : userRole === "ATTENDANT" ? (
+        ) : userRole === "FUNCIONARIO" ? (
           <>
             <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-cyan-100">
               <p className="text-sm font-semibold">
