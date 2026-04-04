@@ -63,6 +63,18 @@ type FocusNfeSettings = {
   nomeCredenciadora: string | null;
 };
 
+export type FocusReceivedNfeSummary = {
+  accessKey: string;
+  status: string | null;
+  manifestStatus: string | null;
+  documentNumber: string | null;
+  supplierName: string | null;
+  xmlPath: string | null;
+  danfePath: string | null;
+  xmlAvailable: boolean;
+  payload: unknown;
+};
+
 export class FocusNfeError extends Error {
   code: string;
   status: number;
@@ -188,6 +200,36 @@ const safeParseJson = (value: string) => {
     return value ? JSON.parse(value) : null;
   } catch {
     return null;
+  }
+};
+
+const getFocusBaseUrl = (companyData: unknown) => {
+  const settings = getFocusSettings(companyData);
+
+  return settings.ambiente === "homologacao"
+    ? FOCUS_NFE_HOMOLOGATION_URL
+    : FOCUS_NFE_PRODUCTION_URL;
+};
+
+const ensureFocusReceivedNoteAccess = (certificateA1?: string | null) => {
+  if (!FOCUS_NFE_TOKEN) {
+    throw new FocusNfeError(
+      "FOCUS_NFE_TOKEN nao configurado no ambiente. Defina a credencial antes de consultar notas recebidas.",
+      {
+        code: "FOCUS_NFE_TOKEN_MISSING",
+        status: 503,
+      },
+    );
+  }
+
+  if (!getString(certificateA1)) {
+    throw new FocusNfeError(
+      "Cadastre o Certificado A1 da empresa antes de consultar XMLs de entrada pela Focus NFe.",
+      {
+        code: "FOCUS_NFE_CERTIFICATE_REQUIRED",
+        status: 422,
+      },
+    );
   }
 };
 
@@ -419,6 +461,112 @@ export async function emitirNota(input: {
     xmlPath: getString(getObject(payload)?.caminho_xml_nota_fiscal),
     payload,
   };
+}
+
+export async function consultarNfeRecebidaPorChave(input: {
+  accessKey: string;
+  companyData?: unknown;
+  certificateA1?: string | null;
+}) {
+  ensureFocusReceivedNoteAccess(input.certificateA1);
+
+  const response = await fetch(
+    `${getFocusBaseUrl(input.companyData)}/v2/nfes_recebidas/${encodeURIComponent(input.accessKey)}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const responseText = await response.text();
+  const payload = safeParseJson(responseText);
+
+  if (!response.ok) {
+    throw new FocusNfeError(
+      extractErrorMessage(
+        payload,
+        "Nao foi possivel consultar a NF-e recebida na Focus.",
+      ),
+      {
+        code: "FOCUS_RECEIVED_NFE_LOOKUP_FAILED",
+        status: response.status,
+        details: payload,
+      },
+    );
+  }
+
+  const data = getObject(payload) || {};
+
+  return {
+    accessKey: input.accessKey,
+    status: getString(data.status),
+    manifestStatus: getString(
+      data.situacao_manifestacao ||
+        data.ultima_manifestacao ||
+        data.manifestacao,
+    ),
+    documentNumber: getString(data.numero),
+    supplierName: getString(data.nome_emitente || data.razao_social_emitente),
+    xmlPath: getString(data.caminho_xml_nota_fiscal || data.caminho_xml),
+    danfePath: getString(data.caminho_danfe),
+    xmlAvailable: Boolean(
+      getString(data.caminho_xml_nota_fiscal || data.caminho_xml),
+    ),
+    payload,
+  } satisfies FocusReceivedNfeSummary;
+}
+
+export async function baixarXmlNfeRecebidaPorChave(input: {
+  accessKey: string;
+  companyData?: unknown;
+  certificateA1?: string | null;
+}) {
+  ensureFocusReceivedNoteAccess(input.certificateA1);
+
+  const response = await fetch(
+    `${getFocusBaseUrl(input.companyData)}/v2/nfes_recebidas/${encodeURIComponent(input.accessKey)}.xml`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: buildAuthHeader(FOCUS_NFE_TOKEN),
+      },
+      cache: "no-store",
+    },
+  );
+
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    const payload = safeParseJson(responseText);
+
+    throw new FocusNfeError(
+      extractErrorMessage(
+        payload,
+        "Nao foi possivel baixar o XML da NF-e recebida na Focus.",
+      ),
+      {
+        code: "FOCUS_RECEIVED_NFE_XML_FAILED",
+        status: response.status,
+        details: payload ?? responseText,
+      },
+    );
+  }
+
+  if (!responseText.includes("<")) {
+    throw new FocusNfeError(
+      "A Focus retornou uma resposta invalida ao baixar o XML da nota recebida.",
+      {
+        code: "FOCUS_RECEIVED_NFE_XML_INVALID",
+        status: 502,
+        details: responseText,
+      },
+    );
+  }
+
+  return responseText;
 }
 
 export async function registerSuccessfulNfeEmission(

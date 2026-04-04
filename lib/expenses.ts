@@ -4,6 +4,7 @@ export const EXPENSE_CATEGORIES = [
   "ENERGIA",
   "INTERNET",
   "ADIANTAMENTO_SALARIAL",
+  "COMPRA_ESTOQUE",
   "OUTROS",
 ] as const;
 
@@ -28,6 +29,7 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   ENERGIA: "Energia",
   INTERNET: "Internet",
   ADIANTAMENTO_SALARIAL: "Adiantamento Salarial",
+  COMPRA_ESTOQUE: "Compra de Estoque",
   OUTROS: "Outros",
 };
 

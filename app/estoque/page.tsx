@@ -9,6 +9,7 @@ import {
   Plus,
   Truck,
   Download,
+  Inbox,
   Pencil,
   Trash2,
   ScanBarcode,
@@ -879,6 +880,13 @@ export default function Estoque() {
             Gestão de Estoque
           </h1>
           <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => router.push("/estoque/entrada")}
+              className="bg-emerald-500/10 text-emerald-100 border border-emerald-400/30 px-4 py-2 rounded-lg font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-2"
+            >
+              <Inbox className="w-5 h-5" />
+              Nova Entrada (XML/Nota)
+            </button>
             <button
               onClick={handleExportCSV}
               className="bg-[#112240] text-white border border-slate-700 px-4 py-2 rounded-lg font-bold hover:bg-[#1e293b] transition-colors flex items-center gap-2"

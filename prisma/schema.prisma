@@ -32,6 +32,7 @@ model Product {
   id                      String         @id @default(cuid())
   name                    String
   barcode                 String?        @map("barcode")
+  ncm                     String?        @map("ncm")
   stock                   Int            @default(0)
   minStock                Int            @default(5) @map("min_stock")
   category                String
@@ -69,6 +70,7 @@ model Product {
   foodOrderItems          FoodOrderItem[]
   supplier                Supplier?      @relation(fields: [supplierId], references: [id])
   sales                   SaleItem[]
+  stockEntryItems         StockEntryItem[]
 
   @@unique([companyId, barcode])
   @@index([companyId], map: "idx_products_company_id")
@@ -339,6 +341,7 @@ model Company {
   salaryAdvances     SalaryAdvance[]
   sales              Sale[]
   serviceOrders      ServiceOrder[]
+  stockEntries       StockEntry[]
   tables             Table[]
   users              User[]
 
@@ -408,16 +411,78 @@ model Expense {
   type          ExpenseType           @default(SHOP)
   paymentMethod ExpensePaymentMethod? @map("payment_method")
   companyId     String                @default("multicell-oficial") @map("company_id")
+  stockEntryId  String?               @map("stock_entry_id")
   createdAt     DateTime              @default(now()) @map("created_at")
   company       Company               @relation(fields: [companyId], references: [id])
   salaryAdvance SalaryAdvance?
+  stockEntry    StockEntry?           @relation(fields: [stockEntryId], references: [id], onDelete: SetNull)
   updatedAt     DateTime              @updatedAt @map("updated_at")
 
   @@index([companyId], map: "idx_expenses_company_id")
   @@index([companyId, status, dueDate])
   @@index([companyId, paidAt])
   @@index([companyId, isRecurring, dueDate])
+  @@index([stockEntryId], map: "idx_expenses_stock_entry_id")
   @@map("expenses")
+}
+
+model StockEntry {
+  id               String              @id @default(cuid())
+  companyId        String              @map("company_id")
+  sourceType       StockEntrySourceType @map("source_type")
+  status           StockEntryStatus    @default(PROCESSED)
+  accessKey        String?             @map("access_key")
+  invoiceNumber    String?             @map("invoice_number")
+  series           String?
+  supplierName     String?             @map("supplier_name")
+  supplierDocument String?             @map("supplier_document")
+  issueDate        DateTime?           @map("issue_date")
+  entryDate        DateTime            @default(now()) @map("entry_date")
+  productsTotal    Decimal             @default(0) @map("products_total") @db.Decimal(10, 2)
+  freightAmount    Decimal             @default(0) @map("freight_amount") @db.Decimal(10, 2)
+  discountAmount   Decimal             @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalAmount      Decimal             @default(0) @map("total_amount") @db.Decimal(10, 2)
+  xmlContent       String?             @map("xml_content")
+  notes            String?
+  rawData          Json?               @map("raw_data")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  company          Company             @relation(fields: [companyId], references: [id])
+  expenses         Expense[]
+  items            StockEntryItem[]
+
+  @@unique([companyId, accessKey])
+  @@index([companyId, createdAt], map: "idx_stock_entries_company_created_at")
+  @@index([companyId, supplierDocument], map: "idx_stock_entries_company_supplier_document")
+  @@map("stock_entries")
+}
+
+model StockEntryItem {
+  id               String               @id @default(cuid())
+  stockEntryId     String               @map("stock_entry_id")
+  productId        String?              @map("product_id")
+  action           StockEntryItemAction @default(CREATE_NEW)
+  description      String
+  internalCode     String?              @map("internal_code")
+  barcode          String?
+  ncm              String?
+  cfop             String?
+  unit             String?
+  quantity         Decimal              @db.Decimal(12, 4)
+  unitCost         Decimal              @map("unit_cost") @db.Decimal(10, 2)
+  totalCost        Decimal              @map("total_cost") @db.Decimal(10, 2)
+  selectedCategory String?              @map("selected_category")
+  vehicleChassis   String?              @map("vehicle_chassis")
+  vehicleEngine    String?              @map("vehicle_engine")
+  vehicleYear      Int?                 @map("vehicle_year")
+  rawData          Json?                @map("raw_data")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  product          Product?             @relation(fields: [productId], references: [id], onDelete: SetNull)
+  stockEntry       StockEntry           @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
+
+  @@index([stockEntryId], map: "idx_stock_entry_items_entry_id")
+  @@index([productId], map: "idx_stock_entry_items_product_id")
+  @@map("stock_entry_items")
 }
 
 model SalaryAdvance {
@@ -541,7 +606,25 @@ enum ExpenseCategory {
   ENERGIA
   INTERNET
   ADIANTAMENTO_SALARIAL
+  COMPRA_ESTOQUE
   OUTROS
+}
+
+enum StockEntrySourceType {
+  XML_UPLOAD
+  ACCESS_KEY
+  DANFE_SCAN
+}
+
+enum StockEntryStatus {
+  PREVIEW
+  PROCESSED
+}
+
+enum StockEntryItemAction {
+  CREATE_NEW
+  UPDATE_EXISTING
+  IGNORED
 }
 
 enum ExpenseStatus {
