@@ -33,7 +33,7 @@ const defaultCompanyConfig: DocumentCompanyConfig = {
   document: null,
   address: null,
   phone: null,
-  logoUrl: "/wtm-badge.png",
+  logoUrl: "/wtm-float.png",
 };
 
 export default function OrderDetails() {

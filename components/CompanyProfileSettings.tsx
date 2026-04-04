@@ -38,7 +38,7 @@ type CompanyFormState = {
   nfeLogs: NfeLogEntry[];
 };
 
-const DEFAULT_LOGO = "/wtm-badge.png";
+const DEFAULT_LOGO = "/wtm-float.png";
 const MAX_LOGO_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 const formatCurrency = (value: number) =>
@@ -575,7 +575,7 @@ export function CompanyProfileSettings() {
             </p>
 
             <div className="mt-6 overflow-hidden rounded-[24px] border border-dashed border-slate-700 bg-[#0B1120] p-5">
-              <div className="flex min-h-[220px] items-center justify-center rounded-[20px] border border-slate-800 bg-white p-6">
+              <div className="flex min-h-[220px] items-center justify-center rounded-[20px] border border-slate-800 bg-[linear-gradient(135deg,#f8fafc_0%,#f8fafc_48%,#08111e_52%,#08111e_100%)] p-6">
                 <img
                   src={form.logoUrl || DEFAULT_LOGO}
                   alt={form.name || "Logo da empresa"}

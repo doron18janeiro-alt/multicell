@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   description: "World Tech Manager - Gestão Inteligente",
   manifest: "/manifest.json",
   icons: {
-    icon: "/wtm-badge.png",
-    shortcut: "/wtm-badge.png",
-    apple: "/wtm-badge.png",
+    icon: "/wtm-float.png",
+    shortcut: "/wtm-float.png",
+    apple: "/wtm-float.png",
   },
   appleWebApp: {
     capable: true,

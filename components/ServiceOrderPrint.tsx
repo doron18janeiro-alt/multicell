@@ -13,7 +13,7 @@ const defaultConfig: DocumentCompanyConfig = {
   document: null,
   address: null,
   phone: null,
-  logoUrl: "/wtm-badge.png",
+  logoUrl: "/wtm-float.png",
 };
 
 export const ServiceOrderPrint = React.forwardRef<

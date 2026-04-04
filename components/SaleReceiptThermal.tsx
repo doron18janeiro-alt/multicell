@@ -185,7 +185,7 @@ export const SaleReceiptThermal = React.forwardRef<
       });
   }, [termsUrl]);
 
-  const normalizedLogoUrl = config.logoUrl?.trim() || "/wtm-badge.png";
+  const normalizedLogoUrl = config.logoUrl?.trim() || "/wtm-float.png";
   const resolvedResponsibleName = normalizeText(
     sale?.seller?.fullName || sale?.seller?.name || responsibleName,
     "Responsavel nao informado",

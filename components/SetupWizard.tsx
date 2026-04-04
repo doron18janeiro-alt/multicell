@@ -1,7 +1,6 @@
 "use client";
 
 import { type ChangeEvent, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -25,7 +24,7 @@ import {
   resetSegmentSessionCache,
   type CompanySegment,
 } from "@/hooks/useSegment";
-import Logo3D from "./Logo3D";
+import LogoHolografica from "./LogoHolografica";
 
 type SetupWizardProps = {
   mode?: "public" | "private";
@@ -238,13 +237,7 @@ export function SetupWizard({
         animate={{ y: [0, -14, 0], scale: [1, 1.015, 1] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       >
-        <Image
-          src="/wtm-badge.png"
-          alt=""
-          width={720}
-          height={720}
-          className="h-auto w-full object-contain"
-        />
+        <LogoHolografica size={480} alt="" animate={false} />
       </motion.div>
 
       <div className="relative mx-auto max-w-6xl">
@@ -260,18 +253,7 @@ export function SetupWizard({
             </div>
           ) : null}
           <div className="mx-auto flex max-w-[360px] items-center justify-center">
-            <div className="relative">
-              <Logo3D size={280} className="mx-auto" animate={true} />
-            </div>
-          </div>
-          <div className="mt-4 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)]">
-              WORLD TECH
-            </p>
-            <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)] -mt-0.5">
-              MANAGER
-            </p>
-            <div className="mt-2 h-px w-20 mx-auto bg-gradient-to-r from-transparent via-[#FACC15]/70 to-transparent"></div>
+            <LogoHolografica size={280} showWordmark wordmarkSize="lg" priority />
           </div>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
             {isPublicMode
@@ -330,12 +312,9 @@ export function SetupWizard({
 
                   <div className="mt-8 flex justify-center">
                     <div className="rounded-[32px] border border-white/10 bg-[#040913]/70 p-4 shadow-[0_0_35px_rgba(250,204,21,0.08)]">
-                      <Image
-                        src="/wtm-badge.png"
+                      <LogoHolografica
+                        size={320}
                         alt="Selo oficial World Tech Manager"
-                        width={520}
-                        height={520}
-                        className="h-auto w-full max-w-[320px] object-contain"
                       />
                     </div>
                   </div>

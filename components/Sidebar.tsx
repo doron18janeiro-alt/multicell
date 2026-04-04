@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -26,7 +25,7 @@ import {
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
-import Logo3D from "./Logo3D";
+import LogoHolografica from "./LogoHolografica";
 
 type SidebarProps = {
   isMobileOpen: boolean;
@@ -188,18 +187,7 @@ export default function Sidebar({
 
   const SidebarBrand = () => (
     <div className="flex flex-col items-center text-center">
-      <div className="relative">
-        <Logo3D size={140} className="mx-auto" animate={true} />
-      </div>
-      <div className="mt-3 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.45em] text-[#FACC15] drop-shadow-[0_0_8px_rgba(250,204,21,0.3)]">
-          WORLD TECH
-        </p>
-        <p className="text-[11px] font-bold uppercase tracking-[0.45em] text-[#FACC15] drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] -mt-0.5">
-          MANAGER
-        </p>
-        <div className="mt-1 h-px w-16 mx-auto bg-gradient-to-r from-transparent via-[#FACC15]/60 to-transparent"></div>
-      </div>
+      <LogoHolografica size={136} showWordmark wordmarkSize="sm" />
     </div>
   );
 

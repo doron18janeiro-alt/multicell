@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { formatCpf, isValidCpf, sanitizeCpf } from "@/lib/cpf";
 import { resetSegmentSessionCache } from "@/hooks/useSegment";
+import LogoHolografica from "@/components/LogoHolografica";
 
 const SEGMENT_TITLES = {
   TECH: "Assistência Técnica",
@@ -137,7 +138,7 @@ function CadastroPageContent() {
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/wtm-badge.png"
+          src="/wtm-float.png"
           alt=""
           width={900}
           height={900}
@@ -158,18 +159,13 @@ function CadastroPageContent() {
           <div className="p-8 md:p-9">
             <div className="text-center mb-7">
               <div className="mb-4 flex justify-center">
-                <Image
-                  src="/wtm-badge.png"
-                  alt="World Tech Manager"
-                  width={92}
-                  height={92}
+                <LogoHolografica
+                  size={108}
+                  showWordmark
+                  wordmarkSize="sm"
                   priority
-                  className="h-[92px] w-auto drop-shadow-[0_0_14px_rgba(250,204,21,0.35)]"
                 />
               </div>
-              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-amber-300">
-                WORLD TECH MANAGER
-              </p>
               <h1 className="text-2xl font-black text-white tracking-wide">
                 CRIAR CONTA <span className="text-amber-300">WTM</span>
               </h1>

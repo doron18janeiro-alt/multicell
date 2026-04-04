@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         data: {
           id: companyId,
           name: "Sua Empresa Aqui",
-          logoUrl: "/logo-wtm.png",
+          logoUrl: "/wtm-float.png",
           segment,
           subscriptionStatus: initialSubscriptionStatus,
           trialEndsAt,

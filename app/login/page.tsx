@@ -18,6 +18,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { resetSegmentSessionCache } from "@/hooks/useSegment";
+import LogoHolografica from "@/components/LogoHolografica";
 
 const premiumPlans = [
   {
@@ -65,7 +66,7 @@ const FloatingLogoBackground = () => {
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/wtm-badge.png"
+          src="/wtm-float.png"
           alt=""
           width={800}
           height={800}
@@ -79,7 +80,7 @@ const FloatingLogoBackground = () => {
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
       >
         <Image
-          src="/wtm-badge.png"
+          src="/wtm-float.png"
           alt=""
           width={600}
           height={600}
@@ -149,37 +150,18 @@ export default function LoginPage() {
 
         {/* Floating Logo */}
         <motion.div
-          className="mb-8 flex flex-col items-center"
+          className="mb-10 flex flex-col items-center"
           initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <motion.div
-            className="relative mb-6"
-            animate={{ y: [0, -8, 0], scale: [1, 1.02, 1] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Image
-              src="/wtm-badge.png"
-              alt="World Tech Manager"
-              width={200}
-              height={200}
-              priority
-              className="h-auto w-full max-w-[200px] object-contain drop-shadow-[0_0_25px_rgba(250,204,21,0.4)]"
-              style={{
-                filter: 'drop-shadow(0 0 30px rgba(250, 204, 21, 0.6))',
-              }}
-            />
-          </motion.div>
-          <div className="text-center">
-            <h1 className="text-2xl font-bold tracking-wide text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)]">
-              WORLD TECH MANAGER
-            </h1>
-            <div className="mt-2 h-px w-32 mx-auto bg-gradient-to-r from-transparent via-[#FACC15]/70 to-transparent"></div>
-            <p className="mt-3 text-sm uppercase tracking-wider text-slate-400">
-              Acesso ao Ecossistema
-            </p>
-          </div>
+          <LogoHolografica
+            size={210}
+            showWordmark
+            wordmarkSize="lg"
+            subtitle="Acesso ao Ecossistema"
+            priority
+          />
         </motion.div>
 
         {/* Login Card */}

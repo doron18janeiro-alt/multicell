@@ -33,7 +33,7 @@ export const ServiceOrderThermalPrint = React.forwardRef<
     document: null,
     address: null,
     phone: null,
-    logoUrl: "/wtm-badge.png",
+    logoUrl: "/wtm-float.png",
   });
   const [responsibleName, setResponsibleName] = useState(
     "Responsavel nao informado",
@@ -78,7 +78,7 @@ export const ServiceOrderThermalPrint = React.forwardRef<
   }, []);
 
   const resolvedDocument = config.cnpj || config.document;
-  const resolvedLogoUrl = config.logoUrl?.trim() || "/wtm-badge.png";
+  const resolvedLogoUrl = config.logoUrl?.trim() || "/wtm-float.png";
   const autoChecklist = data.checklist?.auto;
   const isVehicleOrder = Boolean(autoChecklist?.plate);
   const assetLabel = isVehicleOrder ? "Veículo" : "Aparelho";

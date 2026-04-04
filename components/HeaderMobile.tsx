@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import LogoHolografica from "./LogoHolografica";
 
 type HeaderMobileProps = {
   onOpenMenu: () => void;
@@ -25,14 +25,17 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
           href="/dashboard"
           className="flex min-w-0 flex-1 items-center justify-center"
         >
-          <Image
-            src="/wtm-badge.png"
-            alt="World Tech Manager"
-            width={180}
-            height={120}
-            priority
-            className="h-10 w-auto object-contain drop-shadow-[0_0_16px_rgba(250,204,21,0.14)]"
-          />
+          <div className="flex min-w-0 items-center gap-2.5">
+            <LogoHolografica size={42} />
+            <div className="min-w-0 text-left">
+              <p className="text-[9px] font-black uppercase tracking-[0.28em] text-[#F7E6A2]">
+                WORLD TECH
+              </p>
+              <p className="-mt-0.5 text-[9px] font-black uppercase tracking-[0.28em] text-[#F7E6A2]">
+                MANAGER
+              </p>
+            </div>
+          </div>
         </Link>
 
         <div className="h-10 w-10 shrink-0" aria-hidden="true" />

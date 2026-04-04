@@ -15,7 +15,7 @@ const buildResetTemplate = (resetUrl: string, email: string) => {
   <div style="background:#040814;padding:34px;font-family:Arial,sans-serif;color:#e5e7eb;">
     <div style="max-width:580px;margin:0 auto;background:linear-gradient(160deg,rgba(17,24,39,0.95),rgba(15,23,42,0.92));border:1px solid rgba(250,204,21,0.36);border-radius:20px;padding:30px;box-shadow:0 20px 70px rgba(250,204,21,0.14);">
       <div style="text-align:center;margin-bottom:22px;">
-        <img src="${APP_URL}/logo-wtm.png" alt="World Tech Manager" style="height:60px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(250,204,21,0.3));" />
+        <img src="${APP_URL}/wtm-float.png" alt="World Tech Manager" style="height:60px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(250,204,21,0.3));" />
       </div>
       <h2 style="margin:0 0 12px 0;color:#facc15;font-size:26px;letter-spacing:0.3px;">Recuperação de Senha</h2>
       <p style="margin:0 0 10px 0;color:#cbd5e1;line-height:1.6;">Recebemos um pedido para redefinir a senha da conta <strong>${email}</strong>.</p>
@@ -36,7 +36,7 @@ const buildSubscriptionCancelledTemplate = (email: string) => {
   <div style="background:#040814;padding:34px;font-family:Arial,sans-serif;color:#e5e7eb;">
     <div style="max-width:580px;margin:0 auto;background:linear-gradient(160deg,rgba(17,24,39,0.95),rgba(15,23,42,0.92));border:1px solid rgba(250,204,21,0.36);border-radius:20px;padding:30px;box-shadow:0 20px 70px rgba(250,204,21,0.14);">
       <div style="text-align:center;margin-bottom:22px;">
-        <img src="${APP_URL}/logo-wtm.png" alt="World Tech Manager" style="height:60px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(250,204,21,0.3));" />
+        <img src="${APP_URL}/wtm-float.png" alt="World Tech Manager" style="height:60px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(250,204,21,0.3));" />
       </div>
       <h2 style="margin:0 0 12px 0;color:#facc15;font-size:26px;letter-spacing:0.3px;">Assinatura Cancelada</h2>
       <p style="margin:0 0 10px 0;color:#cbd5e1;line-height:1.6;">Sua assinatura foi cancelada com sucesso para a conta <strong>${email}</strong>.</p>
