@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   calculateFoodOrderFinancials,
   FOOD_PENDING_PAYMENT_METHOD,
+  isFoodOrderItemResolved,
   isFoodPaymentMethod,
   normalizeOptionalDate,
   normalizeOptionalText,
@@ -33,26 +34,6 @@ const orderInclude = {
   },
 };
 
-const buildManualPaymentSnapshot = ({
-  amount,
-  tableNumber,
-  paymentMethod,
-}: {
-  amount: number;
-  tableNumber?: string | null;
-  paymentMethod: string;
-}): PendingItemsSnapshot => [
-  {
-    description:
-      paymentMethod === FOOD_PENDING_PAYMENT_METHOD
-        ? `Saldo transferido para pendente da mesa ${tableNumber || "Balcao"}`
-        : `Pagamento da mesa ${tableNumber || "Balcao"}`,
-    quantity: 1,
-    unitPrice: amount,
-    consumedAt: new Date().toISOString(),
-  },
-];
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -67,8 +48,16 @@ export async function POST(
     const { id } = await params;
     const body = await request.json();
     const paymentMethod = String(body.paymentMethod || "").toUpperCase();
-    const selections = normalizeCheckoutSelections(body.selections || []);
-    const requestedAmount = roundCurrency(Number(body.amount || 0));
+    const settleAllOpenItems =
+      Boolean(body.settleAllOpenItems) ||
+      String(body.checkoutMode || "").toUpperCase() === "TOTAL";
+    const selections = normalizeCheckoutSelections(
+      Array.isArray(body.selections)
+        ? body.selections
+        : Array.isArray(body.selectedItemIds)
+          ? body.selectedItemIds.map((itemId) => ({ itemId }))
+          : [],
+    );
     const providedCustomerId = normalizeOptionalText(body.customerId);
     const receiptDocument = normalizeOptionalText(body.receiptDocument);
     const dueDate = normalizeOptionalDate(body.dueDate);
@@ -81,11 +70,10 @@ export async function POST(
       );
     }
 
-    if (selections.length === 0 && requestedAmount <= 0) {
+    if (!settleAllOpenItems && selections.length === 0) {
       return NextResponse.json(
         {
-          error:
-            "Informe um valor para pagamento ou selecione itens da mesa para fechar.",
+          error: "Selecione ao menos um item da mesa para fechar.",
         },
         { status: 400 },
       );
@@ -129,57 +117,42 @@ export async function POST(
       }
 
       const itemsMap = new Map(order.items.map((item) => [item.id, item]));
-      const financialsBeforePayment = calculateFoodOrderFinancials({
-        items: order.items,
-        paidAmount: Number(order.paidAmount || 0),
-        pendingTransferredAmount: Number(order.pendingTransferredAmount || 0),
-      });
+      const openItems = order.items.filter((item) => !isFoodOrderItemResolved(item));
 
-      if (financialsBeforePayment.balanceDue <= 0) {
+      if (openItems.length === 0) {
         throw new Error("Esta mesa ja esta totalmente quitada.");
       }
 
-      let paymentAmount = requestedAmount;
-      let itemsSnapshot: PendingItemsSnapshot = buildManualPaymentSnapshot({
-        amount: requestedAmount,
-        tableNumber: order.table?.number,
-        paymentMethod,
+      const resolvedSelections =
+        settleAllOpenItems && selections.length === 0
+          ? openItems.map((item) => ({
+              itemId: item.id,
+            }))
+          : selections;
+
+      const openItemsMap = new Map(openItems.map((item) => [item.id, item]));
+
+      for (const selection of resolvedSelections) {
+        const item = openItemsMap.get(selection.itemId);
+
+        if (!item) {
+          throw new Error(
+            "Ha itens selecionados que nao pertencem a esta mesa ou ja foram pagos.",
+          );
+        }
+      }
+
+      let itemsSnapshot: PendingItemsSnapshot = buildPendingItemsSnapshot({
+        orderItems: order.items,
+        selections: resolvedSelections,
+      });
+      const paymentAmount = calculateSelectedItemsAmount({
+        orderItems: order.items,
+        selections: resolvedSelections,
       });
 
-      if (selections.length > 0) {
-        for (const selection of selections) {
-          const item = itemsMap.get(selection.itemId);
-
-          if (!item) {
-            throw new Error("Há itens selecionados que não pertencem a esta mesa.");
-          }
-
-          const remainingQuantity =
-            Number(item.quantity || 0) - Number(item.settledQuantity || 0);
-
-          if (selection.quantity > remainingQuantity) {
-            throw new Error(
-              `A quantidade selecionada para ${item.description} excede o saldo disponível da mesa.`,
-            );
-          }
-        }
-
-        paymentAmount = calculateSelectedItemsAmount({
-          orderItems: order.items,
-          selections,
-        });
-        itemsSnapshot = buildPendingItemsSnapshot({
-          orderItems: order.items,
-          selections,
-        });
-      }
-
       if (paymentAmount <= 0) {
-        throw new Error("Nao foi possivel calcular o valor do fechamento.");
-      }
-
-      if (paymentAmount - financialsBeforePayment.balanceDue > 0.009) {
-        throw new Error("O valor informado excede o saldo restante da mesa.");
+        throw new Error("Nao foi possivel calcular o valor dos itens selecionados.");
       }
 
       const payment = await tx.foodOrderPayment.create({
@@ -211,7 +184,7 @@ export async function POST(
             status: pendingStatus,
             description:
               notes ||
-              `Mesa ${order.table?.number || "Balcao"} - saldo pendente registrado`,
+              `Mesa ${order.table?.number || "Balcao"} - itens transferidos para pendente`,
             itemsSnapshot,
           },
           include: {
@@ -291,21 +264,18 @@ export async function POST(
         });
       }
 
-      if (selections.length > 0) {
-        for (const selection of selections) {
-          const item = itemsMap.get(selection.itemId)!;
+      for (const selection of resolvedSelections) {
+        const item = itemsMap.get(selection.itemId)!;
 
-          await tx.foodOrderItem.update({
-            where: {
-              id: item.id,
-            },
-            data: {
-              settledQuantity: {
-                increment: selection.quantity,
-              },
-            },
-          });
-        }
+        await tx.foodOrderItem.update({
+          where: {
+            id: item.id,
+          },
+          data: {
+            status: "PAGO",
+            settledQuantity: Number(item.quantity || 0),
+          },
+        });
       }
 
       const refreshedItems = await tx.foodOrderItem.findMany({
@@ -323,8 +293,6 @@ export async function POST(
       );
       const financials = calculateFoodOrderFinancials({
         items: refreshedItems,
-        paidAmount,
-        pendingTransferredAmount,
       });
 
       const updatedOrder = await tx.foodOrder.update({
@@ -367,6 +335,7 @@ export async function POST(
           receiptDocument: payment.receiptDocument,
           createdAt: payment.createdAt.toISOString(),
         },
+        selectedItemIds: resolvedSelections.map((selection) => selection.itemId),
         itemsSnapshot,
       };
     });

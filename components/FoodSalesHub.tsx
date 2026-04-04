@@ -7,11 +7,16 @@ import {
   ArrowRight,
   DollarSign,
   NotebookPen,
+  Receipt,
   ReceiptText,
   UtensilsCrossed,
   Wallet,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/food";
+import {
+  formatCurrency,
+  getFoodOrderItemResolvedQuantity,
+  isFoodOrderItemResolved,
+} from "@/lib/food";
 
 type FoodDashboardPayload = {
   summary: {
@@ -44,6 +49,7 @@ type FoodDashboardPayload = {
         id: string;
         description: string;
         quantity: number;
+        status: string;
         settledQuantity: number;
         unitPrice: number;
         createdAt: string;
@@ -285,6 +291,12 @@ export function FoodSalesHub() {
               {data.tables.map((table) => {
                 const currentOrder = table.currentOrder;
                 const orderItems = currentOrder?.items || [];
+                const openItems = orderItems.filter(
+                  (item) => !isFoodOrderItemResolved(item),
+                );
+                const paidItems = orderItems.filter((item) =>
+                  isFoodOrderItemResolved(item),
+                );
 
                 return (
                   <article
@@ -352,6 +364,20 @@ export function FoodSalesHub() {
                               </span>
                             </div>
                           </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs text-slate-400">
+                            <div>
+                              Em aberto:{" "}
+                              <span className="font-semibold text-red-200">
+                                {openItems.length} item(ns)
+                              </span>
+                            </div>
+                            <div>
+                              Ja pagos:{" "}
+                              <span className="font-semibold text-emerald-200">
+                                {paidItems.length} item(ns)
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <p className="mt-4 text-sm text-slate-400">
@@ -361,22 +387,33 @@ export function FoodSalesHub() {
                     </div>
 
                     <div className="space-y-4 p-5">
-                      {orderItems.length > 0 ? (
+                      {openItems.length > 0 ? (
                         <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Consumo Lancado
+                            Itens em Aberto
                           </p>
                           <div className="mt-3 space-y-2 text-sm text-slate-200">
-                            {orderItems.slice(-4).reverse().map((item) => (
+                            {openItems.slice(0, 4).map((item) => (
                               <div
                                 key={item.id}
                                 className="flex items-center justify-between gap-3"
                               >
                                 <span className="line-clamp-1">
-                                  {item.quantity}x {item.description}
+                                  {Math.max(
+                                    Number(item.quantity || 0) -
+                                      getFoodOrderItemResolvedQuantity(item),
+                                    0,
+                                  )}
+                                  x {item.description}
                                 </span>
                                 <span className="font-semibold text-[#FFD700]">
-                                  {formatCurrency(item.quantity * item.unitPrice)}
+                                  {formatCurrency(
+                                    Math.max(
+                                      Number(item.quantity || 0) -
+                                        getFoodOrderItemResolvedQuantity(item),
+                                      0,
+                                    ) * item.unitPrice,
+                                  )}
                                 </span>
                               </div>
                             ))}
@@ -384,28 +421,37 @@ export function FoodSalesHub() {
                         </div>
                       ) : (
                         <div className="rounded-2xl border border-dashed border-white/10 bg-black/10 p-4 text-sm text-slate-400">
-                          Nenhum item pendente nesta mesa.
+                          Todos os itens desta mesa ja foram quitados.
                         </div>
                       )}
 
-                      <Link
-                        href={
-                          table.status === "OCUPADO"
-                            ? `/vendas/novo?mesa=${encodeURIComponent(table.number)}&pagamento=1`
-                            : `/vendas/novo?mesa=${encodeURIComponent(table.number)}`
-                        }
-                        className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-bold transition-colors ${
-                          table.status === "OCUPADO"
-                            ? "bg-red-500/15 text-red-100 hover:bg-red-500/25"
-                            : "bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25"
-                        }`}
-                      >
-                        {table.status === "OCUPADO"
-                          ? `Mesa Encerramento (${formatCurrency(
+                      {table.status === "OCUPADO" ? (
+                        <div className="grid gap-2">
+                          <Link
+                            href={`/vendas/novo?mesa=${encodeURIComponent(table.number)}&checkout=total`}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-4 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300"
+                          >
+                            <Wallet className="h-4 w-4" />
+                            Encerrar Total ({formatCurrency(
                               currentOrder?.balanceDue || 0,
-                            )})`
-                          : "Ocupar / Lançar Consumo"}
-                      </Link>
+                            )})
+                          </Link>
+                          <Link
+                            href={`/vendas/novo?mesa=${encodeURIComponent(table.number)}&checkout=partial`}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-400/25 bg-red-500/12 px-4 py-3 font-semibold text-red-100 transition-colors hover:bg-red-500/20"
+                          >
+                            <Receipt className="h-4 w-4" />
+                            Pagamento Parcial
+                          </Link>
+                        </div>
+                      ) : (
+                        <Link
+                          href={`/vendas/novo?mesa=${encodeURIComponent(table.number)}`}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500/15 px-4 py-3 font-bold text-emerald-100 transition-colors hover:bg-emerald-500/25"
+                        >
+                          Ocupar / Lançar Consumo
+                        </Link>
+                      )}
                     </div>
                   </article>
                 );

@@ -206,6 +206,7 @@ export async function POST(request: Request) {
             productId: product.id,
             description: product.name,
             quantity: item.quantity,
+            status: "ABERTO" as const,
             unitPrice: Number(product.salePrice || 0),
           };
         }),
@@ -231,10 +232,6 @@ export async function POST(request: Request) {
       });
       const financials = calculateFoodOrderFinancials({
         items: refreshedItems,
-        paidAmount: Number(foodOrder.paidAmount || 0),
-        pendingTransferredAmount: Number(
-          foodOrder.pendingTransferredAmount || 0,
-        ),
       });
 
       const updatedOrder = await tx.foodOrder.update({

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import {
   ArrowLeft,
+  Check,
   CreditCard,
   DollarSign,
   NotebookPen,
@@ -20,10 +21,11 @@ import {
 } from "lucide-react";
 import { CurrencyInput } from "@/components/CurrencyInput";
 import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
-import { formatCurrencyBRL, parseBRLCurrencyInput } from "@/lib/currency";
 import {
   FOOD_PENDING_PAYMENT_METHOD,
   formatCurrency,
+  getFoodOrderItemResolvedQuantity,
+  isFoodOrderItemResolved,
   normalizeTableNumber,
   resolvePaymentMethodLabel,
 } from "@/lib/food";
@@ -80,6 +82,7 @@ type FoodDashboard = {
         id: string;
         description: string;
         quantity: number;
+        status: string;
         settledQuantity: number;
         unitPrice: number;
         createdAt: string;
@@ -151,7 +154,7 @@ export function FoodPDV() {
   const searchParams = useSearchParams();
   const mesaParam = searchParams.get("mesa");
   const clienteIdParam = searchParams.get("clienteId");
-  const openPaymentParam = searchParams.get("pagamento") === "1";
+  const checkoutMode = String(searchParams.get("checkout") || "").toLowerCase();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dashboard, setDashboard] = useState<FoodDashboard | null>(null);
@@ -174,14 +177,17 @@ export function FoodPDV() {
   const [dueDate, setDueDate] = useState(buildDefaultDueDate());
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [paymentQueryHandled, setPaymentQueryHandled] = useState(false);
+  const [selectedPaymentItemIds, setSelectedPaymentItemIds] = useState<string[]>([]);
   const [savingOrder, setSavingOrder] = useState(false);
   const [closingOrder, setClosingOrder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [lastSale, setLastSale] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
+  const paymentModalOpen = false;
+  const paymentAmount = "";
+  const setPaymentAmount = (_value: string) => {};
+  const setPaymentModalOpen = (_value: boolean) => {};
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -289,10 +295,6 @@ export function FoodPDV() {
     }
   }, [clienteIdParam]);
 
-  useEffect(() => {
-    setPaymentQueryHandled(false);
-  }, [mesaParam, openPaymentParam]);
-
   const currentTable = useMemo(
     () =>
       dashboard?.tables.find(
@@ -303,10 +305,18 @@ export function FoodPDV() {
 
   const currentOrder = currentTable?.currentOrder || null;
   const currentBalanceDue = Number(currentOrder?.balanceDue || 0);
-  const paymentAmountValue = parseBRLCurrencyInput(paymentAmount);
+  const paymentAmountValue = 0;
   const selectedCustomer =
     customers.find((customer) => customer.id === selectedCustomerId) || null;
   const orderItems = currentOrder?.items || [];
+  const openOrderItems = useMemo(
+    () => orderItems.filter((item) => !isFoodOrderItemResolved(item)),
+    [orderItems],
+  );
+  const paidOrderItems = useMemo(
+    () => orderItems.filter((item) => isFoodOrderItemResolved(item)),
+    [orderItems],
+  );
   const paymentHistory = currentOrder?.payments || [];
 
   useEffect(() => {
@@ -324,42 +334,42 @@ export function FoodPDV() {
     setReceiptDocument((previous) => previous || selectedCustomer.document || "");
   }, [selectedCustomer]);
 
-  const openPaymentModal = useCallback(() => {
-    if (!currentOrder) {
-      alert("Nenhuma comanda carregada para esta mesa.");
-      return;
-    }
+  useEffect(() => {
+    setSelectedPaymentItemIds((previous) => {
+      const nextSelectedIds = previous.filter((itemId) =>
+        openOrderItems.some((item) => item.id === itemId),
+      );
 
-    if (Number(currentOrder.balanceDue || 0) <= 0) {
-      alert("Esta mesa nao possui saldo em aberto.");
-      return;
-    }
+      if (
+        nextSelectedIds.length === previous.length &&
+        nextSelectedIds.every((itemId, index) => itemId === previous[index])
+      ) {
+        return previous;
+      }
 
-    setPaymentMethod("DINHEIRO");
-    setPaymentNotes("");
-    setDueDate(buildDefaultDueDate());
-    setPaymentAmount(formatCurrencyBRL(Number(currentOrder.balanceDue || 0)));
-
-    if (!receiptDocument && currentOrder.customer?.document) {
-      setReceiptDocument(currentOrder.customer.document);
-    }
-
-    setPaymentModalOpen(true);
-  }, [currentOrder, receiptDocument]);
+      return nextSelectedIds;
+    });
+  }, [openOrderItems]);
 
   useEffect(() => {
-    if (!openPaymentParam || paymentQueryHandled || !currentOrder) {
+    if (!currentOrder) {
       return;
     }
 
-    if (Number(currentOrder.balanceDue || 0) <= 0) {
-      setPaymentQueryHandled(true);
-      return;
-    }
+    const shouldSelectAll = checkoutMode === "total";
+    const nextSelectedIds = shouldSelectAll ? openOrderItems.map((item) => item.id) : [];
 
-    openPaymentModal();
-    setPaymentQueryHandled(true);
-  }, [currentOrder, openPaymentParam, openPaymentModal, paymentQueryHandled]);
+    setSelectedPaymentItemIds(nextSelectedIds);
+
+    if (checkoutMode === "total" || checkoutMode === "partial") {
+      window.setTimeout(() => {
+        paymentSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 120);
+    }
+  }, [checkoutMode, currentOrder?.id, openOrderItems]);
 
   const filteredProducts = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -383,11 +393,28 @@ export function FoodPDV() {
       ),
     [cart],
   );
-
-  const projectedRemainingBalance = Math.max(
-    currentBalanceDue - paymentAmountValue,
-    0,
+  const selectedPaymentItems = useMemo(
+    () =>
+      openOrderItems.filter((item) =>
+        selectedPaymentItemIds.includes(item.id),
+      ),
+    [openOrderItems, selectedPaymentItemIds],
   );
+  const selectedSubtotal = useMemo(
+    () =>
+      selectedPaymentItems.reduce(
+        (total, item) =>
+          total +
+          Math.max(
+            Number(item.quantity || 0) - getFoodOrderItemResolvedQuantity(item),
+            0,
+          ) *
+            Number(item.unitPrice || 0),
+        0,
+      ),
+    [selectedPaymentItems],
+  );
+  const projectedRemainingBalance = currentBalanceDue;
 
   const addToCart = (product: Product) => {
     if (product.stockQuantity <= 0) {
@@ -417,6 +444,34 @@ export function FoodPDV() {
 
   const removeFromCart = (productId: string) => {
     setCart((previous) => previous.filter((item) => item.id !== productId));
+  };
+
+  const handleTogglePaymentItem = (itemId: string) => {
+    setSelectedPaymentItemIds((previous) =>
+      previous.includes(itemId)
+        ? previous.filter((currentItemId) => currentItemId !== itemId)
+        : [...previous, itemId],
+    );
+  };
+
+  const handleSelectAllPaymentItems = () => {
+    setSelectedPaymentItemIds(openOrderItems.map((item) => item.id));
+  };
+
+  const handleClearPaymentSelection = () => {
+    setSelectedPaymentItemIds([]);
+  };
+
+  const focusPaymentSection = () => {
+    paymentSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
+  const openPaymentModal = () => {
+    handleSelectAllPaymentItems();
+    focusPaymentSection();
   };
 
   const handleRegisterConsumption = async () => {
@@ -469,28 +524,41 @@ export function FoodPDV() {
     }
   };
 
-  const handleProcessTablePayment = async () => {
+  const handleProcessTablePayment = async ({
+    settleAllOpenItems = false,
+    paymentMethodOverride,
+  }: {
+    settleAllOpenItems?: boolean;
+    paymentMethodOverride?: string;
+  } = {}) => {
     if (!currentOrder) {
       alert("Nenhuma comanda carregada para esta mesa.");
       return;
     }
 
-    if (paymentAmountValue <= 0) {
-      alert("Informe um valor para registrar o pagamento.");
-      return;
-    }
+    const resolvedPaymentMethod = String(
+      paymentMethodOverride || paymentMethod || "DINHEIRO",
+    ).toUpperCase();
 
-    if (paymentAmountValue - currentBalanceDue > 0.009) {
-      alert("O valor informado excede o saldo restante da mesa.");
-      return;
-    }
-
-    if (paymentMethod === FOOD_PENDING_PAYMENT_METHOD && !selectedCustomerId) {
+    if (
+      resolvedPaymentMethod === FOOD_PENDING_PAYMENT_METHOD &&
+      !selectedCustomerId
+    ) {
       alert("Selecione um cliente antes de transferir saldo para pendente.");
       return;
     }
 
+    const itemIdsToProcess = settleAllOpenItems
+      ? openOrderItems.map((item) => item.id)
+      : selectedPaymentItemIds;
+
+    if (itemIdsToProcess.length === 0) {
+      alert("Selecione ao menos um item da mesa para receber.");
+      return;
+    }
+
     setClosingOrder(true);
+    setPaymentMethod(resolvedPaymentMethod);
 
     try {
       const response = await fetch(`/api/food/orders/${currentOrder.id}/checkout`, {
@@ -500,11 +568,13 @@ export function FoodPDV() {
         },
         body: JSON.stringify({
           customerId: selectedCustomerId || null,
-          paymentMethod,
+          paymentMethod: resolvedPaymentMethod,
           receiptDocument,
-          dueDate: paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? dueDate : null,
+          dueDate:
+            resolvedPaymentMethod === FOOD_PENDING_PAYMENT_METHOD ? dueDate : null,
           notes: paymentNotes,
-          amount: paymentAmountValue,
+          selectedItemIds: itemIdsToProcess,
+          settleAllOpenItems,
         }),
       });
       const payload = await response.json();
@@ -513,15 +583,13 @@ export function FoodPDV() {
         throw new Error(payload?.error || "Erro ao processar pagamento da mesa.");
       }
 
-      const nextBalance = Number(payload?.order?.balanceDue || 0);
-
       setPaymentNotes("");
-      setPaymentAmount(nextBalance > 0 ? formatCurrencyBRL(nextBalance) : "");
+      setSelectedPaymentItemIds([]);
 
       if (payload?.sale) {
         setLastSale(payload.sale);
         const printMessage =
-          nextBalance > 0
+          Number(payload?.order?.balanceDue || 0) > 0
             ? "Pagamento registrado. Deseja imprimir o recibo desta parcela?"
             : "Conta encerrada. Deseja imprimir o recibo?";
 
@@ -529,11 +597,7 @@ export function FoodPDV() {
           window.setTimeout(() => handlePrint(), 350);
         }
       } else {
-        alert("Saldo transferido para pendente com sucesso.");
-      }
-
-      if (nextBalance <= 0) {
-        setPaymentModalOpen(false);
+        alert("Itens transferidos para pendente com sucesso.");
       }
 
       await Promise.all([loadDashboard(), loadProducts(), loadCustomers()]);
@@ -714,14 +778,30 @@ export function FoodPDV() {
                 ) : null}
 
                 {currentOrder ? (
-                  <button
-                    type="button"
-                    onClick={openPaymentModal}
-                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300"
-                  >
-                    <Wallet className="h-4 w-4" />
-                    Mesa Encerramento ({formatCurrency(currentOrder.balanceDue)})
-                  </button>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectAllPaymentItems();
+                        focusPaymentSection();
+                      }}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300"
+                    >
+                      <Wallet className="h-4 w-4" />
+                      Encerrar Total
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClearPaymentSelection();
+                        focusPaymentSection();
+                      }}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-5 py-3 font-semibold text-emerald-100 transition-colors hover:bg-emerald-500/20"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Pagamento Parcial
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </section>
@@ -850,26 +930,38 @@ export function FoodPDV() {
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-3xl border border-slate-800 bg-[#112240] shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
-                <div className="border-b border-slate-800 bg-[#0F172A] p-5">
+              <section
+                ref={paymentSectionRef}
+                className="overflow-hidden rounded-3xl border border-emerald-400/20 bg-linear-to-br from-emerald-500/12 via-[#112240] to-[#0B1120] shadow-[0_24px_50px_rgba(15,23,42,0.18)]"
+              >
+                <div className="border-b border-emerald-400/15 bg-[#0B1728] p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-bold text-white">
-                        Recebimentos da Mesa
+                        Checkout por Item
                       </h2>
-                      <p className="text-sm text-slate-400">
-                        Veja o consumo, os pagamentos lancados e o saldo que ainda
-                        falta receber.
+                      <p className="text-sm text-slate-300">
+                        Marque os itens da comanda, confira o subtotal e receba apenas
+                        o que o cliente escolheu pagar agora.
                       </p>
                     </div>
                     {currentOrder ? (
-                      <button
-                        type="button"
-                        onClick={openPaymentModal}
-                        className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-100 transition-colors hover:bg-amber-400/20"
-                      >
-                        Encerrar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSelectAllPaymentItems}
+                          className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-100 transition-colors hover:bg-amber-400/20"
+                        >
+                          Selecionar Tudo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleClearPaymentSelection}
+                          className="rounded-2xl border border-slate-600 bg-slate-950/30 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-200 transition-colors hover:border-slate-400"
+                        >
+                          Desmarcar Tudo
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -882,64 +974,219 @@ export function FoodPDV() {
                   ) : (
                     <>
                       <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                        <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
                           <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                            Total
+                            Total da Mesa
                           </p>
                           <p className="mt-2 text-xl font-black text-white">
                             {formatCurrency(currentOrder.total)}
                           </p>
                         </div>
-                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                        <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
                           <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                            Pago
-                          </p>
-                          <p className="mt-2 text-xl font-black text-emerald-300">
-                            {formatCurrency(currentOrder.paidAmount)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
-                            Restante
+                            Subtotal Selecionado
                           </p>
                           <p className="mt-2 text-xl font-black text-[#FFD700]">
-                            {formatCurrency(currentOrder.balanceDue)}
+                            {formatCurrency(selectedSubtotal)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                            Saldo em Aberto
+                          </p>
+                          <p className="mt-2 text-xl font-black text-emerald-300">
+                            {formatCurrency(currentBalanceDue)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                      <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Consumo Lancado
+                            Checklist de Pagamento
                           </p>
                           <span className="text-xs text-slate-500">
-                            {orderItems.length} item(ns)
+                            {openOrderItems.length} item(ns) em aberto
                           </span>
                         </div>
-                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                          {orderItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                            >
-                              <div>
-                                <p className="font-medium text-white">
-                                  {item.quantity}x {item.description}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-400">
-                                  {new Date(item.createdAt).toLocaleString("pt-BR")}
-                                </p>
-                              </div>
-                              <span className="font-semibold text-[#FFD700]">
-                                {formatCurrency(item.quantity * item.unitPrice)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                        {openOrderItems.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-emerald-400/15 bg-emerald-500/5 p-4 text-center text-sm text-slate-300">
+                            Nenhum item em aberto nesta mesa.
+                          </div>
+                        ) : (
+                          <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                            {openOrderItems.map((item) => {
+                              const isSelected = selectedPaymentItemIds.includes(item.id);
+                              const remainingQuantity = Math.max(
+                                Number(item.quantity || 0) -
+                                  getFoodOrderItemResolvedQuantity(item),
+                                0,
+                              );
+
+                              return (
+                                <label
+                                  key={item.id}
+                                  className={`flex cursor-pointer items-start justify-between gap-3 rounded-2xl border px-3 py-3 transition-colors ${
+                                    isSelected
+                                      ? "border-emerald-300/30 bg-emerald-500/12"
+                                      : "border-white/10 bg-white/5 hover:border-emerald-400/20"
+                                  }`}
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span
+                                      className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-md border ${
+                                        isSelected
+                                          ? "border-emerald-300 bg-emerald-400 text-[#0B1120]"
+                                          : "border-slate-500 bg-transparent text-transparent"
+                                      }`}
+                                    >
+                                      <Check className="h-3.5 w-3.5" />
+                                    </span>
+                                    <div>
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => handleTogglePaymentItem(item.id)}
+                                        className="sr-only"
+                                      />
+                                      <p className="font-medium text-white">
+                                        {remainingQuantity}x {item.description}
+                                      </p>
+                                      <p className="mt-1 text-xs text-slate-400">
+                                        {new Date(item.createdAt).toLocaleString("pt-BR")}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className="font-semibold text-[#FFD700]">
+                                    {formatCurrency(remainingQuantity * item.unitPrice)}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <label className="space-y-2">
+                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            CPF/CNPJ no Recibo
+                          </span>
+                          <input
+                            value={receiptDocument}
+                            onChange={(event) => setReceiptDocument(event.target.value)}
+                            placeholder="Opcional"
+                            className="w-full rounded-2xl border border-emerald-400/15 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                          />
+                        </label>
+                        {paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? (
+                          <label className="space-y-2">
+                            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Vencimento
+                            </span>
+                            <input
+                              type="date"
+                              value={dueDate}
+                              onChange={(event) => setDueDate(event.target.value)}
+                              className="w-full rounded-2xl border border-emerald-400/15 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                            />
+                          </label>
+                        ) : (
+                          <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] px-4 py-3 text-sm text-slate-400">
+                            O recibo parcial saira apenas com os itens selecionados.
+                          </div>
+                        )}
+                      </div>
+
+                      <label className="space-y-2">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Observacoes do Recebimento
+                        </span>
+                        <textarea
+                          value={paymentNotes}
+                          onChange={(event) => setPaymentNotes(event.target.value)}
+                          placeholder="Ex.: cliente pagou apenas bebidas"
+                          className="min-h-[88px] w-full rounded-2xl border border-emerald-400/15 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {paymentMethodOptions.map((method) => (
+                          <button
+                            key={method.id}
+                            type="button"
+                            onClick={() => {
+                              if (selectedSubtotal > 0) {
+                                void handleProcessTablePayment({
+                                  paymentMethodOverride: method.id,
+                                });
+                                return;
+                              }
+
+                              setPaymentMethod(method.id);
+                            }}
+                            className={`rounded-2xl border p-3 text-sm font-bold transition-colors ${
+                              paymentMethod === method.id
+                                ? method.activeClass
+                                : "border-emerald-400/15 bg-[#0B1120] text-slate-300"
+                            }`}
+                          >
+                            <method.icon className="mx-auto mb-1 h-4 w-4" />
+                            {method.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleProcessTablePayment()}
+                        disabled={closingOrder || selectedSubtotal <= 0}
+                        className="w-full rounded-2xl bg-emerald-500 px-4 py-4 font-bold text-[#08111F] transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {closingOrder
+                          ? "Processando..."
+                          : `Receber Itens Selecionados (${formatCurrency(selectedSubtotal)})`}
+                      </button>
+
+                      <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Itens Ja Pagos Nesta Mesa
+                          </p>
+                          <span className="text-xs text-slate-500">
+                            {paidOrderItems.length} item(ns)
+                          </span>
+                        </div>
+
+                        {paidOrderItems.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-emerald-400/15 bg-emerald-500/5 p-4 text-center text-sm text-slate-300">
+                            Ainda nao ha itens quitados nesta mesa.
+                          </div>
+                        ) : (
+                          <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                            {paidOrderItems.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-400/15 bg-emerald-500/8 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="font-medium text-white">
+                                    {item.quantity}x {item.description}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-400">
+                                    Item quitado
+                                  </p>
+                                </div>
+                                <span className="rounded-full bg-emerald-400/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-100">
+                                  PAGO
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-2xl border border-emerald-400/15 bg-[#0B1120] p-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                             Pagamentos Ja Feitos
@@ -1207,7 +1454,9 @@ export function FoodPDV() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleProcessTablePayment}
+                      onClick={() => {
+                        void handleProcessTablePayment();
+                      }}
                       disabled={
                         closingOrder ||
                         paymentAmountValue <= 0 ||

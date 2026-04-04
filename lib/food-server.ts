@@ -1,13 +1,13 @@
 import type { CompanyConfig, FoodOrderItem } from "@prisma/client";
 import {
   FOOD_PENDING_PAYMENT_METHOD,
+  getFoodOrderItemResolvedQuantity,
   roundCurrency,
   type PendingItemsSnapshot,
 } from "@/lib/food";
 
 export type FoodCheckoutSelection = {
   itemId: string;
-  quantity: number;
 };
 
 export const normalizeCheckoutSelections = (
@@ -16,9 +16,8 @@ export const normalizeCheckoutSelections = (
   selections
     .map((selection) => ({
       itemId: String(selection?.itemId || "").trim(),
-      quantity: Number(selection?.quantity || 0),
     }))
-    .filter((selection) => selection.itemId && selection.quantity > 0);
+    .filter((selection) => selection.itemId);
 
 export const buildPendingItemsSnapshot = ({
   orderItems,
@@ -41,7 +40,10 @@ export const buildPendingItemsSnapshot = ({
         itemId: item.id,
         productId: item.productId,
         description: item.description,
-        quantity: selection.quantity,
+        quantity: Math.max(
+          Number(item.quantity || 0) - getFoodOrderItemResolvedQuantity(item),
+          0,
+        ),
         unitPrice: Number(item.unitPrice || 0),
         consumedAt: item.createdAt?.toISOString?.() || null,
       },
@@ -66,7 +68,12 @@ export const calculateSelectedItemsAmount = ({
         return total;
       }
 
-      return total + Number(item.unitPrice || 0) * selection.quantity;
+      const remainingQuantity = Math.max(
+        Number(item.quantity || 0) - getFoodOrderItemResolvedQuantity(item),
+        0,
+      );
+
+      return total + Number(item.unitPrice || 0) * remainingQuantity;
     }, 0),
   );
 };

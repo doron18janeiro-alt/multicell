@@ -241,6 +241,7 @@ model FoodOrderItem {
   productId       String?   @map("product_id")
   description     String
   quantity        Int
+  status          FoodOrderItemStatus @default(ABERTO)
   settledQuantity Int       @default(0) @map("settled_quantity")
   unitPrice       Float     @map("unit_price")
   createdAt       DateTime  @default(now()) @map("created_at")
@@ -627,6 +628,11 @@ enum FoodOrderStatus {
   ABERTA
   PARCIAL
   FECHADA
+}
+
+enum FoodOrderItemStatus {
+  ABERTO
+  PAGO
 }
 
 enum PendingAccountStatus {

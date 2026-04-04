@@ -129,6 +129,7 @@ export async function GET() {
               id: item.id,
               description: item.description,
               quantity: item.quantity,
+              status: item.status,
               settledQuantity: item.settledQuantity,
               unitPrice: Number(item.unitPrice || 0),
               createdAt: item.createdAt.toISOString(),

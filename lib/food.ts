@@ -1,4 +1,5 @@
 import type {
+  FoodOrderItemStatus,
   FoodOrderStatus,
   PendingAccountStatus,
 } from "@prisma/client";
@@ -17,6 +18,8 @@ export type FoodPaymentMethod = (typeof FOOD_PAYMENT_METHODS)[number];
 
 export type FoodOrderFinancialItem = {
   quantity: number;
+  status?: FoodOrderItemStatus | string | null;
+  settledQuantity?: number | null;
   unitPrice: number;
 };
 
@@ -77,14 +80,26 @@ export const resolvePaymentMethodLabel = (paymentMethod: string | null | undefin
   return paymentMethod || "Não informado";
 };
 
+export const getFoodOrderItemResolvedQuantity = (
+  item: Pick<FoodOrderFinancialItem, "quantity" | "settledQuantity" | "status">,
+) => {
+  const quantity = Number(item.quantity || 0);
+
+  if (String(item.status || "").toUpperCase() === "PAGO") {
+    return quantity;
+  }
+
+  return Math.min(Number(item.settledQuantity || 0), quantity);
+};
+
+export const isFoodOrderItemResolved = (
+  item: Pick<FoodOrderFinancialItem, "quantity" | "settledQuantity" | "status">,
+) => getFoodOrderItemResolvedQuantity(item) >= Number(item.quantity || 0);
+
 export const calculateFoodOrderFinancials = ({
   items,
-  paidAmount = 0,
-  pendingTransferredAmount = 0,
 }: {
   items: FoodOrderFinancialItem[];
-  paidAmount?: number;
-  pendingTransferredAmount?: number;
 }) => {
   const total = roundCurrency(
     items.reduce((acc, item) => {
@@ -95,13 +110,19 @@ export const calculateFoodOrderFinancials = ({
     }, 0),
   );
   const resolved = roundCurrency(
-    Number(paidAmount || 0) + Number(pendingTransferredAmount || 0),
+    items.reduce((acc, item) => {
+      const resolvedQuantity = getFoodOrderItemResolvedQuantity(item);
+      const unitPrice = Number(item.unitPrice || 0);
+
+      return acc + resolvedQuantity * unitPrice;
+    }, 0),
   );
   const balanceDue = roundCurrency(Math.max(total - resolved, 0));
+  const hasOpenItems = items.some((item) => !isFoodOrderItemResolved(item));
 
   let status: FoodOrderStatus = "ABERTA";
 
-  if (balanceDue <= 0) {
+  if (!hasOpenItems && items.length > 0) {
     status = "FECHADA";
   } else if (resolved > 0) {
     status = "PARCIAL";
