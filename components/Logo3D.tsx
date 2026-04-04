@@ -20,7 +20,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
     transition: { 
       duration: 8, 
       repeat: Infinity, 
-      ease: "easeInOut" 
+      ease: [0.4, 0, 0.2, 1] as any
     }
   } : {};
 
@@ -90,7 +90,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
         opacity="0.3"
         {...(animate ? {
           animate: { opacity: [0.2, 0.4, 0.2] },
-          transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+          transition: { duration: 4, repeat: Infinity, ease: [0.4, 0, 0.2, 1] as any }
         } : {})}
       >
         {/* Círculo externo da sombra */}
@@ -134,7 +134,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
       <MotionG
         {...(animate ? {
           animate: { rotate: [0, 2, 0, -2, 0] },
-          transition: { duration: 6, repeat: Infinity, ease: "easeInOut" }
+          transition: { duration: 6, repeat: Infinity, ease: [0.4, 0, 0.2, 1] as any }
         } : {})}
       >
         <polygon
@@ -157,7 +157,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
       <MotionG
         {...(animate ? {
           animate: { scale: [1, 1.05, 1] },
-          transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+          transition: { duration: 4, repeat: Infinity, ease: [0.4, 0, 0.2, 1] as any }
         } : {})}
       >
         <text
@@ -192,7 +192,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
         opacity="0.6"
         {...(animate ? {
           animate: { opacity: [0.4, 0.8, 0.4] },
-          transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+          transition: { duration: 3, repeat: Infinity, ease: [0.4, 0, 0.2, 1] as any }
         } : {})}
       >
         {/* Linhas de circuito */}
@@ -234,7 +234,7 @@ export default function Logo3D({ size = 200, className = "", animate = true }: L
       <MotionG
         {...(animate ? {
           animate: { opacity: [0.3, 0.7, 0.3] },
-          transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+          transition: { duration: 2, repeat: Infinity, ease: [0.4, 0, 0.2, 1] as any }
         } : {})}
       >
         <circle
