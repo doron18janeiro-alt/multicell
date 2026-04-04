@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       select: {
         id: true,
         name: true,
+        category: true,
         stock: true,
         minStock: true,
         minQuantity: true,

@@ -44,6 +44,7 @@ model Product {
   vehiclePlate            String?        @map("vehicle_plate")
   vehicleChassis          String?        @map("vehicle_chassis")
   vehicleRenavam          String?        @map("vehicle_renavam")
+  vehicleStatus           VehicleStatus? @default(DISPONIVEL) @map("vehicle_status")
   vehicleManufactureYear  Int?           @map("vehicle_manufacture_year")
   vehicleModelYear        Int?           @map("vehicle_model_year")
   vehicleEngine           String?        @map("vehicle_engine")
@@ -332,6 +333,12 @@ enum Segment {
   AUTO
   BEAUTY
   FOOD
+}
+
+enum VehicleStatus {
+  DISPONIVEL
+  MANUTENCAO
+  VENDIDO
 }
 
 enum OSStatus {

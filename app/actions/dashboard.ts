@@ -367,6 +367,7 @@ export async function getCriticalStockAlerts(): Promise<{
       select: {
         id: true,
         name: true,
+        category: true,
         stock: true,
         minStock: true,
         minQuantity: true,

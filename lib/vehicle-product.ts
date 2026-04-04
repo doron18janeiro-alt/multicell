@@ -1,5 +1,6 @@
 import {
   isVehicleCategory,
+  normalizeVehicleInventoryStatus,
   normalizeVehiclePlate,
   type VehicleProfile,
 } from "@/lib/segment-specialization";
@@ -40,6 +41,9 @@ export const normalizeVehicleProfileInput = (
   plate: normalizeVehiclePlate(input.vehiclePlate as string | null | undefined) || null,
   chassis: normalizeOptionalText(input.vehicleChassis)?.toUpperCase() || null,
   renavam: normalizeOptionalText(input.vehicleRenavam),
+  status: normalizeVehicleInventoryStatus(
+    input.vehicleStatus as string | null | undefined,
+  ),
   manufactureYear: parseOptionalInteger(input.vehicleManufactureYear),
   modelYear: parseOptionalInteger(input.vehicleModelYear),
   engine: normalizeOptionalText(input.vehicleEngine),
@@ -85,6 +89,7 @@ export const buildVehicleProductData = (
       vehiclePlate: null,
       vehicleChassis: null,
       vehicleRenavam: null,
+      vehicleStatus: null,
       vehicleManufactureYear: null,
       vehicleModelYear: null,
       vehicleEngine: null,
@@ -105,6 +110,7 @@ export const buildVehicleProductData = (
     vehiclePlate: vehicleProfile.plate,
     vehicleChassis: vehicleProfile.chassis,
     vehicleRenavam: vehicleProfile.renavam,
+    vehicleStatus: vehicleProfile.status || "DISPONIVEL",
     vehicleManufactureYear: vehicleProfile.manufactureYear,
     vehicleModelYear: vehicleProfile.modelYear,
     vehicleEngine: vehicleProfile.engine,

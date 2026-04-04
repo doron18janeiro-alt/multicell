@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { normalizeVehiclePlate } from "@/lib/segment-specialization";
 
 const normalizeCode = (value: string) =>
   value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
-const buildVariants = (value: string) =>
-  Array.from(new Set([value.trim(), normalizeCode(value)].filter(Boolean)));
+const buildVariants = (value: string, isAutoLookup = false) =>
+  Array.from(
+    new Set(
+      [
+        value.trim(),
+        normalizeCode(value),
+        isAutoLookup ? normalizeVehiclePlate(value) : "",
+      ].filter(Boolean),
+    ),
+  );
 
 const addDays = (date: Date, days: number) => {
   const nextDate = new Date(date);
@@ -19,6 +28,38 @@ const diffInDays = (from: Date, to: Date) => {
   return Math.ceil((to.getTime() - from.getTime()) / msPerDay);
 };
 
+const buildWarrantyCoverageDescription = ({
+  isAutoLookup,
+  serviceOrderId,
+  coveredParts,
+}: {
+  isAutoLookup: boolean;
+  serviceOrderId: number | null;
+  coveredParts: string[];
+}) => {
+  const normalizedParts = Array.from(
+    new Set(
+      coveredParts
+        .map((part) => String(part || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (isAutoLookup) {
+    if (normalizedParts.length > 0) {
+      return `A garantia cobre o serviço executado na O.S. #${serviceOrderId || "-"} e as peças efetivamente aplicadas: ${normalizedParts.join(", ")}. Não cobre mau uso, colisões, combustível inadequado, desgaste natural ou intervenções de terceiros.`;
+    }
+
+    return `A garantia cobre exclusivamente o serviço executado na O.S. #${serviceOrderId || "-"} e as peças efetivamente aplicadas nessa ordem. Não cobre mau uso, colisões, combustível inadequado, desgaste natural ou intervenções de terceiros.`;
+  }
+
+  if (normalizedParts.length > 0) {
+    return `A garantia cobre o serviço executado e as peças aplicadas na O.S. #${serviceOrderId || "-"}: ${normalizedParts.join(", ")}. Não cobre quedas, contato com líquidos, oxidação, violação de lacre ou intervenção de terceiros.`;
+  }
+
+  return `A garantia cobre o serviço executado na O.S. #${serviceOrderId || "-"} e as peças efetivamente aplicadas nessa ordem. Não cobre mau uso, quedas, contato com líquidos, oxidação ou intervenção de terceiros.`;
+};
+
 export async function GET(request: Request) {
   try {
     const currentUser = await getCurrentUser();
@@ -29,15 +70,21 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code")?.trim() || "";
+    const isAutoLookup = currentUser.segment === "AUTO";
+    const normalizedPlate = normalizeVehiclePlate(code);
 
-    if (code.length < 3) {
+    if ((isAutoLookup && normalizedPlate.length < 7) || (!isAutoLookup && code.length < 3)) {
       return NextResponse.json(
-        { error: "Informe um IMEI ou número de série válido." },
+        {
+          error: isAutoLookup
+            ? "Informe uma placa válida."
+            : "Informe um IMEI ou número de série válido.",
+        },
         { status: 400 },
       );
     }
 
-    const variants = buildVariants(code);
+    const variants = buildVariants(code, isAutoLookup);
     const companyId = currentUser.companyId;
 
     const serviceOrders = await prisma.serviceOrder.findMany({
@@ -153,7 +200,11 @@ export async function GET(request: Request) {
 
     if (allServiceOrders.length === 0 && sales.length === 0) {
       return NextResponse.json(
-        { error: "Nenhum histórico encontrado para este IMEI ou série." },
+        {
+          error: isAutoLookup
+            ? "Nenhum histórico encontrado para esta placa."
+            : "Nenhum histórico encontrado para este IMEI ou série.",
+        },
         { status: 404 },
       );
     }
@@ -171,6 +222,20 @@ export async function GET(request: Request) {
 
     const latestServiceOrder = allServiceOrders[0] || null;
     const latestSale = sales[0] || null;
+    const latestAutoChecklist =
+      (latestServiceOrder?.checklist as { auto?: { plate?: string | null } } | null)
+        ?.auto || null;
+    const latestCoveredParts =
+      latestServiceOrder
+        ? (salesByServiceOrderId.get(latestServiceOrder.id) || []).flatMap((sale) =>
+            sale.items.map(
+              (item) =>
+                item.product?.name ||
+                item.description ||
+                "Item sem descrição",
+            ),
+          )
+        : [];
     const warrantyBaseDate =
       latestServiceOrder?.createdAt || latestSale?.createdAt || new Date();
     const warrantyExpiresAt = addDays(warrantyBaseDate, 90);
@@ -226,7 +291,11 @@ export async function GET(request: Request) {
     return NextResponse.json({
       query: code,
       summary: {
-        serialNumber: latestServiceOrder?.serialNumber || code,
+        lookupMode: isAutoLookup ? "PLATE" : "SERIAL",
+        serialNumber:
+          (isAutoLookup
+            ? latestAutoChecklist?.plate || latestServiceOrder?.serialNumber
+            : latestServiceOrder?.serialNumber) || code,
         deviceBrand: latestServiceOrder?.deviceBrand || null,
         deviceModel: latestServiceOrder?.deviceModel || null,
         lastServiceOrderId: latestServiceOrder?.id || null,
@@ -237,11 +306,16 @@ export async function GET(request: Request) {
         warrantyStatus: withinWarranty ? "ACTIVE" : "EXPIRED",
         warrantyDaysRemaining: withinWarranty ? remainingDays : 0,
         warrantyDaysExpired: withinWarranty ? 0 : Math.abs(remainingDays),
+        warrantyCoverage: buildWarrantyCoverageDescription({
+          isAutoLookup,
+          serviceOrderId: latestServiceOrder?.id || null,
+          coveredParts: latestCoveredParts,
+        }),
       },
       timeline,
     });
   } catch (error) {
-    console.error("[consulta] Erro ao consultar IMEI/serial:", error);
+    console.error("[consulta] Erro ao consultar garantia:", error);
     return NextResponse.json(
       { error: "Erro ao consultar histórico de garantia." },
       { status: 500 },

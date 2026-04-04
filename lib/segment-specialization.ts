@@ -20,12 +20,18 @@ export type VehicleSteeringOption =
   | "ELETRICA"
   | "MECANICA";
 
+export type VehicleInventoryStatus =
+  | "DISPONIVEL"
+  | "MANUTENCAO"
+  | "VENDIDO";
+
 export type VehicleProfile = {
   brand?: string | null;
   model?: string | null;
   plate?: string | null;
   chassis?: string | null;
   renavam?: string | null;
+  status?: VehicleInventoryStatus | null;
   manufactureYear?: number | null;
   modelYear?: number | null;
   engine?: string | null;
@@ -61,6 +67,15 @@ export const VEHICLE_STEERING_OPTIONS: Array<{
   { value: "HIDRAULICA", label: "Hidráulica" },
   { value: "ELETRICA", label: "Elétrica" },
   { value: "MECANICA", label: "Mecânica" },
+];
+
+export const VEHICLE_STATUS_OPTIONS: Array<{
+  value: VehicleInventoryStatus;
+  label: string;
+}> = [
+  { value: "DISPONIVEL", label: "Disponível" },
+  { value: "MANUTENCAO", label: "Em manutenção" },
+  { value: "VENDIDO", label: "Vendido" },
 ];
 
 const SEGMENT_PRODUCT_CATEGORIES: Record<
@@ -179,6 +194,27 @@ export const formatVehiclePlate = (value: string | null | undefined) => {
 
   return normalized;
 };
+
+export const normalizeVehicleInventoryStatus = (
+  value: string | null | undefined,
+): VehicleInventoryStatus | null => {
+  if (
+    value === "DISPONIVEL" ||
+    value === "MANUTENCAO" ||
+    value === "VENDIDO"
+  ) {
+    return value;
+  }
+
+  return null;
+};
+
+export const getVehicleInventoryStatusLabel = (
+  status: VehicleInventoryStatus | string | null | undefined,
+) =>
+  VEHICLE_STATUS_OPTIONS.find((option) => option.value === status)?.label ||
+  String(status || "").trim() ||
+  "Disponível";
 
 export const getVehicleFuelLabel = (
   fuel: VehicleFuelOption | string | null | undefined,

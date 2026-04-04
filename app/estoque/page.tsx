@@ -26,12 +26,15 @@ import {
   formatVehiclePlate,
   getDefaultProductCategory,
   getProductCategoryLabel,
+  getVehicleInventoryStatusLabel,
   getSegmentProductCategories,
   getVehicleFuelLabel,
+  normalizeVehicleInventoryStatus,
   getVehicleSteeringLabel,
   isVehicleCategory,
   normalizeVehiclePlate,
   VEHICLE_FUEL_OPTIONS,
+  VEHICLE_STATUS_OPTIONS,
   VEHICLE_STEERING_OPTIONS,
 } from "@/lib/segment-specialization";
 
@@ -51,6 +54,7 @@ interface Product {
   vehiclePlate?: string | null;
   vehicleChassis?: string | null;
   vehicleRenavam?: string | null;
+  vehicleStatus?: string | null;
   vehicleManufactureYear?: number | null;
   vehicleModelYear?: number | null;
   vehicleEngine?: string | null;
@@ -98,6 +102,7 @@ type ProductFormState = {
   vehiclePlate: string;
   vehicleChassis: string;
   vehicleRenavam: string;
+  vehicleStatus: string;
   vehicleManufactureYear: string;
   vehicleModelYear: string;
   vehicleEngine: string;
@@ -128,6 +133,7 @@ const createEmptyProductForm = (
   vehiclePlate: "",
   vehicleChassis: "",
   vehicleRenavam: "",
+  vehicleStatus: "DISPONIVEL",
   vehicleManufactureYear: "",
   vehicleModelYear: "",
   vehicleEngine: "",
@@ -359,6 +365,7 @@ export default function Estoque() {
       vehiclePlate: product.vehiclePlate || "",
       vehicleChassis: product.vehicleChassis || "",
       vehicleRenavam: product.vehicleRenavam || "",
+      vehicleStatus: product.vehicleStatus || "DISPONIVEL",
       vehicleManufactureYear: product.vehicleManufactureYear?.toString() || "",
       vehicleModelYear: product.vehicleModelYear?.toString() || "",
       vehicleEngine: product.vehicleEngine || "",
@@ -437,6 +444,9 @@ export default function Estoque() {
         return {
           ...current,
           category,
+          vehicleStatus:
+            normalizeVehicleInventoryStatus(current.vehicleStatus) ||
+            "DISPONIVEL",
         };
       }
 
@@ -448,6 +458,7 @@ export default function Estoque() {
         vehiclePlate: "",
         vehicleChassis: "",
         vehicleRenavam: "",
+        vehicleStatus: "DISPONIVEL",
         vehicleManufactureYear: "",
         vehicleModelYear: "",
         vehicleEngine: "",
@@ -494,6 +505,7 @@ export default function Estoque() {
       "Código de Barras",
       "Categoria",
       "Placa",
+      "Status Veículo",
       "Preço Venda",
       "Preço Custo",
       "Estoque",
@@ -508,6 +520,7 @@ export default function Estoque() {
         `"${p.barcode || ""}"`,
         getProductCategoryLabel(p.category),
         `"${formatVehiclePlate(p.vehiclePlate) || ""}"`,
+        `"${isVehicleCategory(p.category) ? getVehicleInventoryStatusLabel(p.vehicleStatus) : ""}"`,
         p.salePrice,
         p.costPrice,
         p.stock,
@@ -581,6 +594,9 @@ export default function Estoque() {
         : "shadow-[0_10px_24px_rgba(37,211,102,0.18)]"
     }`;
   };
+
+  const isVehicleInventoryItem = (product: Product) =>
+    isVehicleCategory(product.category);
 
   const handleSaveBatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -676,6 +692,48 @@ export default function Estoque() {
     ]
       .filter(Boolean)
       .join(" • ");
+  };
+
+  const getVehicleStatusBadgeClass = (status: string | null | undefined) => {
+    const normalizedStatus =
+      normalizeVehicleInventoryStatus(status) || "DISPONIVEL";
+
+    if (normalizedStatus === "VENDIDO") {
+      return "border-rose-500/30 bg-rose-500/10 text-rose-100";
+    }
+
+    if (normalizedStatus === "MANUTENCAO") {
+      return "border-amber-400/30 bg-amber-400/10 text-amber-100";
+    }
+
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-100";
+  };
+
+  const renderInventoryStatus = (product: Product) => {
+    if (isVehicleInventoryItem(product)) {
+      return (
+        <span
+          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getVehicleStatusBadgeClass(product.vehicleStatus)}`}
+        >
+          {getVehicleInventoryStatusLabel(product.vehicleStatus)}
+        </span>
+      );
+    }
+
+    if (isProductLowStock(product)) {
+      return (
+        <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
+          <AlertTriangle className="w-4 h-4" />
+          BAIXO ESTOQUE
+        </div>
+      );
+    }
+
+    return (
+      <span className="text-xs font-semibold text-emerald-400">
+        EM DIA
+      </span>
+    );
   };
 
   const selectedRestockSupplier = restockRequest
@@ -855,6 +913,7 @@ export default function Estoque() {
               filteredProducts.map((product) => {
                 const supplier = getSupplierForProduct(product);
                 const effectiveMinStock = resolveProductMinStock(product);
+                const isVehicleItem = isVehicleInventoryItem(product);
 
                 return (
                   <div
@@ -875,23 +934,35 @@ export default function Estoque() {
                               : ""}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-                          <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-red-100">
-                            Estoque atual: {product.stock}
-                          </span>
-                          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-amber-100">
-                            Mínimo: {effectiveMinStock}
-                          </span>
+                          {isVehicleItem ? (
+                            <span
+                              className={`rounded-full border px-3 py-1 ${getVehicleStatusBadgeClass(product.vehicleStatus)}`}
+                            >
+                              {getVehicleInventoryStatusLabel(product.vehicleStatus)}
+                            </span>
+                          ) : (
+                            <>
+                              <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-red-100">
+                                Estoque atual: {product.stock}
+                              </span>
+                              <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-amber-100">
+                                Mínimo: {effectiveMinStock}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRestockModal(product)}
-                        className={getRestockButtonClass(product)}
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Solicitar Reposição
-                      </button>
+                      {!isVehicleItem ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRestockModal(product)}
+                          className={getRestockButtonClass(product)}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Solicitar Reposição
+                        </button>
+                      ) : null}
                     </div>
 
                     <div className="mt-4 border-t border-slate-800 pt-4 text-sm text-slate-400">
@@ -940,6 +1011,7 @@ export default function Estoque() {
                 ) : (
                   filteredProducts.map((product) => {
                     const lowStock = isProductLowStock(product);
+                    const isVehicleItem = isVehicleInventoryItem(product);
 
                     return (
                       <tr
@@ -974,44 +1046,37 @@ export default function Estoque() {
                         <td className="p-4">
                           <span
                             className={`font-bold ${
-                              lowStock ? "text-red-500" : "text-white"
+                              !isVehicleItem && lowStock ? "text-red-500" : "text-white"
                             }`}
                           >
                             {product.stock}
                           </span>
                         </td>
-                        <td className="p-4">
-                          {lowStock ? (
-                            <div className="flex items-center gap-1 text-red-500 text-xs font-bold">
-                              <AlertTriangle className="w-4 h-4" />
-                              BAIXO ESTOQUE
-                            </div>
-                          ) : (
-                            <span className="text-xs font-semibold text-emerald-400">
-                              EM DIA
-                            </span>
-                          )}
-                        </td>
+                        <td className="p-4">{renderInventoryStatus(product)}</td>
                         <td className="p-4">
                           <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenRestockModal(product)}
-                              className={getRestockButtonClass(product, true)}
-                              title={`Solicitar reposição de ${product.name}`}
-                            >
-                              <MessageCircle className="h-5 w-5" />
-                            </button>
+                            {!isVehicleItem ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRestockModal(product)}
+                                className={getRestockButtonClass(product, true)}
+                                title={`Solicitar reposição de ${product.name}`}
+                              >
+                                <MessageCircle className="h-5 w-5" />
+                              </button>
+                            ) : null}
 
                             {userRole !== "ATTENDANT" ? (
                               <>
-                                <button
-                                  onClick={() => handleOpenBatchModal(product)}
-                                  className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
-                                  title="Nova Remessa"
-                                >
-                                  <Plus className="w-5 h-5" />
-                                </button>
+                                {!isVehicleItem ? (
+                                  <button
+                                    onClick={() => handleOpenBatchModal(product)}
+                                    className="p-2 rounded hover:bg-emerald-500/20 text-emerald-500 hover:text-emerald-400 transition-colors"
+                                    title="Nova Remessa"
+                                  >
+                                    <Plus className="w-5 h-5" />
+                                  </button>
+                                ) : null}
                                 <button
                                   onClick={() => handleEdit(product)}
                                   className="p-2 rounded hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
@@ -1306,7 +1371,9 @@ export default function Estoque() {
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1">Estoque</label>
+                    <label className="block text-slate-400 mb-1">
+                      {isVehicleForm ? "Unidades" : "Estoque"}
+                    </label>
                     <input
                       required
                       type="number"
@@ -1450,6 +1517,27 @@ export default function Estoque() {
                             })
                           }
                         />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Status da Unidade
+                        </label>
+                        <select
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleStatus}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleStatus: e.target.value,
+                            })
+                          }
+                        >
+                          {VEHICLE_STATUS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1">
@@ -1623,6 +1711,12 @@ export default function Estoque() {
                         Placa formatada:{" "}
                         <span className="font-semibold text-white">
                           {formatVehiclePlate(formData.vehiclePlate) || "—"}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3 col-span-2 md:col-span-1">
+                        Status:{" "}
+                        <span className="font-semibold text-white">
+                          {getVehicleInventoryStatusLabel(formData.vehicleStatus)}
                         </span>
                       </div>
                     </div>

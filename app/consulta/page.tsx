@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  CarFront,
   CalendarClock,
   CircleDollarSign,
   Loader2,
@@ -14,11 +15,13 @@ import {
   UserRound,
   Wrench,
 } from "lucide-react";
+import { useSegment } from "@/hooks/useSegment";
 
 type ConsultaResult = {
   query: string;
   summary: {
     serialNumber: string;
+    lookupMode: "PLATE" | "SERIAL";
     deviceBrand: string | null;
     deviceModel: string | null;
     lastServiceOrderId: number | null;
@@ -29,6 +32,7 @@ type ConsultaResult = {
     warrantyStatus: "ACTIVE" | "EXPIRED";
     warrantyDaysRemaining: number;
     warrantyDaysExpired: number;
+    warrantyCoverage: string;
   };
   timeline: Array<{
     id: string;
@@ -58,10 +62,12 @@ const formatDate = (value: string) =>
   }).format(new Date(value));
 
 export default function ConsultaPage() {
+  const { segment } = useSegment();
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ConsultaResult | null>(null);
+  const isAutoSegment = segment === "AUTO";
 
   const warrantyLabel = useMemo(() => {
     if (!result) {
@@ -78,7 +84,13 @@ export default function ConsultaPage() {
   const handleSearch = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (query.trim().length < 3) {
+    if (isAutoSegment && query.trim().replace(/[^a-zA-Z0-9]/g, "").length < 7) {
+      setError("Digite uma placa válida do veículo.");
+      setResult(null);
+      return;
+    }
+
+    if (!isAutoSegment && query.trim().length < 3) {
       setError("Digite um IMEI ou número de série válido.");
       setResult(null);
       return;
@@ -118,16 +130,18 @@ export default function ConsultaPage() {
         <div className="rounded-3xl border border-amber-400/15 bg-[#112240]/80 p-6 shadow-2xl backdrop-blur-md sm:p-8">
           <div className="mx-auto max-w-3xl text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400 text-[#0B1120] shadow-[0_0_30px_rgba(250,204,21,0.2)]">
-              <ShieldCheck size={32} />
+              {isAutoSegment ? <CarFront size={32} /> : <ShieldCheck size={32} />}
             </div>
 
             <h1 className="mt-5 text-3xl font-bold text-white sm:text-4xl">
-              Consulta de IMEI e Garantia
+              {isAutoSegment
+                ? "Consulta de Garantia por Placa"
+                : "Consulta de IMEI e Garantia"}
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">
-              Bipar ou digitar o IMEI / número de série para localizar o
-              histórico completo do aparelho, garantia de 90 dias e todas as
-              passagens pela loja.
+              {isAutoSegment
+                ? "Digite a placa para localizar o histórico do veículo, o tempo restante de garantia e a cobertura do serviço executado."
+                : "Bipar ou digitar o IMEI / número de série para localizar o histórico completo do aparelho, garantia de 90 dias e todas as passagens pela loja."}
             </p>
 
             <form
@@ -140,7 +154,11 @@ export default function ConsultaPage() {
                   type="text"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Bipar IMEI ou Número de Série"
+                  placeholder={
+                    isAutoSegment
+                      ? "Digite a Placa do Veículo"
+                      : "Bipar IMEI ou Número de Série"
+                  }
                   className="h-14 w-full rounded-2xl border border-slate-700 bg-[#0B1120] pl-12 pr-4 text-base text-white outline-none transition-colors placeholder:text-slate-500 focus:border-amber-400"
                   autoComplete="off"
                 />
@@ -166,7 +184,9 @@ export default function ConsultaPage() {
             </form>
 
             <p className="mt-3 text-xs uppercase tracking-[0.25em] text-slate-500">
-              Pressione Enter após bipar o código
+              {isAutoSegment
+                ? "Pressione Enter após digitar a placa"
+                : "Pressione Enter após bipar o código"}
             </p>
 
             {error && (
@@ -219,15 +239,22 @@ export default function ConsultaPage() {
 
                 <div className="mt-6 space-y-4 rounded-2xl border border-white/10 bg-[#0B1120]/40 p-4">
                   <div className="flex items-center gap-3">
-                    <Smartphone className="h-5 w-5 text-amber-300" />
+                    {isAutoSegment ? (
+                      <CarFront className="h-5 w-5 text-amber-300" />
+                    ) : (
+                      <Smartphone className="h-5 w-5 text-amber-300" />
+                    )}
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        Aparelho
+                        {isAutoSegment ? "Veículo" : "Aparelho"}
                       </p>
                       <p className="font-semibold text-white">
                         {[result.summary.deviceBrand, result.summary.deviceModel]
                           .filter(Boolean)
-                          .join(" ") || "Aparelho não identificado"}
+                          .join(" ") ||
+                          (isAutoSegment
+                            ? "Veículo não identificado"
+                            : "Aparelho não identificado")}
                       </p>
                     </div>
                   </div>
@@ -236,7 +263,7 @@ export default function ConsultaPage() {
                     <Search className="h-5 w-5 text-amber-300" />
                     <div>
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                        IMEI / Série
+                        {isAutoSegment ? "Placa" : "IMEI / Série"}
                       </p>
                       <p className="break-all font-semibold text-white">
                         {result.summary.serialNumber}
@@ -291,11 +318,20 @@ export default function ConsultaPage() {
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-amber-400/15 bg-amber-400/5 p-4 text-sm text-slate-300">
-                  Histórico completo do aparelho encontrado para{" "}
+                  Histórico completo {isAutoSegment ? "do veículo" : "do aparelho"} encontrado para{" "}
                   <span className="font-semibold text-white">{result.query}</span>
                   . As vendas aparecem quando houve lançamento financeiro ou
                   peças vinculadas à O.S.
                 </div>
+
+                {isAutoSegment ? (
+                  <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4 text-sm leading-6 text-slate-200">
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-200">
+                      O que a garantia cobre
+                    </p>
+                    <p className="mt-3">{result.summary.warrantyCoverage}</p>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -303,10 +339,12 @@ export default function ConsultaPage() {
               <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-white">
-                    Timeline do Aparelho
+                    {isAutoSegment ? "Timeline do Veículo" : "Timeline do Aparelho"}
                   </h2>
                   <p className="text-sm text-slate-400">
-                    Todas as vezes que este equipamento passou pela loja.
+                    {isAutoSegment
+                      ? "Todas as entradas, serviços e vendas vinculadas à placa consultada."
+                      : "Todas as vezes que este equipamento passou pela loja."}
                   </p>
                 </div>
               </div>
@@ -434,9 +472,9 @@ export default function ConsultaPage() {
               Nenhuma consulta realizada ainda
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-              Digite ou bipar o IMEI / número de série para localizar o
-              histórico completo do aparelho, incluindo garantia, O.S. e vendas
-              vinculadas.
+              {isAutoSegment
+                ? "Digite a placa para localizar o histórico do veículo, o tempo restante de garantia e os serviços cobertos."
+                : "Digite ou bipar o IMEI / número de série para localizar o histórico completo do aparelho, incluindo garantia, O.S. e vendas vinculadas."}
             </p>
           </div>
         )}
