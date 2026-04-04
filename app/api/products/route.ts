@@ -2,13 +2,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeBarcode } from "@/lib/barcode";
+import { parseBRLCurrencyInput } from "@/lib/currency";
 import {
   buildVehicleDuplicateWhere,
   buildVehicleProductData,
   normalizeVehicleProfileInput,
   validateVehicleProfile,
 } from "@/lib/vehicle-product";
-import { normalizeVehiclePlate } from "@/lib/segment-specialization";
+import {
+  isVehicleCategory,
+  normalizeVehicleInventoryStatus,
+  normalizeVehiclePlate,
+} from "@/lib/segment-specialization";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -157,15 +162,22 @@ export async function POST(request: Request) {
       }
     }
 
+    const normalizedVehicleStatus =
+      normalizeVehicleInventoryStatus(vehicleProfile.status) || "DISPONIVEL";
+    const vehicleStock = normalizedVehicleStatus === "VENDIDO" ? 0 : 1;
+    const parsedStockQuantity = parseInt(stockQuantity?.toString() || "0", 10) || 0;
+    const parsedSalePrice = parseBRLCurrencyInput(price);
+    const parsedCostPrice = parseBRLCurrencyInput(costPrice);
+
     const product = await prisma.product.create({
       data: {
         name,
-        salePrice: parseFloat(price?.toString() || "0") || 0,
-        costPrice: parseFloat(costPrice?.toString() || "0") || 0,
+        salePrice: parsedSalePrice,
+        costPrice: parsedCostPrice,
         category,
-        stock: parseInt(stockQuantity?.toString() || "0") || 0,
-        minQuantity: parsedMinQuantity,
-        minStock: parsedMinQuantity,
+        stock: isVehicleCategory(category) ? vehicleStock : parsedStockQuantity,
+        minQuantity: isVehicleCategory(category) ? 0 : parsedMinQuantity,
+        minStock: isVehicleCategory(category) ? 0 : parsedMinQuantity,
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
         companyId: currentUser.companyId,

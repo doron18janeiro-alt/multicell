@@ -87,7 +87,14 @@ export async function POST(request: Request) {
 
     const companyId = currentUser.companyId || "multicell-oficial";
     const body = await request.json();
-    const { items, paymentMethod, total, customerId, issueNfe } = body;
+    const {
+      items,
+      paymentMethod,
+      total,
+      customerId,
+      issueNfe,
+      financingBank,
+    } = body;
 
     let finalPaymentMethod = paymentMethod;
     let cardType = null;
@@ -244,6 +251,10 @@ export async function POST(request: Request) {
           total,
           paymentMethod: finalPaymentMethod,
           cardType,
+          financingBank:
+            paymentMethod === "FINANCIAMENTO"
+              ? String(financingBank || "").trim() || null
+              : null,
           feeAmount,
           netAmount,
           customerId,

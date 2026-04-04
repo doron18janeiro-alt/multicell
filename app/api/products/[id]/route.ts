@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { normalizeBarcode } from "@/lib/barcode";
+import { parseBRLCurrencyInput } from "@/lib/currency";
 import {
   buildVehicleDuplicateWhere,
   buildVehicleProductData,
   normalizeVehicleProfileInput,
   validateVehicleProfile,
 } from "@/lib/vehicle-product";
+import {
+  isVehicleCategory,
+  normalizeVehicleInventoryStatus,
+} from "@/lib/segment-specialization";
 
 export async function PUT(
   request: Request,
@@ -103,16 +108,21 @@ export async function PUT(
       }
     }
 
+    const normalizedVehicleStatus =
+      normalizeVehicleInventoryStatus(vehicleProfile.status) || "DISPONIVEL";
+    const vehicleStock = normalizedVehicleStatus === "VENDIDO" ? 0 : 1;
+    const parsedStockQuantity = parseInt(String(stockQuantity) || "0", 10) || 0;
+
     const product = await prisma.product.update({
       where: { id: existingProduct.id },
       data: {
         name,
-        salePrice: parseFloat(String(price).replace(",", ".") || "0") || 0,
-        costPrice: parseFloat(String(costPrice).replace(",", ".") || "0") || 0,
+        salePrice: parseBRLCurrencyInput(price),
+        costPrice: parseBRLCurrencyInput(costPrice),
         category,
-        stock: parseInt(String(stockQuantity) || "0"),
-        minQuantity: parsedMinQuantity,
-        minStock: parsedMinQuantity,
+        stock: isVehicleCategory(category) ? vehicleStock : parsedStockQuantity,
+        minQuantity: isVehicleCategory(category) ? 0 : parsedMinQuantity,
+        minStock: isVehicleCategory(category) ? 0 : parsedMinQuantity,
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
         ...buildVehicleProductData(category, vehicleProfile),

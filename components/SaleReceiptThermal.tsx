@@ -18,6 +18,11 @@ type ReceiptItem = {
   description?: string | null;
   product?: {
     name?: string | null;
+    category?: string | null;
+    vehicleBrand?: string | null;
+    vehicleModel?: string | null;
+    vehiclePlate?: string | null;
+    vehicleChassis?: string | null;
   } | null;
 };
 
@@ -33,6 +38,7 @@ type ReceiptSale = {
   total?: number;
   paymentMethod?: string | null;
   cardType?: string | null;
+  financingBank?: string | null;
   tableNumber?: string | null;
   customerDocument?: string | null;
   createdAt?: string | Date;
@@ -126,6 +132,10 @@ const getPaymentLabel = (
     return "Cartão Crédito";
   }
 
+  if (normalizedMethod === "FINANCIAMENTO") {
+    return "Financiamento Bancário";
+  }
+
   return paymentMethod;
 };
 
@@ -149,6 +159,10 @@ const getPaymentBreakdown = (sale: ReceiptSale) => {
     {
       label: "Cartão",
       amount: isCardMethod ? totalAmount : 0,
+    },
+    {
+      label: "Financiamento",
+      amount: normalizedMethod === "FINANCIAMENTO" ? totalAmount : 0,
     },
   ];
 };
@@ -388,6 +402,9 @@ export const SaleReceiptThermal = React.forwardRef<
   const paymentBreakdown = getPaymentBreakdown(sale);
   const saleDate = formatDateTime(sale?.createdAt);
   const totalAmount = Number(sale?.total || 0);
+  const vehicleItems = items.filter(
+    (item) => item.product?.category === "VEICULO",
+  );
   const hasCustomerDetails =
     hasText(customerName) ||
     hasText(customerPhone) ||
@@ -508,6 +525,17 @@ export const SaleReceiptThermal = React.forwardRef<
               </div>
             </section>
 
+            {sale?.paymentMethod?.toUpperCase() === "FINANCIAMENTO" ? (
+              <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Financiamento
+                </p>
+                <p className="mt-[1.2mm] font-semibold text-slate-950">
+                  Banco: {normalizeText(sale?.financingBank)}
+                </p>
+              </section>
+            ) : null}
+
             <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
               <div className="mb-[2mm] flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 <span>Itens da venda</span>
@@ -550,6 +578,35 @@ export const SaleReceiptThermal = React.forwardRef<
                 )}
               </div>
             </section>
+
+            {vehicleItems.length > 0 ? (
+              <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Dados do Veículo
+                </p>
+                <div className="mt-[2mm] space-y-[1.6mm]">
+                  {vehicleItems.map((item, index) => {
+                    const vehicleLabel = normalizeText(
+                      `${item.product?.vehicleBrand || ""} ${item.product?.vehicleModel || ""}`.trim(),
+                      item.product?.name || item.description || `Veículo ${index + 1}`,
+                    );
+
+                    return (
+                      <div
+                        key={`vehicle-${item.id || index}`}
+                        className="rounded-[14px] border border-slate-200 px-[2mm] py-[1.8mm]"
+                      >
+                        <p className="font-semibold text-slate-950">{vehicleLabel}</p>
+                        <div className="mt-[1mm] text-[10px] text-slate-600">
+                          <p>Placa: {normalizeText(item.product?.vehiclePlate)}</p>
+                          <p>Chassi: {normalizeText(item.product?.vehicleChassis)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
 
             <section className="document-total rounded-[18px] border border-[#FACC15] bg-[#FFFDE7] p-[2.5mm]">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#B45309]">

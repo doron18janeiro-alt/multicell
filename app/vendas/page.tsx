@@ -12,6 +12,7 @@ import {
   Trash2,
   CreditCard,
   DollarSign,
+  FileText,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -21,6 +22,7 @@ interface Sale {
   total: number;
   paymentMethod: string;
   cardType?: string | null;
+  financingBank?: string | null;
   items: any[];
   createdAt: string;
 }
@@ -187,6 +189,8 @@ function SalesMetricsDefault() {
         } else if (method.includes("CREDITO")) {
           acc.credit += value;
           acc.taxCredit += value * (rates.creditRate / 100);
+        } else if (method === "FINANCIAMENTO") {
+          acc.credit += value;
         } else if (method === "CARTAO") {
           if ((sale as any).cardType === "DEBITO") {
             acc.debit += value;
@@ -208,6 +212,7 @@ function SalesMetricsDefault() {
         let currentFee = 0;
         if (method === "DINHEIRO") currentFee = value * (rates.taxCash / 100);
         else if (method === "PIX") currentFee = value * (rates.taxPix / 100);
+        else if (method === "FINANCIAMENTO") currentFee = 0;
         else if (
           method.includes("DEBITO") ||
           (sale as any).cardType === "DEBITO"
@@ -660,6 +665,8 @@ function SalesMetricsDefault() {
                             ? "bg-green-500/10 text-green-400 border-green-500/20"
                             : sale.paymentMethod === "PIX"
                               ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
+                              : sale.paymentMethod === "FINANCIAMENTO"
+                                ? "bg-amber-400/10 text-amber-200 border-amber-400/20"
                               : "bg-blue-500/10 text-blue-400 border-blue-500/20"
                         }`}
                       >
@@ -667,11 +674,17 @@ function SalesMetricsDefault() {
                           <DollarSign size={12} />
                         )}
                         {sale.paymentMethod === "PIX" && <Zap size={12} />}
+                        {sale.paymentMethod === "FINANCIAMENTO" && (
+                          <FileText size={12} />
+                        )}
                         {sale.paymentMethod !== "DINHEIRO" &&
-                          sale.paymentMethod !== "PIX" && (
+                          sale.paymentMethod !== "PIX" &&
+                          sale.paymentMethod !== "FINANCIAMENTO" && (
                             <CreditCard size={12} />
                           )}
                         {sale.paymentMethod}
+                        {sale.paymentMethod === "FINANCIAMENTO" &&
+                          sale.financingBank && ` • ${sale.financingBank}`}
                       </span>
                     </td>
                     <td className="p-4 text-right font-bold text-[#FFD700]">

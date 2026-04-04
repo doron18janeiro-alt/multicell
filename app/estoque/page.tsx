@@ -16,9 +16,15 @@ import {
   CarFront,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { useSegment } from "@/hooks/useSegment";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
+import {
+  formatBRLCurrencyInput,
+  parseBRLCurrencyInput,
+  parseBRLCurrencyInputToFixed,
+} from "@/lib/currency";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { formatWhatsAppLink } from "@/lib/whatsapp";
 import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
@@ -124,8 +130,8 @@ const createEmptyProductForm = (
   barcode,
   price: "",
   costPrice: "",
-  stockQuantity: "",
-  minQuantity: "2",
+  stockQuantity: isVehicleCategory(defaultCategory) ? "1" : "",
+  minQuantity: isVehicleCategory(defaultCategory) ? "0" : "2",
   category: defaultCategory,
   supplierId: "",
   vehicleBrand: "",
@@ -354,10 +360,20 @@ export default function Estoque() {
     setFormData({
       name: product.name,
       barcode: product.barcode || "",
-      price: product.salePrice.toString(),
-      costPrice: product.costPrice.toString(),
-      stockQuantity: product.stock.toString(),
-      minQuantity: product.minQuantity.toString(),
+      price: formatBRLCurrencyInput(
+        Math.round(Number(product.salePrice || 0) * 100).toString(),
+      ),
+      costPrice: formatBRLCurrencyInput(
+        Math.round(Number(product.costPrice || 0) * 100).toString(),
+      ),
+      stockQuantity: isVehicleCategory(product.category)
+        ? product.vehicleStatus === "VENDIDO"
+          ? "0"
+          : "1"
+        : product.stock.toString(),
+      minQuantity: isVehicleCategory(product.category)
+        ? "0"
+        : product.minQuantity.toString(),
       category: product.category,
       supplierId: product.supplierId || "",
       vehicleBrand: product.vehicleBrand || "",
@@ -411,8 +427,16 @@ export default function Estoque() {
         ...formData,
         barcode: normalizeBarcode(formData.barcode),
         vehiclePlate: normalizeVehiclePlate(formData.vehiclePlate),
-        price: formData.price.replace(",", "."),
-        costPrice: formData.costPrice.replace(",", "."),
+        price: parseBRLCurrencyInputToFixed(formData.price),
+        costPrice: parseBRLCurrencyInputToFixed(formData.costPrice),
+        stockQuantity: isVehicleCategory(formData.category)
+          ? formData.vehicleStatus === "VENDIDO"
+            ? "0"
+            : "1"
+          : formData.stockQuantity,
+        minQuantity: isVehicleCategory(formData.category)
+          ? "0"
+          : formData.minQuantity,
       };
 
       const res = await fetch(url, {
@@ -444,16 +468,20 @@ export default function Estoque() {
         return {
           ...current,
           category,
+          stockQuantity: current.vehicleStatus === "VENDIDO" ? "0" : "1",
+          minQuantity: "0",
           vehicleStatus:
             normalizeVehicleInventoryStatus(current.vehicleStatus) ||
             "DISPONIVEL",
         };
       }
 
-      return {
-        ...current,
-        category,
-        vehicleBrand: "",
+        return {
+          ...current,
+          category,
+          stockQuantity: "",
+          minQuantity: "2",
+          vehicleBrand: "",
         vehicleModel: "",
         vehiclePlate: "",
         vehicleChassis: "",
@@ -779,11 +807,9 @@ export default function Estoque() {
   const hasInvalidBasePricing =
     !formData.name ||
     !formData.price ||
-    isNaN(parseFloat(formData.price.replace(",", "."))) ||
-    parseFloat(formData.price.replace(",", ".")) <= 0 ||
+    parseBRLCurrencyInput(formData.price) <= 0 ||
     !formData.costPrice ||
-    isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
-    parseFloat(formData.costPrice.replace(",", ".")) < 0;
+    parseBRLCurrencyInput(formData.costPrice) < 0;
 
   const hasInvalidVehicleProfile =
     isVehicleForm &&
@@ -1044,13 +1070,19 @@ export default function Estoque() {
                           R$ {(product.salePrice || 0).toFixed(2)}
                         </td>
                         <td className="p-4">
-                          <span
-                            className={`font-bold ${
-                              !isVehicleItem && lowStock ? "text-red-500" : "text-white"
-                            }`}
-                          >
-                            {product.stock}
-                          </span>
+                          {isVehicleItem ? (
+                            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Unidade única
+                            </span>
+                          ) : (
+                            <span
+                              className={`font-bold ${
+                                lowStock ? "text-red-500" : "text-white"
+                              }`}
+                            >
+                              {product.stock}
+                            </span>
+                          )}
                         </td>
                         <td className="p-4">{renderInventoryStatus(product)}</td>
                         <td className="p-4">
@@ -1314,29 +1346,19 @@ export default function Estoque() {
                     <label className="block text-slate-400 mb-1">
                       Preço Custo
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-slate-400">
-                        R$
-                      </span>
-                      <input
-                        required
-                        type="text"
-                        className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
-                        value={formData.costPrice}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            costPrice: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
+                    <CurrencyInput
+                      required
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                      value={formData.costPrice}
+                      onChange={(value) =>
+                        setFormData({
+                          ...formData,
+                          costPrice: value,
+                        })
+                      }
+                    />
                     {formData.costPrice &&
-                      (isNaN(
-                        parseFloat(formData.costPrice.replace(",", ".")),
-                      ) ||
-                        parseFloat(formData.costPrice.replace(",", ".")) <
-                          0) && (
+                      parseBRLCurrencyInput(formData.costPrice) < 0 && (
                         <p className="text-red-500 text-xs mt-1">
                           Valor inválido
                         </p>
@@ -1347,62 +1369,63 @@ export default function Estoque() {
                     <label className="block text-slate-400 mb-1">
                       Preço Venda
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-slate-400">
-                        R$
-                      </span>
-                      <input
-                        required
-                        type="text"
-                        className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 pl-10 text-white"
-                        value={formData.price}
-                        onChange={(e) =>
-                          setFormData({ ...formData, price: e.target.value })
-                        }
-                      />
-                    </div>
+                    <CurrencyInput
+                      required
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                      value={formData.price}
+                      onChange={(value) =>
+                        setFormData({ ...formData, price: value })
+                      }
+                    />
                     {(!formData.price ||
-                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
-                      parseFloat(formData.price.replace(",", ".")) <= 0) && (
+                      parseBRLCurrencyInput(formData.price) <= 0) && (
                       <p className="text-red-500 text-xs mt-1">
                         Obrigatório (&gt; 0)
                       </p>
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-slate-400 mb-1">
-                      {isVehicleForm ? "Unidades" : "Estoque"}
-                    </label>
-                    <input
-                      required
-                      type="number"
-                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.stockQuantity}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          stockQuantity: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  {!isVehicleForm ? (
+                    <>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Estoque
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                          value={formData.stockQuantity}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              stockQuantity: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-slate-400 mb-1">Mínimo</label>
-                    <input
-                      required
-                      type="number"
-                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.minQuantity}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          minQuantity: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Mínimo</label>
+                        <input
+                          required
+                          type="number"
+                          className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                          value={formData.minQuantity}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              minQuantity: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="lg:col-span-2 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-4 text-sm text-amber-100">
+                      Veículos são tratados como unidades únicas. Estoque quantitativo e estoque mínimo não aparecem no cadastro.
+                    </div>
+                  )}
 
                   <div className={isVehicleForm ? "lg:col-span-2" : ""}>
                     <label className="block text-slate-400 mb-1">
@@ -1529,6 +1552,8 @@ export default function Estoque() {
                             setFormData({
                               ...formData,
                               vehicleStatus: e.target.value,
+                              stockQuantity:
+                                e.target.value === "VENDIDO" ? "0" : "1",
                             })
                           }
                         >

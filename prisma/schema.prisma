@@ -140,6 +140,7 @@ model Sale {
   netAmount      Float?     @map("net_amount")
   paymentMethod  String     @map("payment_method")
   cardType       String?    @map("card_type")
+  financingBank  String?    @map("financing_bank")
   tableNumber    String?    @map("table_number")
   serviceOrderId Int?       @map("service_order_id")
   status         SaleStatus @default(COMPLETED)

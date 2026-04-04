@@ -47,6 +47,10 @@ interface Product {
   stockQuantity: number;
   category: string;
   barcode?: string | null;
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehiclePlate?: string | null;
+  vehicleChassis?: string | null;
 }
 
 interface CartItem extends Product {
@@ -70,6 +74,18 @@ interface CompanyConfig {
   nfeBalance: number;
 }
 
+const FINANCING_BANKS = [
+  "Itaú (iCarros)",
+  "Bradesco",
+  "Santander",
+  "BV Financeira",
+  "Banco Pan",
+  "Safra",
+  "Porto Seguro",
+  "Caixa",
+  "Banco do Brasil",
+] as const;
+
 function StandardPDVContent() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -78,6 +94,8 @@ function StandardPDVContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
+  const [financingBankSearch, setFinancingBankSearch] = useState("");
+  const [selectedFinancingBank, setSelectedFinancingBank] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
@@ -197,6 +215,10 @@ function StandardPDVContent() {
           stockQuantity: Number(p.stock) || 0,
           category: p.category,
           barcode: p.barcode,
+          vehicleBrand: p.vehicleBrand,
+          vehicleModel: p.vehicleModel,
+          vehiclePlate: p.vehiclePlate,
+          vehicleChassis: p.vehicleChassis,
         }));
         setProducts(mappedProducts);
       }
@@ -319,6 +341,19 @@ function StandardPDVContent() {
     );
   });
 
+  const hasVehicleInCart = cart.some((item) => item.category === "VEICULO");
+  const filteredFinancingBanks = FINANCING_BANKS.filter((bank) =>
+    bank.toLowerCase().includes(financingBankSearch.toLowerCase()),
+  );
+
+  useEffect(() => {
+    if (!hasVehicleInCart && paymentMethod === "FINANCIAMENTO") {
+      setPaymentMethod("DINHEIRO");
+      setSelectedFinancingBank("");
+      setFinancingBankSearch("");
+    }
+  }, [hasVehicleInCart, paymentMethod]);
+
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.id !== productId));
   };
@@ -403,6 +438,11 @@ function StandardPDVContent() {
       return;
     }
 
+    if (paymentMethod === "FINANCIAMENTO" && !selectedFinancingBank) {
+      alert("Selecione o banco financiador antes de concluir a venda.");
+      return;
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -414,6 +454,8 @@ function StandardPDVContent() {
         paymentMethod,
         total,
         customerId: selectedCustomerId || null,
+        financingBank:
+          paymentMethod === "FINANCIAMENTO" ? selectedFinancingBank : null,
         issueNfe,
       };
 
@@ -428,6 +470,8 @@ function StandardPDVContent() {
         setLastSale(sale);
         setCart([]);
         setPaymentMethod("DINHEIRO");
+        setSelectedFinancingBank("");
+        setFinancingBankSearch("");
         if (issueNfe) {
           setCompanyConfig((current) => ({
             ...current,
@@ -726,6 +770,65 @@ function StandardPDVContent() {
                 <span className="text-xs font-bold">CRÉDITO</span>
               </button>
             </div>
+
+            {hasVehicleInCart && (
+              <button
+                onClick={() => setPaymentMethod("FINANCIAMENTO")}
+                className={`flex w-full flex-col items-center justify-center rounded-lg border p-3 transition-all ${
+                  paymentMethod === "FINANCIAMENTO"
+                    ? "border-[#FACC15] bg-[#FACC15] text-[#0B1120] shadow-[0_0_10px_#FACC15]"
+                    : "bg-[#112240] border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                }`}
+              >
+                <FileText className="mb-1 h-5 w-5" />
+                <span className="text-xs font-bold">FINANCIAMENTO</span>
+              </button>
+            )}
+
+            {paymentMethod === "FINANCIAMENTO" && hasVehicleInCart && (
+              <div className="rounded-xl border border-[#FACC15]/20 bg-[#0B1120] p-3">
+                <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Banco Financiador
+                </label>
+                <input
+                  type="text"
+                  value={financingBankSearch}
+                  onChange={(event) => setFinancingBankSearch(event.target.value)}
+                  placeholder="Digite a primeira letra do banco"
+                  className="mt-3 w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[#FACC15]"
+                />
+                <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {filteredFinancingBanks.map((bank) => (
+                    <button
+                      key={bank}
+                      type="button"
+                      onClick={() => {
+                        setSelectedFinancingBank(bank);
+                        setFinancingBankSearch(bank);
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors ${
+                        selectedFinancingBank === bank
+                          ? "border-[#FACC15] bg-[#FACC15]/10 text-[#FDE68A]"
+                          : "border-slate-700 bg-[#112240] text-slate-200 hover:border-slate-500"
+                      }`}
+                    >
+                      {bank}
+                    </button>
+                  ))}
+                  {filteredFinancingBanks.length === 0 && (
+                    <div className="rounded-lg border border-dashed border-slate-700 px-3 py-4 text-center text-xs text-slate-400">
+                      Nenhum banco encontrado para este filtro.
+                    </div>
+                  )}
+                </div>
+                <p className="mt-3 text-xs text-slate-400">
+                  Banco selecionado:{" "}
+                  <span className="font-semibold text-white">
+                    {selectedFinancingBank || "Nenhum"}
+                  </span>
+                </p>
+              </div>
+            )}
 
             {(paymentMethod === "DEBITO" || paymentMethod === "CREDITO") &&
               cart.length > 0 && (
