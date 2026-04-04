@@ -18,6 +18,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { resetSegmentSessionCache } from "@/hooks/useSegment";
+import Logo3D from "@/components/Logo3D";
 
 const commercialHighlights = [
   {
@@ -163,18 +164,30 @@ export default function LoginPage() {
                 animate={{ y: [0, -10, 0], scale: [1, 1.015, 1] }}
                 transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
               >
-                <Image
-                  src="/wtm-badge.png"
-                  alt="World Tech Manager"
-                  width={420}
-                  height={420}
-                  priority
-                  className="h-auto w-full max-w-[280px] object-contain drop-shadow-[0_0_22px_rgba(250,204,21,0.2)]"
-                />
+                <div className="relative">
+                  <Image
+                    src="/wtm-badge.png"
+                    alt="World Tech Manager"
+                    width={420}
+                    height={420}
+                    priority
+                    className="h-auto w-full max-w-[280px] object-contain drop-shadow-[0_0_22px_rgba(250,204,21,0.2)]"
+                    style={{
+                      filter: 'drop-shadow(0 0 25px rgba(250, 204, 21, 0.4))',
+                      mixBlendMode: 'screen'
+                    }}
+                  />
+                </div>
               </motion.div>
-              <p className="mt-4 text-center text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15] lg:text-left">
-                WORLD TECH MANAGER
-              </p>
+              <div className="mt-4 text-center lg:text-left">
+                <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)]">
+                  WORLD TECH
+                </p>
+                <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)] -mt-0.5">
+                  MANAGER
+                </p>
+                <div className="mt-2 h-px w-20 mx-auto lg:mx-0 bg-gradient-to-r from-transparent via-[#FACC15]/70 to-transparent"></div>
+              </div>
 
               <div className="mt-8 max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-[0.4em] text-cyan-300/86">
@@ -188,38 +201,56 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <div className="mt-8 grid gap-4 md:grid-cols-3">
-                {commercialHighlights.map((item) => {
+              <div className="mt-8 grid gap-6 md:grid-cols-3">
+                {commercialHighlights.map((item, index) => {
                   const Icon = item.icon;
 
                   return (
-                    <div
+                    <motion.div
                       key={item.title}
-                      className={`relative overflow-hidden rounded-[26px] border ${item.border} bg-white/5 p-5`}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.6, delay: index * 0.1 }}
+                      className={`group relative overflow-hidden rounded-[28px] border ${item.border} bg-gradient-to-br from-white/8 to-white/2 p-6 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(250,204,21,0.15)]`}
                     >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${item.accent}`} />
-                      <div className="relative">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="rounded-2xl bg-[#0B1120]/75 p-3 text-[#FACC15]">
-                            <Icon className="h-5 w-5" />
+                      <div className={`absolute inset-0 bg-gradient-to-br ${item.accent} opacity-60`} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      
+                      {/* Efeito de brilho no hover */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full transition-transform duration-700 group-hover:translate-x-full" />
+                      
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between gap-3 mb-4">
+                          <div className="rounded-2xl bg-[#0B1121]/80 p-3 text-[#FACC15] shadow-lg backdrop-blur-sm border border-[#FACC15]/20">
+                            <Icon className="h-6 w-6" />
                           </div>
                           {item.badge ? (
-                            <span className="rounded-full border border-[#FACC15]/30 bg-[#FACC15]/12 px-2.5 py-1 text-[10px] font-bold tracking-[0.24em] text-[#FACC15]">
+                            <motion.span 
+                              className="rounded-full border border-[#FACC15]/40 bg-[#FACC15]/15 px-3 py-1.5 text-[10px] font-bold tracking-[0.24em] text-[#FACC15] shadow-lg backdrop-blur-sm"
+                              animate={{ scale: [1, 1.05, 1] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                            >
                               {item.badge}
-                            </span>
+                            </motion.span>
                           ) : null}
                         </div>
-                        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
-                          {item.title}
-                        </p>
-                        <p className="mt-3 text-3xl font-black text-white">
-                          {item.price}
-                        </p>
-                        <p className="mt-3 text-sm leading-6 text-slate-300">
-                          {item.description}
-                        </p>
+                        
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-300/80">
+                            {item.title}
+                          </p>
+                          <p className="text-4xl font-black text-white drop-shadow-lg">
+                            {item.price}
+                          </p>
+                          <p className="text-sm leading-6 text-slate-200/90 font-medium">
+                            {item.description}
+                          </p>
+                        </div>
+                        
+                        {/* Indicador visual de destaque */}
+                        <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-transparent via-[#FACC15]/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -267,21 +298,9 @@ export default function LoginPage() {
                 </div>
 
                 <div className="mb-8 flex flex-col items-center">
-                  <motion.div
-                    className="relative mb-4 group"
-                    animate={{ y: [0, -7, 0], scale: [1, 1.01, 1] }}
-                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <Image
-                      src="/wtm-badge.png"
-                      alt="World Tech Manager"
-                      width={280}
-                      height={280}
-                      priority
-                      className="relative z-10 h-auto w-full max-w-[210px] drop-shadow-[0_0_16px_rgba(250,204,21,0.2)]"
-                    />
-                  </motion.div>
+                  <div className="relative mb-4 group">
+                    <Logo3D size={180} className="mx-auto" animate={true} />
+                  </div>
                   <h2 className="text-2xl font-bold tracking-wide text-white">
                     WORLD TECH <span className="text-cyan-400">MANAGER</span>
                   </h2>

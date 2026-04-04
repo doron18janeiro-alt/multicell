@@ -25,6 +25,7 @@ import {
   resetSegmentSessionCache,
   type CompanySegment,
 } from "@/hooks/useSegment";
+import Logo3D from "./Logo3D";
 
 type SetupWizardProps = {
   mode?: "public" | "private";
@@ -258,23 +259,20 @@ export function SetupWizard({
               </Link>
             </div>
           ) : null}
-          <motion.div
-            className="mx-auto flex max-w-[360px] items-center justify-center"
-            animate={{ y: [0, -9, 0], scale: [1, 1.01, 1] }}
-            transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Image
-              src="/wtm-badge.png"
-              alt="World Tech Manager"
-              width={360}
-              height={360}
-              priority
-              className="h-auto w-full max-w-[280px] object-contain drop-shadow-[0_0_24px_rgba(250,204,21,0.16)]"
-            />
-          </motion.div>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.45em] text-[#FACC15]">
-            WORLD TECH MANAGER
-          </p>
+          <div className="mx-auto flex max-w-[360px] items-center justify-center">
+            <div className="relative">
+              <Logo3D size={280} className="mx-auto" animate={true} />
+            </div>
+          </div>
+          <div className="mt-4 text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)]">
+              WORLD TECH
+            </p>
+            <p className="text-xs font-bold uppercase tracking-[0.5em] text-[#FACC15] drop-shadow-[0_0_12px_rgba(250,204,21,0.4)] -mt-0.5">
+              MANAGER
+            </p>
+            <div className="mt-2 h-px w-20 mx-auto bg-gradient-to-r from-transparent via-[#FACC15]/70 to-transparent"></div>
+          </div>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
             {isPublicMode
               ? "Entre no ecossistema WTM com marca forte e segmento certo."

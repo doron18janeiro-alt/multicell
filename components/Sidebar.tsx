@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
+import Logo3D from "./Logo3D";
 
 type SidebarProps = {
   isMobileOpen: boolean;
@@ -152,17 +153,18 @@ export default function Sidebar({
 
   const SidebarBrand = () => (
     <div className="flex flex-col items-center text-center">
-      <Image
-        src="/wtm-badge.png"
-        alt="World Tech Manager"
-        width={220}
-        height={150}
-        priority
-        className="h-auto w-full max-w-[150px] object-contain drop-shadow-[0_0_18px_rgba(250,204,21,0.16)]"
-      />
-      <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.4em] text-[#FACC15]/82">
-        World Tech Manager
-      </p>
+      <div className="relative">
+        <Logo3D size={140} className="mx-auto" animate={true} />
+      </div>
+      <div className="mt-3 text-center">
+        <p className="text-[11px] font-bold uppercase tracking-[0.45em] text-[#FACC15] drop-shadow-[0_0_8px_rgba(250,204,21,0.3)]">
+          WORLD TECH
+        </p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.45em] text-[#FACC15] drop-shadow-[0_0_8px_rgba(250,204,21,0.3)] -mt-0.5">
+          MANAGER
+        </p>
+        <div className="mt-1 h-px w-16 mx-auto bg-gradient-to-r from-transparent via-[#FACC15]/60 to-transparent"></div>
+      </div>
     </div>
   );
 
