@@ -11,6 +11,10 @@ import {
   ShieldCheck,
   Upload,
 } from "lucide-react";
+import {
+  COMPANY_TAX_REGIME_LABELS,
+  type CompanyTaxRegimeValue,
+} from "@/lib/company-tax-regime";
 
 type XmlDownloadLog = {
   id: string;
@@ -25,6 +29,10 @@ type XmlDownloadLog = {
 
 type PortalState = {
   cnpj: string;
+  legalName: string;
+  stateRegistration: string;
+  municipalRegistration: string;
+  taxRegime: CompanyTaxRegimeValue | "";
   certificateA1: string;
   certificateFileBase64: string;
   certificatePassword: string;
@@ -69,6 +77,10 @@ const SEFAZ_LINKS = [
 
 const createInitialState = (): PortalState => ({
   cnpj: "",
+  legalName: "",
+  stateRegistration: "",
+  municipalRegistration: "",
+  taxRegime: "",
   certificateA1: "",
   certificateFileBase64: "",
   certificatePassword: "",
@@ -98,6 +110,10 @@ export function AccountantPortal() {
         if (!response.ok) throw new Error(payload.error || "Erro ao carregar portal.");
         setForm({
           cnpj: String(payload.cnpj || ""),
+          legalName: String(payload.legalName || ""),
+          stateRegistration: String(payload.stateRegistration || ""),
+          municipalRegistration: String(payload.municipalRegistration || ""),
+          taxRegime: String(payload.taxRegime || "") as PortalState["taxRegime"],
           certificateA1: String(payload.certificateA1 || ""),
           certificateFileBase64: String(payload.certificateFileBase64 || ""),
           certificatePassword: String(payload.certificatePassword || ""),
@@ -127,7 +143,9 @@ export function AccountantPortal() {
 
   useEffect(() => {
     if (searchParams.get("access") === "restricted") {
-      setMessage(searchParams.get("message") || "Acesso restrito às ferramentas fiscais");
+      setMessage(
+        searchParams.get("message") || "Acesso restrito às ferramentas fiscais",
+      );
     }
   }, [searchParams]);
 
@@ -142,13 +160,16 @@ export function AccountantPortal() {
   const handleCertificateUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
     try {
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+        reader.onload = () =>
+          resolve(String(reader.result || "").split(",")[1] || "");
         reader.onerror = () => reject(new Error("Falha ao ler certificado."));
         reader.readAsDataURL(file);
       });
+
       setForm((current) => ({
         ...current,
         certificateA1: file.name,
@@ -171,6 +192,10 @@ export function AccountantPortal() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          legalName: form.legalName || null,
+          stateRegistration: form.stateRegistration || null,
+          municipalRegistration: form.municipalRegistration || null,
+          taxRegime: form.taxRegime || null,
           certificateA1: form.certificateA1 || null,
           certificateFileBase64: form.certificateFileBase64 || null,
           certificatePassword: form.certificatePassword || null,
@@ -181,9 +206,21 @@ export function AccountantPortal() {
         }),
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Erro ao salvar portal fiscal.");
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Erro ao salvar portal fiscal.");
+      }
+
       setForm((current) => ({
         ...current,
+        legalName: String(payload.legalName || current.legalName),
+        stateRegistration: String(
+          payload.stateRegistration || current.stateRegistration,
+        ),
+        municipalRegistration: String(
+          payload.municipalRegistration || current.municipalRegistration,
+        ),
+        taxRegime: String(payload.taxRegime || current.taxRegime) as PortalState["taxRegime"],
         focusSyncStatus: payload.focusSyncStatus || null,
         focusSyncMessage: payload.focusSyncMessage || null,
         focusSyncedAt: payload.focusSyncedAt || null,
@@ -241,6 +278,10 @@ export function AccountantPortal() {
   return (
     <div className="min-h-full bg-[#0B1120] text-slate-100">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-5 py-4 text-sm text-cyan-50">
+          Espaço destinado à configuração técnica e contábil da unidade.
+        </div>
+
         {message ? (
           <div className="rounded-2xl border border-amber-400/25 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">
             {message}
@@ -251,34 +292,134 @@ export function AccountantPortal() {
           <div className="rounded-3xl border border-slate-800 bg-[#112240]/85 p-6 shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-[#FACC15]">Espaço do Contador</p>
-                <h1 className="mt-2 text-3xl font-black text-white">Dashboard Fiscal</h1>
+                <p className="text-xs uppercase tracking-[0.24em] text-[#FACC15]">
+                  Espaço do Contador
+                </p>
+                <h1 className="mt-2 text-3xl font-black text-white">
+                  Configuração Fiscal
+                </h1>
               </div>
               <ShieldCheck className="h-7 w-7 text-[#FACC15]" />
             </div>
 
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Status do Certificado</p>
-                <p className="mt-2 text-xl font-bold text-white">{certificateStatus}</p>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                  Status do Certificado
+                </p>
+                <p className="mt-2 text-xl font-bold text-white">
+                  {certificateStatus}
+                </p>
                 <p className="mt-1 text-sm text-slate-400">
                   {form.certificateA1 || "Nenhum certificado carregado."}
                 </p>
               </div>
 
+              <input
+                value={form.cnpj}
+                readOnly
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-slate-400 outline-none"
+                placeholder="CNPJ da empresa"
+              />
+              <input
+                value={form.legalName}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, legalName: e.target.value }))
+                }
+                placeholder="Razão social"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
+              <input
+                value={form.stateRegistration}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    stateRegistration: e.target.value,
+                  }))
+                }
+                placeholder="Inscrição Estadual"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
+              <input
+                value={form.municipalRegistration}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    municipalRegistration: e.target.value,
+                  }))
+                }
+                placeholder="Inscrição Municipal"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
+              <select
+                value={form.taxRegime}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    taxRegime: e.target.value as PortalState["taxRegime"],
+                  }))
+                }
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              >
+                <option value="">Regime Tributário</option>
+                {Object.entries(COMPANY_TAX_REGIME_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <input
+                value={form.cscId}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, cscId: e.target.value }))
+                }
+                placeholder="ID CSC"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
+              <input
+                value={form.cscToken}
+                onChange={(e) =>
+                  setForm((current) => ({ ...current, cscToken: e.target.value }))
+                }
+                placeholder="Token CSC"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
+
               <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4 font-semibold text-white">
                 <Upload className="h-4 w-4" />
                 Upload Certificado A1
-                <input type="file" accept=".pfx,.p12,application/x-pkcs12" onChange={handleCertificateUpload} className="hidden" />
+                <input
+                  type="file"
+                  accept=".pfx,.p12,application/x-pkcs12"
+                  onChange={handleCertificateUpload}
+                  className="hidden"
+                />
               </label>
+              <input
+                type="password"
+                value={form.certificatePassword}
+                onChange={(e) =>
+                  setForm((current) => ({
+                    ...current,
+                    certificatePassword: e.target.value,
+                  }))
+                }
+                placeholder="Senha do certificado"
+                className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+              />
 
-              <input type="password" value={form.certificatePassword} onChange={(e) => setForm((current) => ({ ...current, certificatePassword: e.target.value }))} placeholder="Senha do certificado" className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none" />
-              <input value={form.cscId} onChange={(e) => setForm((current) => ({ ...current, cscId: e.target.value }))} placeholder="ID CSC" className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none" />
-              <input value={form.cscToken} onChange={(e) => setForm((current) => ({ ...current, cscToken: e.target.value }))} placeholder="Token CSC" className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none" />
-
-              <button type="button" onClick={handleSave} disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 font-black text-slate-950 disabled:opacity-70">
-                {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FileBadge2 className="h-4 w-4" />}
-                {saving ? "Sincronizando..." : "Salvar Portal Fiscal"}
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 font-black text-slate-950 disabled:opacity-70"
+              >
+                {saving ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileBadge2 className="h-4 w-4" />
+                )}
+                {saving ? "Sincronizando..." : "Salvar Configuração Fiscal"}
               </button>
             </div>
           </div>
@@ -287,23 +428,46 @@ export function AccountantPortal() {
             <div className="rounded-3xl border border-slate-800 bg-[#112240]/85 p-6 shadow-2xl">
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Baixar XMLs do Mês</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                    Área de Download
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-3">
-                    <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none">
+                    <select
+                      value={month}
+                      onChange={(e) => setMonth(Number(e.target.value))}
+                      className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+                    >
                       {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
-                        <option key={value} value={value}>{String(value).padStart(2, "0")}</option>
+                        <option key={value} value={value}>
+                          {String(value).padStart(2, "0")}
+                        </option>
                       ))}
                     </select>
-                    <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none">
+                    <select
+                      value={year}
+                      onChange={(e) => setYear(Number(e.target.value))}
+                      className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none"
+                    >
                       {Array.from({ length: 5 }, (_, index) => new Date().getFullYear() - index).map((value) => (
-                        <option key={value} value={value}>{value}</option>
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                <button type="button" onClick={handleDownload} disabled={downloading} className="inline-flex items-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 font-black text-slate-950 disabled:opacity-70">
-                  {downloading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloading}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-cyan-400 px-5 py-3 font-black text-slate-950 disabled:opacity-70"
+                >
+                  {downloading ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
                   {downloading ? "Gerando ZIP..." : "Baixar XMLs do Mês"}
                 </button>
               </div>
@@ -316,15 +480,24 @@ export function AccountantPortal() {
                   </div>
                 ) : (
                   form.xmlDownloadLogs.map((log) => (
-                    <div key={log.id} className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4">
+                    <div
+                      key={log.id}
+                      className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4"
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-white">{String(log.month).padStart(2, "0")}/{log.year}</p>
-                          <p className="mt-1 text-xs text-slate-400">{new Date(log.createdAt).toLocaleString("pt-BR")}</p>
+                          <p className="font-semibold text-white">
+                            {String(log.month).padStart(2, "0")}/{log.year}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {new Date(log.createdAt).toLocaleString("pt-BR")}
+                          </p>
                         </div>
                         <FileDown className="h-5 w-5 text-cyan-300" />
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">{log.notes || "Pacote fiscal consolidado."}</p>
+                      <p className="mt-2 text-sm text-slate-400">
+                        {log.notes || "Pacote fiscal consolidado."}
+                      </p>
                     </div>
                   ))
                 )}
@@ -335,9 +508,19 @@ export function AccountantPortal() {
               <h2 className="text-lg font-bold text-white">Links úteis SEFAZ</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {SEFAZ_LINKS.map(([uf, href]) => (
-                  <a key={uf} href={href} target="_blank" rel="noreferrer" className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4 transition-colors hover:border-[#FACC15]/40 hover:text-[#FACC15]">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">SEFAZ {uf}</p>
-                    <p className="mt-2 font-semibold text-white">{href.replace(/^https?:\/\//, "")}</p>
+                  <a
+                    key={uf}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-4 transition-colors hover:border-[#FACC15]/40 hover:text-[#FACC15]"
+                  >
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      SEFAZ {uf}
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {href.replace(/^https?:\/\//, "")}
+                    </p>
                   </a>
                 ))}
               </div>
@@ -349,7 +532,10 @@ export function AccountantPortal() {
           <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm text-red-100">
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
-              <span>Certificado A1 ausente. O contador precisa subir um arquivo válido antes de consultar notas recebidas.</span>
+              <span>
+                Certificado A1 ausente. O contador precisa subir um arquivo válido
+                antes de consultar notas recebidas.
+              </span>
             </div>
           </div>
         ) : null}
