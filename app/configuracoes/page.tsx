@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { formatCpf } from "@/lib/cpf";
 import {
+  AUTO_FINANCING_BANKS,
+  DEFAULT_AUTO_FINANCING_SETTINGS,
+} from "@/lib/auto-financing";
+import {
   Settings,
   Save,
   Lock,
@@ -19,6 +23,8 @@ interface CompanyConfig {
   creditRate: number;
   taxPix: number;
   taxCash: number;
+  creditInstallmentRate: number;
+  bankRates: Record<string, number>;
 }
 
 interface TeamMember {
@@ -47,6 +53,9 @@ export default function Configuracoes() {
     creditRate: 3.99,
     taxPix: 0,
     taxCash: 0,
+    creditInstallmentRate:
+      DEFAULT_AUTO_FINANCING_SETTINGS.creditInstallmentRate,
+    bankRates: DEFAULT_AUTO_FINANCING_SETTINGS.bankRates,
   });
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -74,6 +83,11 @@ export default function Configuracoes() {
           creditRate: data.creditRate ?? 3.99,
           taxPix: data.taxPix ?? 0,
           taxCash: data.taxCash ?? 0,
+          creditInstallmentRate:
+            data.creditInstallmentRate ??
+            DEFAULT_AUTO_FINANCING_SETTINGS.creditInstallmentRate,
+          bankRates:
+            data.bankRates || DEFAULT_AUTO_FINANCING_SETTINGS.bankRates,
         });
       }
     } catch (error) {
@@ -95,6 +109,12 @@ export default function Configuracoes() {
           creditRate: config.creditRate,
           taxPix: config.taxPix,
           taxCash: config.taxCash,
+          settings: {
+            autoFinancing: {
+              creditInstallmentRate: config.creditInstallmentRate,
+              bankRates: config.bankRates,
+            },
+          },
         }),
       });
 
@@ -306,7 +326,7 @@ export default function Configuracoes() {
             Configurações do World Tech Manager
           </h1>
           <p className="text-slate-400 mt-2 ml-11">
-            Gerencie taxas, segurança, assinatura e equipe em um painel limpo.
+            Gerencie taxas, financiamento, segurança, assinatura e equipe em um painel limpo.
           </p>
         </header>
 
@@ -403,6 +423,73 @@ export default function Configuracoes() {
               </div>
             </section>
 
+            <section className="lg:col-span-2 bg-[#112240]/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-xl font-semibold text-cyan-300 mb-6 flex items-center gap-2 border-b border-slate-700 pb-2">
+                <CreditCard size={20} />
+                Financiamento Auto
+              </h2>
+
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[320px_1fr]">
+                <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4">
+                  <label className="block text-sm text-slate-300 mb-2">
+                    Taxa Mensal Base do Cartão Parcelado (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={config.creditInstallmentRate}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        creditInstallmentRate: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full bg-[#0B1120] border border-slate-600 rounded-lg p-3 text-white focus:border-cyan-400 outline-none"
+                  />
+                  <p className="mt-3 text-xs leading-5 text-slate-300">
+                    Usada no simulador de parcelamento de 1x a 21x no PDV.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-slate-300">
+                    Taxa Base Mensal por Banco (%)
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    O simulador Price usa estas taxas para financiamento de 12x a 60x.
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {AUTO_FINANCING_BANKS.map((bank) => (
+                      <div
+                        key={bank.key}
+                        className="rounded-2xl border border-slate-700/60 bg-[#0B1120] p-4"
+                      >
+                        <label className="block text-sm text-slate-300 mb-2">
+                          {bank.label}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={config.bankRates[bank.key] ?? 0}
+                          onChange={(e) =>
+                            setConfig((current) => ({
+                              ...current,
+                              bankRates: {
+                                ...current.bankRates,
+                                [bank.key]: parseFloat(e.target.value) || 0,
+                              },
+                            }))
+                          }
+                          className="w-full bg-[#112240] border border-slate-600 rounded-lg p-3 text-white focus:border-cyan-400 outline-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* Security */}
             <section className="bg-[#112240]/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-xl">
               <h2 className="text-xl font-semibold text-red-400 mb-6 flex items-center gap-2 border-b border-slate-700 pb-2">
@@ -444,7 +531,7 @@ export default function Configuracoes() {
               className="w-full bg-[#D4AF37] text-black font-semibold py-4 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2 text-lg"
             >
               <Save size={20} />
-              SALVAR TAXAS E SEGURANÇA
+              SALVAR TAXAS, FINANCIAMENTO E SEGURANÇA
             </button>
 
             <section className="bg-[#112240]/80 backdrop-blur-sm border border-red-500/25 rounded-2xl p-6 shadow-xl">

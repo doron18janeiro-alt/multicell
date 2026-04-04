@@ -25,6 +25,8 @@ export type VehicleInventoryStatus =
   | "MANUTENCAO"
   | "VENDIDO";
 
+export type VehicleConditionOption = "NOVO" | "SEMINOVO";
+
 export type VehicleProfile = {
   brand?: string | null;
   model?: string | null;
@@ -32,11 +34,13 @@ export type VehicleProfile = {
   chassis?: string | null;
   renavam?: string | null;
   status?: VehicleInventoryStatus | null;
+  condition?: VehicleConditionOption | null;
   manufactureYear?: number | null;
   modelYear?: number | null;
   engine?: string | null;
   color?: string | null;
   mileage?: number | null;
+  sinisterHistory?: string | null;
   fuel?: VehicleFuelOption | null;
   airConditioning?: boolean | null;
   airbag?: boolean | null;
@@ -78,6 +82,14 @@ export const VEHICLE_STATUS_OPTIONS: Array<{
   { value: "DISPONIVEL", label: "Disponível" },
   { value: "MANUTENCAO", label: "Em manutenção" },
   { value: "VENDIDO", label: "Vendido" },
+];
+
+export const VEHICLE_CONDITION_OPTIONS: Array<{
+  value: VehicleConditionOption;
+  label: string;
+}> = [
+  { value: "NOVO", label: "Novo" },
+  { value: "SEMINOVO", label: "Seminovo" },
 ];
 
 const SEGMENT_PRODUCT_CATEGORIES: Record<
@@ -211,12 +223,29 @@ export const normalizeVehicleInventoryStatus = (
   return null;
 };
 
+export const normalizeVehicleCondition = (
+  value: string | null | undefined,
+): VehicleConditionOption | null => {
+  if (value === "NOVO" || value === "SEMINOVO") {
+    return value;
+  }
+
+  return null;
+};
+
 export const getVehicleInventoryStatusLabel = (
   status: VehicleInventoryStatus | string | null | undefined,
 ) =>
   VEHICLE_STATUS_OPTIONS.find((option) => option.value === status)?.label ||
   String(status || "").trim() ||
   "Disponível";
+
+export const getVehicleConditionLabel = (
+  condition: VehicleConditionOption | string | null | undefined,
+) =>
+  VEHICLE_CONDITION_OPTIONS.find((option) => option.value === condition)?.label ||
+  String(condition || "").trim() ||
+  "Seminovo";
 
 export const getVehicleFuelLabel = (
   fuel: VehicleFuelOption | string | null | undefined,

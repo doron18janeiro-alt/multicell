@@ -62,6 +62,8 @@ export async function GET(request: Request) {
         { vehicleBrand: { contains: search, mode: "insensitive" } },
         { vehicleModel: { contains: search, mode: "insensitive" } },
         { vehicleColor: { contains: search, mode: "insensitive" } },
+        { vehicleCondition: { contains: search, mode: "insensitive" } },
+        { vehicleSinisterHistory: { contains: search, mode: "insensitive" } },
         { vehiclePlate: { contains: search, mode: "insensitive" } },
         { vehicleChassis: { contains: search, mode: "insensitive" } },
         ...(Number.isFinite(Number(search))

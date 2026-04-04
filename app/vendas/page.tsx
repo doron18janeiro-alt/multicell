@@ -22,10 +22,104 @@ interface Sale {
   total: number;
   paymentMethod: string;
   cardType?: string | null;
+  cardInstallments?: number | null;
+  cardMonthlyRate?: number | null;
   financingBank?: string | null;
+  financingEntry?: number | null;
+  financingInstallments?: number | null;
+  financingMonthlyRate?: number | null;
+  financingTac?: number | null;
+  financingIof?: number | null;
+  financingInstallmentValue?: number | null;
   items: any[];
   createdAt: string;
 }
+
+const formatCurrency = (value: number | null | undefined) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0));
+
+const getSalePaymentLabel = (sale: Sale) => {
+  const paymentMethod = String(sale.paymentMethod || "").toUpperCase();
+  const cardType = String(sale.cardType || "").toUpperCase();
+
+  if (paymentMethod === "FINANCIAMENTO") {
+    return "FINANCIAMENTO";
+  }
+
+  if (paymentMethod === "DINHEIRO") {
+    return "DINHEIRO";
+  }
+
+  if (paymentMethod === "PIX") {
+    return "PIX";
+  }
+
+  if (
+    paymentMethod === "DEBITO" ||
+    (paymentMethod === "CARTAO" && cardType === "DEBITO")
+  ) {
+    return "DÉBITO";
+  }
+
+  if (
+    paymentMethod === "CREDITO" ||
+    (paymentMethod === "CARTAO" && cardType === "CREDITO")
+  ) {
+    return "CRÉDITO";
+  }
+
+  return paymentMethod || "NÃO INFORMADO";
+};
+
+const getSalePaymentDetail = (sale: Sale) => {
+  const label = getSalePaymentLabel(sale);
+
+  if (label === "FINANCIAMENTO") {
+    const plan =
+      sale.financingInstallments && sale.financingInstallmentValue
+        ? `${sale.financingInstallments}x de ${formatCurrency(sale.financingInstallmentValue)}`
+        : null;
+
+    return [sale.financingBank, plan].filter(Boolean).join(" • ");
+  }
+
+  if (label === "CRÉDITO" && (sale.cardInstallments || 1) > 1) {
+    const plan = `${sale.cardInstallments}x`;
+    const rate =
+      sale.cardMonthlyRate && sale.cardMonthlyRate > 0
+        ? `taxa ${sale.cardMonthlyRate.toFixed(2)}% a.m.`
+        : null;
+
+    return [plan, rate].filter(Boolean).join(" • ");
+  }
+
+  return "";
+};
+
+const getSaleBadgeClass = (sale: Sale) => {
+  const label = getSalePaymentLabel(sale);
+
+  if (label === "DINHEIRO") {
+    return "bg-green-500/10 text-green-400 border-green-500/20";
+  }
+
+  if (label === "PIX") {
+    return "bg-teal-500/10 text-teal-400 border-teal-500/20";
+  }
+
+  if (label === "FINANCIAMENTO") {
+    return "bg-amber-400/10 text-amber-200 border-amber-400/20";
+  }
+
+  if (label === "DÉBITO") {
+    return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+  }
+
+  return "bg-violet-500/10 text-violet-300 border-violet-500/20";
+};
 
 function SalesMetricsDefault() {
   const getTodayString = () => {
@@ -422,9 +516,19 @@ function SalesMetricsDefault() {
 
   // Filter for display table
   const sessionSales = filterSalesByTime(sales);
-  const filteredSales = sessionSales.filter((sale) =>
-    sale.id.toString().includes(searchTerm),
-  );
+  const filteredSales = sessionSales.filter((sale) => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return true;
+    }
+
+    return (
+      sale.id.toString().includes(normalizedSearch) ||
+      getSalePaymentLabel(sale).toLowerCase().includes(normalizedSearch) ||
+      String(sale.financingBank || "").toLowerCase().includes(normalizedSearch)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-[#0B1120] text-slate-100 font-sans">
@@ -552,7 +656,7 @@ function SalesMetricsDefault() {
             <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-purple-500/20"></div>
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-slate-400 font-medium text-sm uppercase tracking-wider">
-                Crédito
+                Crédito / Financiamento
               </h3>
               <div className="p-2 bg-purple-900/30 rounded-lg text-purple-400 border border-purple-800">
                 <CreditCard size={20} />
@@ -598,7 +702,7 @@ function SalesMetricsDefault() {
             <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por ID da venda..."
+              placeholder="Buscar por ID, forma de pagamento ou banco..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:border-[#FFD700]"
@@ -659,33 +763,37 @@ function SalesMetricsDefault() {
                       })}
                     </td>
                     <td className="p-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${
-                          sale.paymentMethod === "DINHEIRO"
-                            ? "bg-green-500/10 text-green-400 border-green-500/20"
-                            : sale.paymentMethod === "PIX"
-                              ? "bg-teal-500/10 text-teal-400 border-teal-500/20"
-                              : sale.paymentMethod === "FINANCIAMENTO"
-                                ? "bg-amber-400/10 text-amber-200 border-amber-400/20"
-                              : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-                        }`}
-                      >
-                        {sale.paymentMethod === "DINHEIRO" && (
-                          <DollarSign size={12} />
-                        )}
-                        {sale.paymentMethod === "PIX" && <Zap size={12} />}
-                        {sale.paymentMethod === "FINANCIAMENTO" && (
-                          <FileText size={12} />
-                        )}
-                        {sale.paymentMethod !== "DINHEIRO" &&
-                          sale.paymentMethod !== "PIX" &&
-                          sale.paymentMethod !== "FINANCIAMENTO" && (
-                            <CreditCard size={12} />
-                          )}
-                        {sale.paymentMethod}
-                        {sale.paymentMethod === "FINANCIAMENTO" &&
-                          sale.financingBank && ` • ${sale.financingBank}`}
-                      </span>
+                      {(() => {
+                        const paymentLabel = getSalePaymentLabel(sale);
+                        const paymentDetail = getSalePaymentDetail(sale);
+
+                        return (
+                          <div>
+                            <span
+                              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-bold ${getSaleBadgeClass(sale)}`}
+                            >
+                              {paymentLabel === "DINHEIRO" && (
+                                <DollarSign size={12} />
+                              )}
+                              {paymentLabel === "PIX" && <Zap size={12} />}
+                              {paymentLabel === "FINANCIAMENTO" && (
+                                <FileText size={12} />
+                              )}
+                              {paymentLabel !== "DINHEIRO" &&
+                                paymentLabel !== "PIX" &&
+                                paymentLabel !== "FINANCIAMENTO" && (
+                                  <CreditCard size={12} />
+                                )}
+                              {paymentLabel}
+                            </span>
+                            {paymentDetail ? (
+                              <p className="mt-1 text-xs text-slate-500">
+                                {paymentDetail}
+                              </p>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4 text-right font-bold text-[#FFD700]">
                       R$ {sale.total.toFixed(2)}

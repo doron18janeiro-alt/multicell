@@ -27,12 +27,20 @@ import {
   X,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import { FoodPDV } from "@/components/FoodPDV";
 import { NfeWalletAlertBanner } from "@/components/NfeWalletAlertBanner";
 import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
 import { useSegment } from "@/hooks/useSegment";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
+import {
+  AUTO_FINANCING_BANKS,
+  calculateCardInstallmentPlan,
+  calculateFinancingPlan,
+  getBankKeyByLabel,
+} from "@/lib/auto-financing";
+import { parseBRLCurrencyInput } from "@/lib/currency";
 import {
   DEFAULT_NFE_RECHARGE_AMOUNT,
   LOW_BALANCE_THRESHOLD,
@@ -51,6 +59,9 @@ interface Product {
   vehicleModel?: string | null;
   vehiclePlate?: string | null;
   vehicleChassis?: string | null;
+  vehicleMileage?: number | null;
+  vehicleCondition?: string | null;
+  vehicleSinisterHistory?: string | null;
 }
 
 interface CartItem extends Product {
@@ -71,20 +82,16 @@ interface CompanyConfig {
   logoUrl: string;
   debitRate: number;
   creditRate: number;
+  creditInstallmentRate: number;
+  bankRates: Record<string, number>;
   nfeBalance: number;
 }
 
-const FINANCING_BANKS = [
-  "Itaú (iCarros)",
-  "Bradesco",
-  "Santander",
-  "BV Financeira",
-  "Banco Pan",
-  "Safra",
-  "Porto Seguro",
-  "Caixa",
-  "Banco do Brasil",
-] as const;
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value || 0));
 
 function StandardPDVContent() {
   const router = useRouter();
@@ -94,8 +101,14 @@ function StandardPDVContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
+  const [cardInstallments, setCardInstallments] = useState(1);
   const [financingBankSearch, setFinancingBankSearch] = useState("");
   const [selectedFinancingBank, setSelectedFinancingBank] = useState("");
+  const [financingEntry, setFinancingEntry] = useState("");
+  const [financingInstallments, setFinancingInstallments] = useState(48);
+  const [financingMonthlyRate, setFinancingMonthlyRate] = useState("0");
+  const [financingTac, setFinancingTac] = useState("");
+  const [financingIof, setFinancingIof] = useState("");
   const [loading, setLoading] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [rates, setRates] = useState({ debit: 0, credit: 0 });
@@ -108,6 +121,8 @@ function StandardPDVContent() {
     logoUrl: "/wtm-float.png",
     debitRate: 0,
     creditRate: 0,
+    creditInstallmentRate: 2.49,
+    bankRates: {},
     nfeBalance: 0,
   });
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -219,6 +234,9 @@ function StandardPDVContent() {
           vehicleModel: p.vehicleModel,
           vehiclePlate: p.vehiclePlate,
           vehicleChassis: p.vehicleChassis,
+          vehicleMileage: p.vehicleMileage,
+          vehicleCondition: p.vehicleCondition,
+          vehicleSinisterHistory: p.vehicleSinisterHistory,
         }));
         setProducts(mappedProducts);
       }
@@ -245,6 +263,8 @@ function StandardPDVContent() {
           logoUrl: data.logoUrl || "/wtm-float.png",
           debitRate: data.debitRate ?? 1.99,
           creditRate: data.creditRate ?? 3.99,
+          creditInstallmentRate: data.creditInstallmentRate ?? 2.49,
+          bankRates: data.bankRates || {},
           nfeBalance: Number(data.nfeBalance || 0),
         });
       }
@@ -336,14 +356,17 @@ function StandardPDVContent() {
     return (
       p.name.toLowerCase().includes(lowercaseSearch) ||
       p.category.toLowerCase().includes(lowercaseSearch) ||
+      String(p.vehicleBrand || "").toLowerCase().includes(lowercaseSearch) ||
+      String(p.vehicleModel || "").toLowerCase().includes(lowercaseSearch) ||
+      String(p.vehiclePlate || "").toLowerCase().includes(lowercaseSearch) ||
       String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
       barcodeMatches(p.barcode, normalizedSearch)
     );
   });
 
   const hasVehicleInCart = cart.some((item) => item.category === "VEICULO");
-  const filteredFinancingBanks = FINANCING_BANKS.filter((bank) =>
-    bank.toLowerCase().includes(financingBankSearch.toLowerCase()),
+  const filteredFinancingBanks = AUTO_FINANCING_BANKS.filter((bank) =>
+    bank.label.toLowerCase().includes(financingBankSearch.toLowerCase()),
   );
 
   useEffect(() => {
@@ -351,14 +374,46 @@ function StandardPDVContent() {
       setPaymentMethod("DINHEIRO");
       setSelectedFinancingBank("");
       setFinancingBankSearch("");
+      setFinancingMonthlyRate("0");
     }
   }, [hasVehicleInCart, paymentMethod]);
+
+  useEffect(() => {
+    if (paymentMethod !== "CREDITO") {
+      setCardInstallments(1);
+    }
+  }, [paymentMethod]);
 
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.id !== productId));
   };
 
   const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const cardPlan = calculateCardInstallmentPlan({
+    baseAmount: total,
+    monthlyRate: companyConfig.creditInstallmentRate,
+    installments: cardInstallments,
+  });
+  const financingPlan = calculateFinancingPlan({
+    vehiclePrice: total,
+    entry: parseBRLCurrencyInput(financingEntry),
+    monthlyRate: Number(financingMonthlyRate || 0),
+    installments: financingInstallments,
+    tac: parseBRLCurrencyInput(financingTac),
+    iof: parseBRLCurrencyInput(financingIof),
+  });
+  const checkoutTotal =
+    paymentMethod === "CREDITO"
+      ? cardPlan.totalCharged
+      : paymentMethod === "FINANCIAMENTO"
+        ? financingPlan.customerTotal
+        : total;
+  const cardFeeRate = paymentMethod === "DEBITO" ? rates.debit : rates.credit;
+  const cardFeeBase = paymentMethod === "CREDITO" ? checkoutTotal : total;
+  const estimatedCardNet = Math.max(
+    cardFeeBase - (cardFeeBase * cardFeeRate) / 100,
+    0,
+  );
 
   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter") {
@@ -379,6 +434,36 @@ function StandardPDVContent() {
 
     event.preventDefault();
     handleBarcodeDetected(normalized);
+  };
+
+  const applySelectedBank = (bankLabel: string) => {
+    const bankKey = getBankKeyByLabel(bankLabel);
+    const bankRate = bankKey ? companyConfig.bankRates[bankKey] : null;
+
+    setSelectedFinancingBank(bankLabel);
+    setFinancingBankSearch(bankLabel);
+    if (bankRate !== null && bankRate !== undefined) {
+      setFinancingMonthlyRate(String(bankRate));
+    }
+  };
+
+  const handleBankSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key.length !== 1 || !/[a-z0-9]/i.test(event.key)) {
+      return;
+    }
+
+    const matchingBank = AUTO_FINANCING_BANKS.find((bank) =>
+      bank.label.toLowerCase().startsWith(event.key.toLowerCase()),
+    );
+
+    if (!matchingBank) {
+      return;
+    }
+
+    event.preventDefault();
+    applySelectedBank(matchingBank.label);
   };
 
   const handleRecharge = async () => {
@@ -443,6 +528,18 @@ function StandardPDVContent() {
       return;
     }
 
+    if (paymentMethod === "FINANCIAMENTO") {
+      if (financingPlan.entry > total) {
+        alert("A entrada não pode ser maior que o valor do veículo.");
+        return;
+      }
+
+      if (financingPlan.installmentValue <= 0 || financingPlan.customerTotal <= 0) {
+        alert("Preencha os dados do financiamento para calcular a prestação.");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
@@ -452,10 +549,35 @@ function StandardPDVContent() {
           unitPrice: item.price,
         })),
         paymentMethod,
-        total,
+        total: checkoutTotal,
         customerId: selectedCustomerId || null,
+        cardInstallments: paymentMethod === "CREDITO" ? cardPlan.installments : 1,
+        cardMonthlyRate:
+          paymentMethod === "CREDITO" ? cardPlan.monthlyRate : null,
         financingBank:
           paymentMethod === "FINANCIAMENTO" ? selectedFinancingBank : null,
+        financingEntry:
+          paymentMethod === "FINANCIAMENTO" ? financingPlan.entry : null,
+        financingInstallments:
+          paymentMethod === "FINANCIAMENTO"
+            ? financingPlan.installments
+            : null,
+        financingMonthlyRate:
+          paymentMethod === "FINANCIAMENTO"
+            ? financingPlan.monthlyRate
+            : null,
+        financingTac:
+          paymentMethod === "FINANCIAMENTO" ? financingPlan.tac : null,
+        financingIof:
+          paymentMethod === "FINANCIAMENTO" ? financingPlan.iof : null,
+        financingInstallmentValue:
+          paymentMethod === "FINANCIAMENTO"
+            ? financingPlan.installmentValue
+            : null,
+        financingFinancedAmount:
+          paymentMethod === "FINANCIAMENTO"
+            ? financingPlan.financedPrincipal
+            : null,
         issueNfe,
       };
 
@@ -470,8 +592,14 @@ function StandardPDVContent() {
         setLastSale(sale);
         setCart([]);
         setPaymentMethod("DINHEIRO");
+        setCardInstallments(1);
         setSelectedFinancingBank("");
         setFinancingBankSearch("");
+        setFinancingEntry("");
+        setFinancingInstallments(48);
+        setFinancingMonthlyRate("0");
+        setFinancingTac("");
+        setFinancingIof("");
         if (issueNfe) {
           setCompanyConfig((current) => ({
             ...current,
@@ -627,6 +755,21 @@ function StandardPDVContent() {
                           {product.stockQuantity} est.
                         </span>
                       </div>
+                      {product.category === "VEICULO" ? (
+                        <div className="mt-2 space-y-1 text-xs text-slate-400">
+                          <p>
+                            {[product.vehicleBrand, product.vehicleModel]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </p>
+                          <p>
+                            {product.vehiclePlate || "Placa não informada"}
+                            {product.vehicleMileage
+                              ? ` • ${Number(product.vehicleMileage).toLocaleString("pt-BR")} km`
+                              : ""}
+                          </p>
+                        </div>
+                      ) : null}
                     </button>
                   ),
                 )}
@@ -684,11 +827,23 @@ function StandardPDVContent() {
 
           <div className="p-6 bg-[#0f172a] border-t border-slate-700 space-y-4">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-slate-400">Total</span>
+              <span className="text-slate-400">
+                {paymentMethod === "CREDITO" || paymentMethod === "FINANCIAMENTO"
+                  ? "Total ao Cliente"
+                  : "Total"}
+              </span>
               <span className="text-3xl font-bold text-white">
-                R$ {total.toFixed(2)}
+                {formatCurrency(checkoutTotal)}
               </span>
             </div>
+            {(paymentMethod === "CREDITO" || paymentMethod === "FINANCIAMENTO") && (
+              <div className="mb-2 flex justify-between text-sm text-slate-400">
+                <span>Subtotal da venda</span>
+                <span className="font-semibold text-white">
+                  {formatCurrency(total)}
+                </span>
+              </div>
+            )}
 
             <div className="rounded-xl border border-slate-700 bg-[#0B1120] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
@@ -771,6 +926,74 @@ function StandardPDVContent() {
               </button>
             </div>
 
+            {paymentMethod === "CREDITO" && cart.length > 0 ? (
+              <div className="rounded-xl border border-violet-400/20 bg-[#0B1120] p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Parcelamento no Cartão
+                    </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Simulação de 1x a 21x com taxa mensal configurada.
+                    </p>
+                  </div>
+
+                  <select
+                    value={cardInstallments}
+                    onChange={(event) =>
+                      setCardInstallments(Number(event.target.value))
+                    }
+                    className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-violet-400"
+                  >
+                    {Array.from({ length: 21 }, (_, index) => index + 1).map(
+                      (installment) => (
+                        <option key={installment} value={installment}>
+                          {installment}x
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Taxa Mensal
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {cardPlan.monthlyRate.toFixed(2)}%
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Parcela
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(cardPlan.installmentValue)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Juros Total
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(cardPlan.totalInterest)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3 sm:col-span-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Total Cobrado do Cliente
+                    </p>
+                    <p className="mt-2 font-semibold text-violet-200">
+                      {cardPlan.installments}x de{" "}
+                      {formatCurrency(cardPlan.installmentValue)} ={" "}
+                      {formatCurrency(cardPlan.totalCharged)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {hasVehicleInCart && (
               <button
                 onClick={() => setPaymentMethod("FINANCIAMENTO")}
@@ -794,25 +1017,23 @@ function StandardPDVContent() {
                   type="text"
                   value={financingBankSearch}
                   onChange={(event) => setFinancingBankSearch(event.target.value)}
+                  onKeyDown={handleBankSearchKeyDown}
                   placeholder="Digite a primeira letra do banco"
                   className="mt-3 w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[#FACC15]"
                 />
                 <div className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
                   {filteredFinancingBanks.map((bank) => (
                     <button
-                      key={bank}
+                      key={bank.key}
                       type="button"
-                      onClick={() => {
-                        setSelectedFinancingBank(bank);
-                        setFinancingBankSearch(bank);
-                      }}
+                      onClick={() => applySelectedBank(bank.label)}
                       className={`w-full rounded-lg border px-3 py-2 text-left text-sm font-semibold transition-colors ${
-                        selectedFinancingBank === bank
+                        selectedFinancingBank === bank.label
                           ? "border-[#FACC15] bg-[#FACC15]/10 text-[#FDE68A]"
                           : "border-slate-700 bg-[#112240] text-slate-200 hover:border-slate-500"
                       }`}
                     >
-                      {bank}
+                      {bank.label}
                     </button>
                   ))}
                   {filteredFinancingBanks.length === 0 && (
@@ -827,6 +1048,140 @@ function StandardPDVContent() {
                     {selectedFinancingBank || "Nenhum"}
                   </span>
                 </p>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Entrada
+                    </label>
+                    <CurrencyInput
+                      value={financingEntry}
+                      onChange={setFinancingEntry}
+                      className="w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Parcelas
+                    </label>
+                    <select
+                      value={financingInstallments}
+                      onChange={(event) =>
+                        setFinancingInstallments(Number(event.target.value))
+                      }
+                      className="w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-[#FACC15]"
+                    >
+                      {Array.from({ length: 49 }, (_, index) => index + 12).map(
+                        (installment) => (
+                          <option key={installment} value={installment}>
+                            {installment}x
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      Taxa Mensal (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={financingMonthlyRate}
+                      onChange={(event) =>
+                        setFinancingMonthlyRate(event.target.value)
+                      }
+                      className="w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      TAC
+                    </label>
+                    <CurrencyInput
+                      value={financingTac}
+                      onChange={setFinancingTac}
+                      className="w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      IOF
+                    </label>
+                    <CurrencyInput
+                      value={financingIof}
+                      onChange={setFinancingIof}
+                      className="w-full rounded-lg border border-slate-700 bg-[#112240] px-3 py-2 text-sm text-white outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Valor do Veículo
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(financingPlan.vehiclePrice)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Base Financiada
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(financingPlan.baseFinancedAmount)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Valor Financiado
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(financingPlan.financedPrincipal)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Prestação Price
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(financingPlan.installmentValue)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-[#112240] px-3 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                      Total Pago ao Banco
+                    </p>
+                    <p className="mt-2 font-semibold text-white">
+                      {formatCurrency(financingPlan.totalFinanced)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 rounded-lg border border-[#FACC15]/20 bg-[#FACC15]/10 px-3 py-3 text-sm text-slate-100">
+                  <p>
+                    Entrada: <span className="font-semibold">{formatCurrency(financingPlan.entry)}</span>
+                  </p>
+                  <p className="mt-1">
+                    Plano final:{" "}
+                    <span className="font-semibold">
+                      {financingPlan.installments}x de {formatCurrency(financingPlan.installmentValue)}
+                    </span>
+                  </p>
+                  <p className="mt-1">
+                    Custo adicional:{" "}
+                    <span className="font-semibold">
+                      {formatCurrency(financingPlan.totalExtraCost)}
+                    </span>
+                  </p>
+                  <p className="mt-1">
+                    Total ao cliente:{" "}
+                    <span className="font-semibold">
+                      {formatCurrency(financingPlan.customerTotal)}
+                    </span>
+                  </p>
+                </div>
               </div>
             )}
 
@@ -835,18 +1190,10 @@ function StandardPDVContent() {
                 <div className="bg-[#0B1120] p-2 rounded border border-slate-700 text-center text-xs text-slate-400">
                   <span className="block mb-1">
                     Taxa estimada:{" "}
-                    {paymentMethod === "DEBITO" ? rates.debit : rates.credit}%
+                    {cardFeeRate.toFixed(2)}%
                   </span>
                   <span className="text-white font-bold">
-                    Recebimento Líquido: R${" "}
-                    {(
-                      total -
-                        (total *
-                          (paymentMethod === "DEBITO"
-                            ? rates.debit
-                            : rates.credit)) /
-                          100 || 0
-                    ).toFixed(2)}
+                    Recebimento Líquido: {formatCurrency(estimatedCardNet)}
                   </span>
                 </div>
               )}

@@ -32,13 +32,16 @@ import {
   formatVehiclePlate,
   getDefaultProductCategory,
   getProductCategoryLabel,
+  getVehicleConditionLabel,
   getVehicleInventoryStatusLabel,
   getSegmentProductCategories,
   getVehicleFuelLabel,
   normalizeVehicleInventoryStatus,
+  normalizeVehicleCondition,
   getVehicleSteeringLabel,
   isVehicleCategory,
   normalizeVehiclePlate,
+  VEHICLE_CONDITION_OPTIONS,
   VEHICLE_FUEL_OPTIONS,
   VEHICLE_STATUS_OPTIONS,
   VEHICLE_STEERING_OPTIONS,
@@ -61,11 +64,13 @@ interface Product {
   vehicleChassis?: string | null;
   vehicleRenavam?: string | null;
   vehicleStatus?: string | null;
+  vehicleCondition?: string | null;
   vehicleManufactureYear?: number | null;
   vehicleModelYear?: number | null;
   vehicleEngine?: string | null;
   vehicleColor?: string | null;
   vehicleMileage?: number | null;
+  vehicleSinisterHistory?: string | null;
   vehicleFuel?: string | null;
   vehicleAirConditioning?: boolean | null;
   vehicleAirbag?: boolean | null;
@@ -111,11 +116,13 @@ type ProductFormState = {
   vehicleChassis: string;
   vehicleRenavam: string;
   vehicleStatus: string;
+  vehicleCondition: string;
   vehicleManufactureYear: string;
   vehicleModelYear: string;
   vehicleEngine: string;
   vehicleColor: string;
   vehicleMileage: string;
+  vehicleSinisterHistory: string;
   vehicleFuel: string;
   vehicleAirConditioning: boolean;
   vehicleAirbag: boolean;
@@ -144,11 +151,13 @@ const createEmptyProductForm = (
   vehicleChassis: "",
   vehicleRenavam: "",
   vehicleStatus: "DISPONIVEL",
+  vehicleCondition: "SEMINOVO",
   vehicleManufactureYear: "",
   vehicleModelYear: "",
   vehicleEngine: "",
   vehicleColor: "",
   vehicleMileage: "",
+  vehicleSinisterHistory: "",
   vehicleFuel: "",
   vehicleAirConditioning: false,
   vehicleAirbag: false,
@@ -388,11 +397,13 @@ export default function Estoque() {
       vehicleChassis: product.vehicleChassis || "",
       vehicleRenavam: product.vehicleRenavam || "",
       vehicleStatus: product.vehicleStatus || "DISPONIVEL",
+      vehicleCondition: product.vehicleCondition || "SEMINOVO",
       vehicleManufactureYear: product.vehicleManufactureYear?.toString() || "",
       vehicleModelYear: product.vehicleModelYear?.toString() || "",
       vehicleEngine: product.vehicleEngine || "",
       vehicleColor: product.vehicleColor || "",
       vehicleMileage: product.vehicleMileage?.toString() || "",
+      vehicleSinisterHistory: product.vehicleSinisterHistory || "",
       vehicleFuel: product.vehicleFuel || "",
       vehicleAirConditioning: Boolean(product.vehicleAirConditioning),
       vehicleAirbag: Boolean(product.vehicleAirbag),
@@ -481,6 +492,8 @@ export default function Estoque() {
           vehicleStatus:
             normalizeVehicleInventoryStatus(current.vehicleStatus) ||
             "DISPONIVEL",
+          vehicleCondition:
+            normalizeVehicleCondition(current.vehicleCondition) || "SEMINOVO",
         };
       }
 
@@ -495,11 +508,13 @@ export default function Estoque() {
         vehicleChassis: "",
         vehicleRenavam: "",
         vehicleStatus: "DISPONIVEL",
+        vehicleCondition: "SEMINOVO",
         vehicleManufactureYear: "",
         vehicleModelYear: "",
         vehicleEngine: "",
         vehicleColor: "",
         vehicleMileage: "",
+        vehicleSinisterHistory: "",
         vehicleFuel: "",
         vehicleAirConditioning: false,
         vehicleAirbag: false,
@@ -543,8 +558,10 @@ export default function Estoque() {
       "Código de Barras",
       "Categoria",
       "Placa",
+      "Condição",
       "Cor",
       "KM",
+      "Sinistro/Leilão",
       "Status Veículo",
       "Preço Venda",
       "Preço Custo",
@@ -560,8 +577,10 @@ export default function Estoque() {
         `"${p.barcode || ""}"`,
         getProductCategoryLabel(p.category),
         `"${formatVehiclePlate(p.vehiclePlate) || ""}"`,
+        `"${isVehicleCategory(p.category) ? getVehicleConditionLabel(p.vehicleCondition) : ""}"`,
         `"${p.vehicleColor || ""}"`,
         `"${p.vehicleMileage ?? ""}"`,
+        `"${p.vehicleSinisterHistory || ""}"`,
         `"${isVehicleCategory(p.category) ? getVehicleInventoryStatusLabel(p.vehicleStatus) : ""}"`,
         p.salePrice,
         p.costPrice,
@@ -681,8 +700,10 @@ export default function Estoque() {
         String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleBrand || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleModel || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleCondition || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleColor || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleMileage || "").includes(searchTerm.trim()) ||
+        String(p.vehicleSinisterHistory || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleChassis || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleRenavam || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehiclePlate || "").toLowerCase().includes(lowercaseSearch) ||
@@ -729,6 +750,7 @@ export default function Estoque() {
 
     return [
       formatVehiclePlate(product.vehiclePlate),
+      getVehicleConditionLabel(product.vehicleCondition),
       product.vehicleColor,
       product.vehicleMileage
         ? `${product.vehicleMileage.toLocaleString("pt-BR")} km`
@@ -1091,8 +1113,10 @@ export default function Estoque() {
                         </td>
                         <td className="p-4">
                           {isVehicleItem ? (
-                            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Unidade única
+                            <span className="text-sm font-bold uppercase tracking-[0.08em] text-amber-300">
+                              {product.vehicleMileage
+                                ? `${product.vehicleMileage.toLocaleString("pt-BR")} KM`
+                                : "KM nao informado"}
                             </span>
                           ) : (
                             <span
@@ -1601,6 +1625,27 @@ export default function Estoque() {
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1">
+                          Condicao
+                        </label>
+                        <select
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleCondition}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleCondition: e.target.value,
+                            })
+                          }
+                        >
+                          {VEHICLE_CONDITION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
                           Quilometragem (KM)
                         </label>
                         <input
@@ -1757,6 +1802,23 @@ export default function Estoque() {
 
                     <div className="mt-5">
                       <label className="block text-slate-400 mb-1">
+                        Historico de Sinistro / Leilao
+                      </label>
+                      <textarea
+                        className="w-full min-h-20 bg-[#112240] border border-slate-700 rounded p-3 text-white resize-none"
+                        value={formData.vehicleSinisterHistory}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            vehicleSinisterHistory: e.target.value,
+                          })
+                        }
+                        placeholder="Ex: sem historico, leilao pequena monta, reparo estrutural..."
+                      />
+                    </div>
+
+                    <div className="mt-5">
+                      <label className="block text-slate-400 mb-1">
                         Informações adicionais / histórico
                       </label>
                       <textarea
@@ -1798,6 +1860,12 @@ export default function Estoque() {
                         </span>
                       </div>
                       <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
+                        Condicao:{" "}
+                        <span className="font-semibold text-white">
+                          {getVehicleConditionLabel(formData.vehicleCondition)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
                         Cor:{" "}
                         <span className="font-semibold text-white">
                           {formData.vehicleColor || "Nao informada"}
@@ -1809,6 +1877,12 @@ export default function Estoque() {
                           {formData.vehicleMileage
                             ? `${Number(formData.vehicleMileage).toLocaleString("pt-BR")} km`
                             : "Nao informado"}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3 col-span-2 md:col-span-1">
+                        Sinistro:{" "}
+                        <span className="font-semibold text-white">
+                          {formData.vehicleSinisterHistory || "Nao informado"}
                         </span>
                       </div>
                     </div>

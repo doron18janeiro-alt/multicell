@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   formatVehiclePlate,
+  getVehicleConditionLabel,
   getVehicleFuelLabel,
   getVehicleInventoryStatusLabel,
   getVehicleSteeringLabel,
@@ -79,6 +80,8 @@ const buildVehicleCoverageChecklist = ({
         vehicleEngine?: string | null;
         vehicleColor?: string | null;
         vehicleMileage?: number | null;
+        vehicleCondition?: string | null;
+        vehicleSinisterHistory?: string | null;
         vehicleFuel?: string | null;
         vehicleSteering?: string | null;
         vehicleStatus?: string | null;
@@ -142,6 +145,14 @@ const buildVehicleCoverageChecklist = ({
       value: vehicle?.vehicleMileage
         ? `${Number(vehicle.vehicleMileage).toLocaleString("pt-BR")} km`
         : checklist?.mileage || "Não informado",
+    },
+    {
+      label: "Condição",
+      value: getVehicleConditionLabel(vehicle?.vehicleCondition),
+    },
+    {
+      label: "Sinistro / Leilão",
+      value: vehicle?.vehicleSinisterHistory || "Não informado",
     },
     {
       label: "Combustível",

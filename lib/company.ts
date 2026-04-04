@@ -1,5 +1,9 @@
-import type { Segment } from "@prisma/client";
+import { Prisma, type Segment } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  DEFAULT_AUTO_FINANCING_SETTINGS,
+  buildAutoFinancingSettingsPayload,
+} from "@/lib/auto-financing";
 import { normalizeCurrencyNumber } from "@/lib/nfe-wallet";
 
 export const DEFAULT_COMPANY_PROFILE = {
@@ -12,7 +16,9 @@ export const DEFAULT_COMPANY_PROFILE = {
   logoUrl: "/wtm-float.png",
   certificateA1: null,
   companyData: null,
-  settings: {},
+  settings: {
+    autoFinancing: DEFAULT_AUTO_FINANCING_SETTINGS,
+  },
   nfeBalance: 0,
   autoTopUp: false,
   debitRate: 1.99,
@@ -41,6 +47,8 @@ export type CompanyProfile = {
   creditRate: number;
   taxPix: number;
   taxCash: number;
+  creditInstallmentRate: number;
+  bankRates: Record<string, number>;
 };
 
 type CompanyProfileInput = Partial<{
@@ -81,6 +89,11 @@ const normalizeNumber = (value: unknown, fallback: number) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const resolveSettingsObject = (value: unknown) =>
+  value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : (DEFAULT_COMPANY_PROFILE.settings as Record<string, unknown>);
+
 const LEGACY_BRAND_NAMES = new Set(["multicell", "world tech manager"]);
 
 const shouldHydrateCompanyNameFromLegacy = (
@@ -118,33 +131,39 @@ const buildProfileResponse = (
     taxPix: number;
     taxCash: number;
   },
-): CompanyProfile => ({
-  id: company.id,
-  companyId: company.id,
-  name: normalizeName(company.name),
-  segment: company.segment || null,
-  cnpj: company.cnpj || null,
-  document: company.cnpj || null,
-  address: company.address || null,
-  phone: company.phone || null,
-  email: company.email || null,
-  logoUrl: normalizeOptionalString(company.logoUrl),
-  certificateA1: company.certificateA1 || null,
-  companyData:
-    company.companyData && typeof company.companyData === "object"
-      ? (company.companyData as Record<string, unknown>)
-      : DEFAULT_COMPANY_PROFILE.companyData,
-  settings:
-    company.settings && typeof company.settings === "object"
-      ? (company.settings as Record<string, unknown>)
-      : DEFAULT_COMPANY_PROFILE.settings,
-  nfeBalance: normalizeCurrencyNumber(company.nfeBalance),
-  autoTopUp: Boolean(company.autoTopUp),
-  debitRate: Number(config.debitRate ?? DEFAULT_COMPANY_PROFILE.debitRate),
-  creditRate: Number(config.creditRate ?? DEFAULT_COMPANY_PROFILE.creditRate),
-  taxPix: Number(config.taxPix ?? DEFAULT_COMPANY_PROFILE.taxPix),
-  taxCash: Number(config.taxCash ?? DEFAULT_COMPANY_PROFILE.taxCash),
-});
+): CompanyProfile => {
+  const resolvedSettings = resolveSettingsObject(company.settings);
+  const autoFinancingSettings = buildAutoFinancingSettingsPayload(
+    resolvedSettings.autoFinancing,
+  );
+
+  return {
+    id: company.id,
+    companyId: company.id,
+    name: normalizeName(company.name),
+    segment: company.segment || null,
+    cnpj: company.cnpj || null,
+    document: company.cnpj || null,
+    address: company.address || null,
+    phone: company.phone || null,
+    email: company.email || null,
+    logoUrl: normalizeOptionalString(company.logoUrl),
+    certificateA1: company.certificateA1 || null,
+    companyData:
+      company.companyData && typeof company.companyData === "object"
+        ? (company.companyData as Record<string, unknown>)
+        : DEFAULT_COMPANY_PROFILE.companyData,
+    settings: resolvedSettings,
+    nfeBalance: normalizeCurrencyNumber(company.nfeBalance),
+    autoTopUp: Boolean(company.autoTopUp),
+    debitRate: Number(config.debitRate ?? DEFAULT_COMPANY_PROFILE.debitRate),
+    creditRate: Number(config.creditRate ?? DEFAULT_COMPANY_PROFILE.creditRate),
+    taxPix: Number(config.taxPix ?? DEFAULT_COMPANY_PROFILE.taxPix),
+    taxCash: Number(config.taxCash ?? DEFAULT_COMPANY_PROFILE.taxCash),
+    creditInstallmentRate: autoFinancingSettings.creditInstallmentRate,
+    bankRates: autoFinancingSettings.bankRates,
+  };
+};
 
 export async function ensureCompanyProfile(
   companyId: string,
@@ -241,6 +260,21 @@ export async function updateCompanyProfile(
   input: CompanyProfileInput,
 ): Promise<CompanyProfile> {
   const current = await ensureCompanyProfile(companyId);
+  const currentSettings = resolveSettingsObject(current.settings);
+  const inputSettings =
+    input.settings && typeof input.settings === "object"
+      ? (input.settings as Record<string, unknown>)
+      : null;
+  const mergedSettings = inputSettings
+    ? {
+        ...currentSettings,
+        ...inputSettings,
+        autoFinancing: buildAutoFinancingSettingsPayload(
+          (inputSettings.autoFinancing as Record<string, unknown> | undefined) ??
+            currentSettings.autoFinancing,
+        ),
+      }
+    : currentSettings;
   const resolvedCnpj = normalizeOptionalString(input.cnpj ?? input.document);
   const resolvedLogoUrl =
     input.logoUrl === undefined
@@ -264,10 +298,7 @@ export async function updateCompanyProfile(
           input.companyData && typeof input.companyData === "object"
             ? input.companyData
             : current.companyData || DEFAULT_COMPANY_PROFILE.companyData,
-        settings:
-          input.settings && typeof input.settings === "object"
-            ? input.settings
-            : current.settings || DEFAULT_COMPANY_PROFILE.settings,
+        settings: mergedSettings as Prisma.InputJsonValue,
         nfeBalance: normalizeCurrencyNumber(
           input.nfeBalance ?? current.nfeBalance,
         ),
@@ -290,10 +321,7 @@ export async function updateCompanyProfile(
           input.companyData && typeof input.companyData === "object"
             ? input.companyData
             : DEFAULT_COMPANY_PROFILE.companyData,
-        settings:
-          input.settings && typeof input.settings === "object"
-            ? input.settings
-            : DEFAULT_COMPANY_PROFILE.settings,
+        settings: mergedSettings as Prisma.InputJsonValue,
         nfeBalance: normalizeCurrencyNumber(
           input.nfeBalance ?? DEFAULT_COMPANY_PROFILE.nfeBalance,
         ),

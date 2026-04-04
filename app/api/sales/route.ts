@@ -94,6 +94,15 @@ export async function POST(request: Request) {
       customerId,
       issueNfe,
       financingBank,
+      cardInstallments,
+      cardMonthlyRate,
+      financingEntry,
+      financingInstallments,
+      financingMonthlyRate,
+      financingTac,
+      financingIof,
+      financingInstallmentValue,
+      financingFinancedAmount,
     } = body;
 
     let finalPaymentMethod = paymentMethod;
@@ -251,9 +260,47 @@ export async function POST(request: Request) {
           total,
           paymentMethod: finalPaymentMethod,
           cardType,
+          cardInstallments:
+            paymentMethod === "CREDITO"
+              ? Math.max(Number(cardInstallments || 1), 1)
+              : paymentMethod === "DEBITO"
+                ? 1
+                : null,
+          cardMonthlyRate:
+            paymentMethod === "CREDITO"
+              ? Number(cardMonthlyRate || 0)
+              : null,
           financingBank:
             paymentMethod === "FINANCIAMENTO"
               ? String(financingBank || "").trim() || null
+              : null,
+          financingEntry:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingEntry || 0)
+              : null,
+          financingInstallments:
+            paymentMethod === "FINANCIAMENTO"
+              ? Math.max(Number(financingInstallments || 0), 1)
+              : null,
+          financingMonthlyRate:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingMonthlyRate || 0)
+              : null,
+          financingTac:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingTac || 0)
+              : null,
+          financingIof:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingIof || 0)
+              : null,
+          financingInstallmentValue:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingInstallmentValue || 0)
+              : null,
+          financingFinancedAmount:
+            paymentMethod === "FINANCIAMENTO"
+              ? Number(financingFinancedAmount || 0)
               : null,
           feeAmount,
           netAmount,

@@ -23,6 +23,9 @@ type ReceiptItem = {
     vehicleModel?: string | null;
     vehiclePlate?: string | null;
     vehicleChassis?: string | null;
+    vehicleMileage?: number | null;
+    vehicleCondition?: string | null;
+    vehicleSinisterHistory?: string | null;
   } | null;
 };
 
@@ -38,7 +41,16 @@ type ReceiptSale = {
   total?: number;
   paymentMethod?: string | null;
   cardType?: string | null;
+  cardInstallments?: number | null;
+  cardMonthlyRate?: number | null;
   financingBank?: string | null;
+  financingEntry?: number | null;
+  financingInstallments?: number | null;
+  financingMonthlyRate?: number | null;
+  financingTac?: number | null;
+  financingIof?: number | null;
+  financingInstallmentValue?: number | null;
+  financingFinancedAmount?: number | null;
   tableNumber?: string | null;
   customerDocument?: string | null;
   createdAt?: string | Date;
@@ -533,6 +545,35 @@ export const SaleReceiptThermal = React.forwardRef<
                 <p className="mt-[1.2mm] font-semibold text-slate-950">
                   Banco: {normalizeText(sale?.financingBank)}
                 </p>
+                <div className="mt-[1.2mm] space-y-[0.8mm] text-[10px] text-slate-600">
+                  <p>Entrada: {formatCurrency(sale?.financingEntry)}</p>
+                  <p>
+                    Plano: {sale?.financingInstallments || 0}x de{" "}
+                    {formatCurrency(sale?.financingInstallmentValue)}
+                  </p>
+                  <p>
+                    Taxa mensal: {Number(sale?.financingMonthlyRate || 0).toFixed(2)}%
+                  </p>
+                  <p>
+                    TAC/IOF: {formatCurrency(sale?.financingTac)} /{" "}
+                    {formatCurrency(sale?.financingIof)}
+                  </p>
+                </div>
+              </section>
+            ) : null}
+
+            {sale?.paymentMethod?.toUpperCase() !== "FINANCIAMENTO" &&
+            sale?.cardType?.toUpperCase() === "CREDITO" ? (
+              <section className="document-section rounded-[18px] border border-slate-200 bg-white p-[2.5mm]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Cartão de Crédito
+                </p>
+                <p className="mt-[1.2mm] font-semibold text-slate-950">
+                  {sale?.cardInstallments || 1}x
+                </p>
+                <p className="mt-[0.8mm] text-[10px] text-slate-600">
+                  Taxa mensal: {Number(sale?.cardMonthlyRate || 0).toFixed(2)}%
+                </p>
               </section>
             ) : null}
 
@@ -600,7 +641,22 @@ export const SaleReceiptThermal = React.forwardRef<
                         <div className="mt-[1mm] text-[10px] text-slate-600">
                           <p>Placa: {normalizeText(item.product?.vehiclePlate)}</p>
                           <p>Chassi: {normalizeText(item.product?.vehicleChassis)}</p>
+                          <p>
+                            KM:{" "}
+                            {item.product?.vehicleMileage
+                              ? `${Number(item.product.vehicleMileage).toLocaleString("pt-BR")} km`
+                              : "Não informado"}
+                          </p>
+                          <p>
+                            Condição: {normalizeText(item.product?.vehicleCondition)}
+                          </p>
                         </div>
+                        {hasText(item.product?.vehicleSinisterHistory) ? (
+                          <p className="mt-[1mm] text-[10px] text-slate-600">
+                            Sinistro/Leilão:{" "}
+                            {normalizeText(item.product?.vehicleSinisterHistory)}
+                          </p>
+                        ) : null}
                       </div>
                     );
                   })}

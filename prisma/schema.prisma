@@ -49,11 +49,13 @@ model Product {
   vehicleChassis          String?        @map("vehicle_chassis")
   vehicleRenavam          String?        @map("vehicle_renavam")
   vehicleStatus           VehicleStatus? @default(DISPONIVEL) @map("vehicle_status")
+  vehicleCondition        VehicleCondition? @default(SEMINOVO) @map("vehicle_condition")
   vehicleManufactureYear  Int?           @map("vehicle_manufacture_year")
   vehicleModelYear        Int?           @map("vehicle_model_year")
   vehicleEngine           String?        @map("vehicle_engine")
   vehicleColor            String?        @map("vehicle_color")
   vehicleMileage          Int?           @map("vehicle_mileage")
+  vehicleSinisterHistory  String?        @map("vehicle_sinister_history")
   vehicleFuel             String?        @map("vehicle_fuel")
   vehicleAirConditioning  Boolean?       @map("vehicle_air_conditioning")
   vehicleAirbag           Boolean?       @map("vehicle_airbag")
@@ -142,7 +144,16 @@ model Sale {
   netAmount      Float?     @map("net_amount")
   paymentMethod  String     @map("payment_method")
   cardType       String?    @map("card_type")
+  cardInstallments Int?     @default(1) @map("card_installments")
+  cardMonthlyRate Float?    @map("card_monthly_rate")
   financingBank  String?    @map("financing_bank")
+  financingEntry Float?     @map("financing_entry")
+  financingInstallments Int? @map("financing_installments")
+  financingMonthlyRate Float? @map("financing_monthly_rate")
+  financingTac   Float?     @map("financing_tac")
+  financingIof   Float?     @map("financing_iof")
+  financingInstallmentValue Float? @map("financing_installment_value")
+  financingFinancedAmount Float? @map("financing_financed_amount")
   tableNumber    String?    @map("table_number")
   serviceOrderId Int?       @map("service_order_id")
   status         SaleStatus @default(COMPLETED)
@@ -485,6 +496,11 @@ enum VehicleStatus {
   DISPONIVEL
   MANUTENCAO
   VENDIDO
+}
+
+enum VehicleCondition {
+  NOVO
+  SEMINOVO
 }
 
 enum TableStatus {
