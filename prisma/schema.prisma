@@ -52,6 +52,8 @@ model Product {
   vehicleManufactureYear  Int?           @map("vehicle_manufacture_year")
   vehicleModelYear        Int?           @map("vehicle_model_year")
   vehicleEngine           String?        @map("vehicle_engine")
+  vehicleColor            String?        @map("vehicle_color")
+  vehicleMileage          Int?           @map("vehicle_mileage")
   vehicleFuel             String?        @map("vehicle_fuel")
   vehicleAirConditioning  Boolean?       @map("vehicle_air_conditioning")
   vehicleAirbag           Boolean?       @map("vehicle_airbag")
@@ -323,6 +325,7 @@ model Company {
   nfeLogs            NfeLog[]
   nfeWalletRecharges NfeWalletRecharge[]
   products           Product[]
+  salaryAdvances     SalaryAdvance[]
   sales              Sale[]
   serviceOrders      ServiceOrder[]
   tables             Table[]
@@ -346,6 +349,7 @@ model User {
   companyId         String    @map("company_id")
   company           Company   @relation(fields: [companyId], references: [id])
   sales             Sale[]    @relation("SellerSales")
+  salaryAdvances    SalaryAdvance[] @relation("EmployeeSalaryAdvances")
 
   @@index([companyId], map: "idx_users_company_id")
   @@map("users")
@@ -395,6 +399,7 @@ model Expense {
   companyId     String                @default("multicell-oficial") @map("company_id")
   createdAt     DateTime              @default(now()) @map("created_at")
   company       Company               @relation(fields: [companyId], references: [id])
+  salaryAdvance SalaryAdvance?
   updatedAt     DateTime              @updatedAt @map("updated_at")
 
   @@index([companyId], map: "idx_expenses_company_id")
@@ -402,6 +407,30 @@ model Expense {
   @@index([companyId, paidAt])
   @@index([companyId, isRecurring, dueDate])
   @@map("expenses")
+}
+
+model SalaryAdvance {
+  id              String    @id @default(cuid())
+  companyId       String    @map("company_id")
+  employeeId      String?   @map("employee_id")
+  expenseId       String    @unique @map("expense_id")
+  employeeName    String    @map("employee_name")
+  employeeCpf     String    @map("employee_cpf")
+  grossSalary     Decimal   @map("gross_salary") @db.Decimal(10, 2)
+  advanceAmount   Decimal   @map("advance_amount") @db.Decimal(10, 2)
+  remainingSalary Decimal   @map("remaining_salary") @db.Decimal(10, 2)
+  referenceMonth  DateTime  @map("reference_month") @db.Date
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  company         Company   @relation(fields: [companyId], references: [id])
+  employee        User?     @relation("EmployeeSalaryAdvances", fields: [employeeId], references: [id], onDelete: SetNull)
+  expense         Expense   @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, referenceMonth], map: "idx_salary_advances_company_reference_month")
+  @@index([companyId, employeeCpf, referenceMonth], map: "idx_salary_advances_employee_cpf_reference_month")
+  @@index([employeeId], map: "idx_salary_advances_employee_id")
+  @@map("salary_advances")
 }
 
 model AuditLog {
@@ -495,6 +524,7 @@ enum ExpenseCategory {
   AGUA
   ENERGIA
   INTERNET
+  ADIANTAMENTO_SALARIAL
   OUTROS
 }
 

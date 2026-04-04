@@ -155,12 +155,26 @@ export async function PATCH(
         id,
         companyId: currentUser.companyId || "multicell-oficial",
       },
+      include: {
+        salaryAdvance: {
+          select: {
+            id: true,
+          },
+        },
+      },
     });
 
     if (!existingExpense) {
       return NextResponse.json(
         { error: "Despesa nao encontrada." },
         { status: 404 },
+      );
+    }
+
+    if (existingExpense.salaryAdvance) {
+      return NextResponse.json(
+        { error: "Adiantamentos salariais devem ser gerenciados pelo modulo de vales." },
+        { status: 400 },
       );
     }
 
@@ -229,6 +243,11 @@ export async function DELETE(
         description: true,
         amount: true,
         dueDate: true,
+        salaryAdvance: {
+          select: {
+            id: true,
+          },
+        },
       },
     });
 
@@ -236,6 +255,13 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Despesa nao encontrada." },
         { status: 404 },
+      );
+    }
+
+    if (existingExpense.salaryAdvance) {
+      return NextResponse.json(
+        { error: "Adiantamentos salariais nao podem ser removidos por esta tela." },
+        { status: 400 },
       );
     }
 

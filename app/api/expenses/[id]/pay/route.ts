@@ -71,12 +71,26 @@ export async function POST(
         id,
         companyId: currentUser.companyId || "multicell-oficial",
       },
+      include: {
+        salaryAdvance: {
+          select: {
+            id: true,
+          },
+        },
+      },
     });
 
     if (!expense) {
       return NextResponse.json(
         { error: "Despesa nao encontrada." },
         { status: 404 },
+      );
+    }
+
+    if (expense.salaryAdvance) {
+      return NextResponse.json(
+        { error: "Adiantamentos salariais ja sao registrados como pagos no lancamento." },
+        { status: 400 },
       );
     }
 

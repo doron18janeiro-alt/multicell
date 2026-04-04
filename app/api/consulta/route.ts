@@ -77,6 +77,8 @@ const buildVehicleCoverageChecklist = ({
         vehicleChassis?: string | null;
         vehicleRenavam?: string | null;
         vehicleEngine?: string | null;
+        vehicleColor?: string | null;
+        vehicleMileage?: number | null;
         vehicleFuel?: string | null;
         vehicleSteering?: string | null;
         vehicleStatus?: string | null;
@@ -130,6 +132,16 @@ const buildVehicleCoverageChecklist = ({
     {
       label: "Motorização",
       value: vehicle?.vehicleEngine || "Não informada",
+    },
+    {
+      label: "Cor",
+      value: vehicle?.vehicleColor || checklist?.color || "Não informada",
+    },
+    {
+      label: "KM Atual",
+      value: vehicle?.vehicleMileage
+        ? `${Number(vehicle.vehicleMileage).toLocaleString("pt-BR")} km`
+        : checklist?.mileage || "Não informado",
     },
     {
       label: "Combustível",

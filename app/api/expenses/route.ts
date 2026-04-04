@@ -9,6 +9,18 @@ import {
   addOneMonthToExpenseDate,
 } from "@/lib/expenses";
 
+const BRAZIL_TZ = "America/Sao_Paulo";
+
+const getBrazilReferenceMonth = (value = new Date()) => {
+  const yearMonth = new Intl.DateTimeFormat("en-CA", {
+    timeZone: BRAZIL_TZ,
+    year: "numeric",
+    month: "2-digit",
+  }).format(value);
+
+  return new Date(`${yearMonth}-01T12:00:00.000-03:00`);
+};
+
 const serializeExpense = (expense: {
   id: string;
   description: string;
@@ -24,6 +36,9 @@ const serializeExpense = (expense: {
   companyId: string;
   createdAt: Date;
   updatedAt: Date;
+  salaryAdvance?: {
+    id: string;
+  } | null;
 }) => ({
   ...expense,
   amount: Number(expense.amount),
@@ -33,6 +48,40 @@ const serializeExpense = (expense: {
   paidAt: expense.paidAt?.toISOString() ?? null,
   createdAt: expense.createdAt.toISOString(),
   updatedAt: expense.updatedAt.toISOString(),
+  salaryAdvanceId: expense.salaryAdvance?.id ?? null,
+});
+
+const serializeSalaryAdvance = (advance: {
+  id: string;
+  employeeId: string | null;
+  expenseId: string;
+  employeeName: string;
+  employeeCpf: string;
+  grossSalary: { toString(): string } | number;
+  advanceAmount: { toString(): string } | number;
+  remainingSalary: { toString(): string } | number;
+  referenceMonth: Date;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  expense: {
+    id: string;
+    paymentMethod: string | null;
+  };
+}) => ({
+  id: advance.id,
+  employeeId: advance.employeeId,
+  expenseId: advance.expenseId,
+  employeeName: advance.employeeName,
+  employeeCpf: advance.employeeCpf,
+  grossSalary: Number(advance.grossSalary),
+  advanceAmount: Number(advance.advanceAmount),
+  remainingSalary: Number(advance.remainingSalary),
+  referenceMonth: advance.referenceMonth.toISOString(),
+  notes: advance.notes,
+  createdAt: advance.createdAt.toISOString(),
+  updatedAt: advance.updatedAt.toISOString(),
+  paymentMethod: advance.expense.paymentMethod,
 });
 
 export async function GET() {
@@ -47,8 +96,9 @@ export async function GET() {
     }
 
     const companyId = currentUser.companyId || "multicell-oficial";
+    const currentReferenceMonth = getBrazilReferenceMonth();
 
-    const [sales, expenses] = await Promise.all([
+    const [sales, expenses, salaryAdvances, employees, company] = await Promise.all([
       prisma.sale.findMany({
         where: {
           companyId,
@@ -62,6 +112,45 @@ export async function GET() {
       prisma.expense.findMany({
         where: { companyId },
         orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
+        include: {
+          salaryAdvance: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      }),
+      prisma.salaryAdvance.findMany({
+        where: { companyId },
+        include: {
+          expense: {
+            select: {
+              id: true,
+              paymentMethod: true,
+            },
+          },
+        },
+        orderBy: [{ createdAt: "desc" }],
+      }),
+      prisma.user.findMany({
+        where: {
+          companyId,
+        },
+        orderBy: [{ fullName: "asc" }, { name: "asc" }],
+        select: {
+          id: true,
+          fullName: true,
+          name: true,
+          cpf: true,
+          role: true,
+        },
+      }),
+      prisma.company.findUnique({
+        where: { id: companyId },
+        select: {
+          name: true,
+          logoUrl: true,
+        },
       }),
     ]);
 
@@ -70,6 +159,8 @@ export async function GET() {
     let personalPaidTotal = 0;
     let pendingTotal = 0;
     let overdueCount = 0;
+    let salaryAdvanceTotal = 0;
+    let salaryAdvanceCount = 0;
 
     sales.forEach((sale) => {
       totalSales += Number(sale.netAmount ?? sale.total ?? 0);
@@ -93,8 +184,34 @@ export async function GET() {
       }
     });
 
+    const latestRemainingByEmployee = new Map<string, number>();
+
+    salaryAdvances.forEach((advance) => {
+      if (
+        advance.referenceMonth.getTime() === currentReferenceMonth.getTime()
+      ) {
+        salaryAdvanceTotal += Number(advance.advanceAmount);
+        salaryAdvanceCount += 1;
+        latestRemainingByEmployee.set(
+          advance.employeeCpf,
+          Number(advance.remainingSalary),
+        );
+      }
+    });
+
     return NextResponse.json({
       expenses: expenses.map(serializeExpense),
+      salaryAdvances: salaryAdvances.map(serializeSalaryAdvance),
+      employees: employees.map((employee) => ({
+        id: employee.id,
+        fullName: employee.fullName || employee.name || "",
+        cpf: employee.cpf,
+        role: employee.role,
+      })),
+      company: {
+        name: company?.name || "Minha Empresa",
+        logoUrl: company?.logoUrl || "/wtm-float.png",
+      },
       summary: {
         totalSales,
         shopPaidTotal,
@@ -102,6 +219,11 @@ export async function GET() {
         pendingTotal,
         overdueCount,
         cashBalance: totalSales - shopPaidTotal,
+        salaryAdvanceTotal,
+        salaryAdvanceCount,
+        salaryAdvanceOutstanding: Array.from(
+          latestRemainingByEmployee.values(),
+        ).reduce((accumulator, value) => accumulator + value, 0),
       },
     });
   } catch (error) {

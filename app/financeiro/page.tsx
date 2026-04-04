@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useReactToPrint } from "react-to-print";
 import {
   AlertTriangle,
   ArrowDownCircle,
@@ -8,7 +9,9 @@ import {
   CalendarDays,
   CheckCircle2,
   CreditCard,
+  FileText,
   Pencil,
+  Printer,
   Plus,
   Search,
   Store,
@@ -17,6 +20,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import { VoucherPrint, type VoucherPrintData } from "@/components/Financeiro/VoucherPrint";
+import { formatCpf } from "@/lib/cpf";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_CATEGORY_LABELS,
@@ -41,6 +46,22 @@ type Expense = {
   status: "PENDING" | "PAID";
   type: (typeof EXPENSE_TYPES)[number];
   paymentMethod: (typeof EXPENSE_PAYMENT_METHODS)[number] | null;
+  salaryAdvanceId?: string | null;
+};
+
+type SalaryAdvance = VoucherPrintData & {
+  id: string;
+  employeeId: string | null;
+  expenseId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type EmployeeOption = {
+  id: string;
+  fullName: string;
+  cpf: string | null;
+  role: "ADMIN" | "ATTENDANT";
 };
 
 type ExpensesSummary = {
@@ -50,6 +71,9 @@ type ExpensesSummary = {
   pendingTotal: number;
   overdueCount: number;
   cashBalance: number;
+  salaryAdvanceTotal: number;
+  salaryAdvanceCount: number;
+  salaryAdvanceOutstanding: number;
 };
 
 const formatCurrency = (value: number) =>
@@ -58,9 +82,16 @@ const formatCurrency = (value: number) =>
     currency: "BRL",
   }).format(value || 0);
 
-const formatDate = (value: string | null) =>
+const formatDate = (value: string | Date | null) =>
   value
     ? new Date(value).toLocaleDateString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+      })
+    : "--";
+
+const formatDateTime = (value: string | null) =>
+  value
+    ? new Date(value).toLocaleString("pt-BR", {
         timeZone: "America/Sao_Paulo",
       })
     : "--";
@@ -72,16 +103,24 @@ const initialSummary: ExpensesSummary = {
   pendingTotal: 0,
   overdueCount: 0,
   cashBalance: 0,
+  salaryAdvanceTotal: 0,
+  salaryAdvanceCount: 0,
+  salaryAdvanceOutstanding: 0,
 };
 
 export default function FinanceiroPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [salaryAdvances, setSalaryAdvances] = useState<SalaryAdvance[]>([]);
+  const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [companyName, setCompanyName] = useState("Minha Empresa");
   const [summary, setSummary] = useState<ExpensesSummary>(initialSummary);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingAdvance, setSavingAdvance] = useState(false);
   const [paying, setPaying] = useState(false);
   const [message, setMessage] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAdvanceModal, setShowAdvanceModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseToPay, setExpenseToPay] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,6 +129,16 @@ export default function FinanceiroPage() {
   const [paymentMethod, setPaymentMethod] = useState<
     (typeof EXPENSE_PAYMENT_METHODS)[number]
   >("PIX");
+  const [advanceForm, setAdvanceForm] = useState({
+    employeeId: "",
+    grossSalary: "",
+    amount: "",
+    paymentMethod: "PIX" as (typeof EXPENSE_PAYMENT_METHODS)[number],
+    notes: "",
+  });
+  const [voucherToPrint, setVoucherToPrint] = useState<SalaryAdvance | null>(null);
+  const [pendingVoucherPrint, setPendingVoucherPrint] = useState(false);
+  const voucherPrintRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState({
     category: "OUTROS" as (typeof EXPENSE_CATEGORIES)[number],
     description: "",
@@ -111,6 +160,20 @@ export default function FinanceiroPage() {
     setEditingExpense(null);
   };
 
+  const resetAdvanceForm = () => {
+    setAdvanceForm({
+      employeeId: "",
+      grossSalary: "",
+      amount: "",
+      paymentMethod: "PIX",
+      notes: "",
+    });
+  };
+
+  const handleVoucherPrint = useReactToPrint({
+    contentRef: voucherPrintRef,
+  });
+
   const fetchExpenses = async () => {
     try {
       setLoading(true);
@@ -123,6 +186,11 @@ export default function FinanceiroPage() {
       }
 
       setExpenses(Array.isArray(payload.expenses) ? payload.expenses : []);
+      setSalaryAdvances(
+        Array.isArray(payload.salaryAdvances) ? payload.salaryAdvances : [],
+      );
+      setEmployees(Array.isArray(payload.employees) ? payload.employees : []);
+      setCompanyName(payload.company?.name || "Minha Empresa");
       setSummary(payload.summary || initialSummary);
     } catch (error) {
       console.error(error);
@@ -135,6 +203,104 @@ export default function FinanceiroPage() {
   useEffect(() => {
     fetchExpenses();
   }, []);
+
+  useEffect(() => {
+    if (!pendingVoucherPrint || !voucherToPrint) {
+      return;
+    }
+
+    handleVoucherPrint();
+    setPendingVoucherPrint(false);
+  }, [handleVoucherPrint, pendingVoucherPrint, voucherToPrint]);
+
+  const employeesWithCpf = useMemo(
+    () => employees.filter((employee) => Boolean(employee.cpf)),
+    [employees],
+  );
+
+  const currentReferenceMonth = useMemo(
+    () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+      }).format(new Date()),
+    [],
+  );
+
+  const selectedAdvanceEmployee = useMemo(
+    () =>
+      employeesWithCpf.find(
+        (employee) => employee.id === advanceForm.employeeId,
+      ) || null,
+    [advanceForm.employeeId, employeesWithCpf],
+  );
+
+  const employeeMonthAdvances = useMemo(() => {
+    if (!selectedAdvanceEmployee) {
+      return [];
+    }
+
+    return salaryAdvances.filter((advance) => {
+      const advanceMonth = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+      }).format(new Date(advance.referenceMonth || advance.createdAt));
+
+      return (
+        advanceMonth === currentReferenceMonth &&
+        (advance.employeeId === selectedAdvanceEmployee.id ||
+          advance.employeeCpf === selectedAdvanceEmployee.cpf)
+      );
+    });
+  }, [currentReferenceMonth, salaryAdvances, selectedAdvanceEmployee]);
+
+  const employeeAdvanceTotal = useMemo(
+    () =>
+      employeeMonthAdvances.reduce(
+        (accumulator, advance) => accumulator + Number(advance.advanceAmount || 0),
+        0,
+      ),
+    [employeeMonthAdvances],
+  );
+
+  const latestAdvanceForEmployee = employeeMonthAdvances[0] || null;
+  const previewRemainingSalary = useMemo(() => {
+    const grossSalary = Number(advanceForm.grossSalary || 0);
+    const advanceAmount = Number(advanceForm.amount || 0);
+
+    if (!Number.isFinite(grossSalary) || grossSalary <= 0) {
+      return null;
+    }
+
+    return grossSalary - employeeAdvanceTotal - advanceAmount;
+  }, [advanceForm.amount, advanceForm.grossSalary, employeeAdvanceTotal]);
+
+  useEffect(() => {
+    if (
+      !showAdvanceModal ||
+      !selectedAdvanceEmployee ||
+      advanceForm.grossSalary ||
+      !latestAdvanceForEmployee
+    ) {
+      return;
+    }
+
+    setAdvanceForm((current) =>
+      current.employeeId === selectedAdvanceEmployee.id && !current.grossSalary
+        ? {
+            ...current,
+            grossSalary: String(latestAdvanceForEmployee.grossSalary),
+          }
+        : current,
+    );
+  }, [
+    advanceForm.grossSalary,
+    latestAdvanceForEmployee,
+    selectedAdvanceEmployee,
+    showAdvanceModal,
+  ]);
 
   const filteredExpenses = useMemo(() => {
     return [...expenses]
@@ -206,6 +372,44 @@ export default function FinanceiroPage() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveAdvance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingAdvance(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/expenses/advances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: advanceForm.employeeId,
+          grossSalary: Number(advanceForm.grossSalary || 0),
+          amount: Number(advanceForm.amount || 0),
+          paymentMethod: advanceForm.paymentMethod,
+          notes: advanceForm.notes,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        setMessage(payload.error || "Erro ao lançar vale/adiantamento.");
+        return;
+      }
+
+      setShowAdvanceModal(false);
+      resetAdvanceForm();
+      setVoucherToPrint(payload.advance || null);
+      setPendingVoucherPrint(Boolean(payload.advance));
+      setMessage("Vale/adiantamento registrado com sucesso.");
+      await fetchExpenses();
+    } catch (error) {
+      console.error(error);
+      setMessage("Erro ao lançar vale/adiantamento.");
+    } finally {
+      setSavingAdvance(false);
     }
   };
 
@@ -337,6 +541,11 @@ export default function FinanceiroPage() {
     }
   };
 
+  const handleReprintAdvance = (advance: SalaryAdvance) => {
+    setVoucherToPrint(advance);
+    setPendingVoucherPrint(true);
+  };
+
   const totalExpensePaid = summary.shopPaidTotal + summary.personalPaidTotal;
   const shopPercent =
     totalExpensePaid > 0 ? (summary.shopPaidTotal / totalExpensePaid) * 100 : 0;
@@ -362,17 +571,37 @@ export default function FinanceiroPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setShowCreateModal(true);
-            }}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] transition-transform hover:scale-[1.01] sm:w-auto"
-          >
-            <Plus className="h-5 w-5" />
-            Nova Despesa
-          </button>
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={() => {
+                const defaultEmployee = employeesWithCpf[0] || null;
+                resetAdvanceForm();
+                setAdvanceForm((current) => ({
+                  ...current,
+                  employeeId: defaultEmployee?.id || "",
+                }));
+                setShowAdvanceModal(true);
+              }}
+              disabled={employeesWithCpf.length === 0}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-6 py-3 text-sm font-bold text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.12)] transition-transform hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              <FileText className="h-5 w-5" />
+              Lancar Vale
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setShowCreateModal(true);
+              }}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 px-6 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(250,204,21,0.25)] transition-transform hover:scale-[1.01] sm:w-auto"
+            >
+              <Plus className="h-5 w-5" />
+              Nova Despesa
+            </button>
+          </div>
         </header>
 
         {message && (
@@ -381,7 +610,7 @@ export default function FinanceiroPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-2xl border border-amber-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-400">Saldo em Caixa</p>
@@ -433,6 +662,134 @@ export default function FinanceiroPage() {
             Loja {formatCurrency(summary.shopPaidTotal)} | Pessoal{" "}
             {formatCurrency(summary.personalPaidTotal)}
           </p>
+          </div>
+
+          <div className="rounded-2xl border border-cyan-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm text-slate-400">Vales no Mês</p>
+            <FileText className="h-5 w-5 text-cyan-300" />
+          </div>
+          <p className="text-2xl font-bold text-white sm:text-3xl">
+            {formatCurrency(summary.salaryAdvanceTotal)}
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            {summary.salaryAdvanceCount} lancamento(s) | saldo restante{" "}
+            {formatCurrency(summary.salaryAdvanceOutstanding)}
+          </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-cyan-500/20 bg-zinc-950/70 p-4 backdrop-blur-md sm:p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                Historico de Vales e Adiantamentos
+              </h2>
+              <p className="mt-2 text-sm text-slate-400">
+                Cada lancamento registra funcionario, CPF, data/hora exata e o saldo
+                restante a pagar no fechamento do mes.
+              </p>
+            </div>
+
+            {employeesWithCpf.length === 0 ? (
+              <span className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                Cadastre funcionarios com CPF para liberar o modulo de vales.
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-6 space-y-4">
+            {salaryAdvances.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-[#0B1120]/60 px-6 py-10 text-center text-slate-400">
+                Nenhum vale/adiantamento registrado ate o momento.
+              </div>
+            ) : (
+              salaryAdvances.map((advance) => (
+                <div
+                  key={advance.id}
+                  className="rounded-2xl border border-zinc-700/60 bg-[#0B1120]/70 p-5"
+                >
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                          Vale / Adiantamento
+                        </span>
+                        <span className="rounded-full border border-zinc-700 bg-zinc-900/70 px-3 py-1 text-xs font-semibold text-slate-300">
+                          {formatDateTime(advance.createdAt)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <p className="text-lg font-semibold text-white">
+                          {advance.employeeName}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-slate-400">
+                          <span className="inline-flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            {formatCpf(advance.employeeCpf)}
+                          </span>
+                          <span className="inline-flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            {EXPENSE_PAYMENT_METHOD_LABELS[
+                              (advance.paymentMethod || "PIX") as (typeof EXPENSE_PAYMENT_METHODS)[number]
+                            ] || advance.paymentMethod || "Nao informado"}
+                          </span>
+                          <span className="inline-flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4" />
+                            Mes ref. {formatDate(advance.referenceMonth)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {advance.notes ? (
+                        <p className="rounded-2xl border border-zinc-700 bg-zinc-900/60 px-4 py-3 text-sm text-slate-300">
+                          {advance.notes}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 xl:min-w-[420px]">
+                      <div className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-amber-100">
+                          Vale
+                        </p>
+                        <p className="mt-2 text-lg font-bold text-white">
+                          {formatCurrency(advance.advanceAmount)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-slate-700 bg-zinc-900/70 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                          Salario Base
+                        </p>
+                        <p className="mt-2 text-lg font-bold text-white">
+                          {formatCurrency(advance.grossSalary)}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-cyan-100">
+                          Restante do Mes
+                        </p>
+                        <p className="mt-2 text-lg font-bold text-white">
+                          {formatCurrency(advance.remainingSalary)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleReprintAdvance(advance)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/70 px-4 py-2 text-sm font-semibold text-slate-200 transition-colors hover:border-cyan-400 hover:text-white"
+                    >
+                      <Printer className="h-4 w-4" />
+                      Imprimir cupom
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -488,6 +845,7 @@ export default function FinanceiroPage() {
             <div className="space-y-4">
               {filteredExpenses.map((expense) => {
                 const overdue = isExpenseOverdue(expense.dueDate, expense.status);
+                const isSalaryAdvanceExpense = Boolean(expense.salaryAdvanceId);
 
                 return (
                   <div
@@ -510,6 +868,11 @@ export default function FinanceiroPage() {
                           {expense.isRecurring && (
                             <span className="rounded-full border border-fuchsia-400/20 bg-fuchsia-500/10 px-3 py-1 text-xs font-semibold text-fuchsia-200">
                               Recorrente mensal
+                            </span>
+                          )}
+                          {isSalaryAdvanceExpense && (
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                              Vale / Adiantamento
                             </span>
                           )}
                           <span
@@ -559,6 +922,12 @@ export default function FinanceiroPage() {
                                 }
                               </span>
                             )}
+                            {isSalaryAdvanceExpense && (
+                              <span className="inline-flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                Gerenciado pelo modulo de vales
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -586,25 +955,29 @@ export default function FinanceiroPage() {
                             </span>
                           )}
 
-                          <button
-                            type="button"
-                            onClick={() => handleEditExpense(expense)}
-                            className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-2 text-amber-200 transition-colors hover:bg-amber-400/20"
-                            aria-label={`Editar despesa ${expense.description}`}
-                            title="Editar"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
+                          {!isSalaryAdvanceExpense ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEditExpense(expense)}
+                                className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-2 text-amber-200 transition-colors hover:bg-amber-400/20"
+                                aria-label={`Editar despesa ${expense.description}`}
+                                title="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteExpense(expense)}
-                            className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-red-200 transition-colors hover:bg-red-500/20"
-                            aria-label={`Excluir despesa ${expense.description}`}
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExpense(expense)}
+                                className="rounded-xl border border-red-500/30 bg-red-500/10 p-2 text-red-200 transition-colors hover:bg-red-500/20"
+                                aria-label={`Excluir despesa ${expense.description}`}
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -885,6 +1258,231 @@ export default function FinanceiroPage() {
         </div>
       )}
 
+      {showAdvanceModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl border border-zinc-700 bg-[#0B1120]/95 p-6 shadow-2xl">
+            <div className="mb-6 flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white">
+                  Lancar Vale / Adiantamento
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Registra a saida de caixa imediata e calcula quanto ainda resta
+                  pagar no fechamento do mes.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdvanceModal(false);
+                  resetAdvanceForm();
+                }}
+                className="rounded-xl border border-zinc-700 p-2 text-slate-400 transition-colors hover:border-red-400 hover:text-red-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdvance} className="space-y-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Funcionario
+                  </label>
+                  <select
+                    value={advanceForm.employeeId}
+                    onChange={(event) => {
+                      const nextEmployeeId = event.target.value;
+                      const employee = employeesWithCpf.find(
+                        (item) => item.id === nextEmployeeId,
+                      );
+                      const latestAdvance = salaryAdvances.find(
+                        (advance) =>
+                          advance.employeeId === nextEmployeeId ||
+                          (employee?.cpf && advance.employeeCpf === employee.cpf),
+                      );
+
+                      setAdvanceForm((current) => ({
+                        ...current,
+                        employeeId: nextEmployeeId,
+                        grossSalary:
+                          current.grossSalary ||
+                          (latestAdvance
+                            ? String(latestAdvance.grossSalary)
+                            : current.grossSalary),
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 py-3 text-white outline-none focus:border-cyan-400"
+                    required
+                  >
+                    <option value="">Selecione</option>
+                    {employeesWithCpf.map((employee) => (
+                      <option key={employee.id} value={employee.id}>
+                        {employee.fullName} • {formatCpf(employee.cpf || "")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Forma de pagamento
+                  </label>
+                  <select
+                    value={advanceForm.paymentMethod}
+                    onChange={(event) =>
+                      setAdvanceForm((current) => ({
+                        ...current,
+                        paymentMethod:
+                          event.target.value as (typeof EXPENSE_PAYMENT_METHODS)[number],
+                      }))
+                    }
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 py-3 text-white outline-none focus:border-cyan-400"
+                  >
+                    {EXPENSE_PAYMENT_METHODS.map((method) => (
+                      <option key={method} value={method}>
+                        {EXPENSE_PAYMENT_METHOD_LABELS[method]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Salario Base do Mes
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={advanceForm.grossSalary}
+                    onChange={(event) =>
+                      setAdvanceForm((current) => ({
+                        ...current,
+                        grossSalary: event.target.value,
+                      }))
+                    }
+                    placeholder="2000.00"
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 py-3 text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-300">
+                    Valor do Vale
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={advanceForm.amount}
+                    onChange={(event) =>
+                      setAdvanceForm((current) => ({
+                        ...current,
+                        amount: event.target.value,
+                      }))
+                    }
+                    placeholder="500.00"
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 py-3 text-white outline-none focus:border-cyan-400"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-cyan-400/20 bg-cyan-500/10 p-4 text-sm text-slate-200">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                      Ja adiantado no mes
+                    </p>
+                    <p className="mt-2 text-lg font-bold text-white">
+                      {formatCurrency(employeeAdvanceTotal)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                      Ultimo saldo restante
+                    </p>
+                    <p className="mt-2 text-lg font-bold text-white">
+                      {latestAdvanceForEmployee
+                        ? formatCurrency(latestAdvanceForEmployee.remainingSalary)
+                        : "R$ 0,00"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+                      Saldo apos este vale
+                    </p>
+                    <p
+                      className={`mt-2 text-lg font-bold ${
+                        previewRemainingSalary !== null && previewRemainingSalary < 0
+                          ? "text-red-200"
+                          : "text-white"
+                      }`}
+                    >
+                      {previewRemainingSalary === null
+                        ? "--"
+                        : formatCurrency(previewRemainingSalary)}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedAdvanceEmployee?.cpf ? (
+                  <p className="mt-4 text-xs text-cyan-50/80">
+                    CPF vinculado: {formatCpf(selectedAdvanceEmployee.cpf)}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-300">
+                  Observacoes
+                </label>
+                <textarea
+                  value={advanceForm.notes}
+                  onChange={(event) =>
+                    setAdvanceForm((current) => ({
+                      ...current,
+                      notes: event.target.value,
+                    }))
+                  }
+                  placeholder="Ex: vale quinzenal, ajuda de deslocamento, adiantamento excepcional..."
+                  className="min-h-28 w-full rounded-xl border border-zinc-700 bg-zinc-950/70 px-4 py-3 text-white outline-none focus:border-cyan-400"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAdvanceModal(false);
+                    resetAdvanceForm();
+                  }}
+                  className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold text-slate-300 transition-colors hover:border-zinc-500"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    savingAdvance ||
+                    !advanceForm.employeeId ||
+                    !advanceForm.grossSalary ||
+                    !advanceForm.amount
+                  }
+                  className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-5 py-3 font-bold text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingAdvance ? "Lancando..." : "Confirmar vale"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {expenseToPay && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-3xl border border-zinc-700 bg-[#0B1120]/95 p-6 shadow-2xl">
@@ -956,6 +1554,14 @@ export default function FinanceiroPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {voucherToPrint && (
+        <div className="pointer-events-none fixed left-[-9999px] top-0">
+          <div ref={voucherPrintRef}>
+            <VoucherPrint companyName={companyName} voucher={voucherToPrint} />
           </div>
         </div>
       )}

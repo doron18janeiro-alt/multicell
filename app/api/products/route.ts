@@ -61,8 +61,12 @@ export async function GET(request: Request) {
         { barcode: { contains: search, mode: "insensitive" } },
         { vehicleBrand: { contains: search, mode: "insensitive" } },
         { vehicleModel: { contains: search, mode: "insensitive" } },
+        { vehicleColor: { contains: search, mode: "insensitive" } },
         { vehiclePlate: { contains: search, mode: "insensitive" } },
         { vehicleChassis: { contains: search, mode: "insensitive" } },
+        ...(Number.isFinite(Number(search))
+          ? [{ vehicleMileage: Number.parseInt(search, 10) }]
+          : []),
         ...(normalizedSearch ? [{ barcode: normalizedSearch }] : []),
         ...(normalizedPlate ? [{ vehiclePlate: normalizedPlate }] : []),
       ];

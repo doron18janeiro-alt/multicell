@@ -64,6 +64,8 @@ interface Product {
   vehicleManufactureYear?: number | null;
   vehicleModelYear?: number | null;
   vehicleEngine?: string | null;
+  vehicleColor?: string | null;
+  vehicleMileage?: number | null;
   vehicleFuel?: string | null;
   vehicleAirConditioning?: boolean | null;
   vehicleAirbag?: boolean | null;
@@ -112,6 +114,8 @@ type ProductFormState = {
   vehicleManufactureYear: string;
   vehicleModelYear: string;
   vehicleEngine: string;
+  vehicleColor: string;
+  vehicleMileage: string;
   vehicleFuel: string;
   vehicleAirConditioning: boolean;
   vehicleAirbag: boolean;
@@ -143,6 +147,8 @@ const createEmptyProductForm = (
   vehicleManufactureYear: "",
   vehicleModelYear: "",
   vehicleEngine: "",
+  vehicleColor: "",
+  vehicleMileage: "",
   vehicleFuel: "",
   vehicleAirConditioning: false,
   vehicleAirbag: false,
@@ -385,6 +391,8 @@ export default function Estoque() {
       vehicleManufactureYear: product.vehicleManufactureYear?.toString() || "",
       vehicleModelYear: product.vehicleModelYear?.toString() || "",
       vehicleEngine: product.vehicleEngine || "",
+      vehicleColor: product.vehicleColor || "",
+      vehicleMileage: product.vehicleMileage?.toString() || "",
       vehicleFuel: product.vehicleFuel || "",
       vehicleAirConditioning: Boolean(product.vehicleAirConditioning),
       vehicleAirbag: Boolean(product.vehicleAirbag),
@@ -490,6 +498,8 @@ export default function Estoque() {
         vehicleManufactureYear: "",
         vehicleModelYear: "",
         vehicleEngine: "",
+        vehicleColor: "",
+        vehicleMileage: "",
         vehicleFuel: "",
         vehicleAirConditioning: false,
         vehicleAirbag: false,
@@ -533,6 +543,8 @@ export default function Estoque() {
       "Código de Barras",
       "Categoria",
       "Placa",
+      "Cor",
+      "KM",
       "Status Veículo",
       "Preço Venda",
       "Preço Custo",
@@ -548,6 +560,8 @@ export default function Estoque() {
         `"${p.barcode || ""}"`,
         getProductCategoryLabel(p.category),
         `"${formatVehiclePlate(p.vehiclePlate) || ""}"`,
+        `"${p.vehicleColor || ""}"`,
+        `"${p.vehicleMileage ?? ""}"`,
         `"${isVehicleCategory(p.category) ? getVehicleInventoryStatusLabel(p.vehicleStatus) : ""}"`,
         p.salePrice,
         p.costPrice,
@@ -667,6 +681,8 @@ export default function Estoque() {
         String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleBrand || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleModel || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleColor || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleMileage || "").includes(searchTerm.trim()) ||
         String(p.vehicleChassis || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehicleRenavam || "").toLowerCase().includes(lowercaseSearch) ||
         String(p.vehiclePlate || "").toLowerCase().includes(lowercaseSearch) ||
@@ -713,6 +729,10 @@ export default function Estoque() {
 
     return [
       formatVehiclePlate(product.vehiclePlate),
+      product.vehicleColor,
+      product.vehicleMileage
+        ? `${product.vehicleMileage.toLocaleString("pt-BR")} km`
+        : null,
       product.vehicleEngine,
       product.vehicleManufactureYear && product.vehicleModelYear
         ? `${product.vehicleManufactureYear}/${product.vehicleModelYear}`
@@ -1262,7 +1282,7 @@ export default function Estoque() {
         {showForm && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
             <div
-              className={`bg-[#112240] p-8 rounded-xl border border-slate-700 w-full ${
+              className={`max-h-[90vh] overflow-y-auto bg-[#112240] p-8 rounded-xl border border-slate-700 w-full ${
                 isVehicleForm ? "max-w-5xl" : "max-w-md"
               }`}
             >
@@ -1496,6 +1516,21 @@ export default function Estoque() {
                         />
                       </div>
                       <div>
+                        <label className="block text-slate-400 mb-1">Cor</label>
+                        <input
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleColor}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleColor: e.target.value,
+                            })
+                          }
+                          placeholder="Prata, Preto, Branco..."
+                        />
+                      </div>
+                      <div>
                         <label className="block text-slate-400 mb-1">Placa</label>
                         <input
                           required={isVehicleForm}
@@ -1563,6 +1598,24 @@ export default function Estoque() {
                             </option>
                           ))}
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Quilometragem (KM)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleMileage}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleMileage: e.target.value,
+                            })
+                          }
+                          placeholder="40000"
+                        />
                       </div>
                       <div>
                         <label className="block text-slate-400 mb-1">
@@ -1742,6 +1795,20 @@ export default function Estoque() {
                         Status:{" "}
                         <span className="font-semibold text-white">
                           {getVehicleInventoryStatusLabel(formData.vehicleStatus)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
+                        Cor:{" "}
+                        <span className="font-semibold text-white">
+                          {formData.vehicleColor || "Nao informada"}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
+                        KM:{" "}
+                        <span className="font-semibold text-white">
+                          {formData.vehicleMileage
+                            ? `${Number(formData.vehicleMileage).toLocaleString("pt-BR")} km`
+                            : "Nao informado"}
                         </span>
                       </div>
                     </div>

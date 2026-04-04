@@ -35,6 +35,8 @@ export type VehicleProfile = {
   manufactureYear?: number | null;
   modelYear?: number | null;
   engine?: string | null;
+  color?: string | null;
+  mileage?: number | null;
   fuel?: VehicleFuelOption | null;
   airConditioning?: boolean | null;
   airbag?: boolean | null;
