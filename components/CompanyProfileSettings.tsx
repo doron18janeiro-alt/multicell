@@ -38,7 +38,7 @@ type CompanyFormState = {
   nfeLogs: NfeLogEntry[];
 };
 
-const DEFAULT_LOGO = "/logo-wtm.png";
+const DEFAULT_LOGO = "/wtm-badge.png";
 const MAX_LOGO_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 const formatCurrency = (value: number) =>

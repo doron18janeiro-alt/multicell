@@ -26,7 +26,7 @@ export default function HeaderMobile({ onOpenMenu }: HeaderMobileProps) {
           className="flex min-w-0 flex-1 items-center justify-center"
         >
           <Image
-            src="/logo-wtm.png"
+            src="/wtm-badge.png"
             alt="World Tech Manager"
             width={180}
             height={120}

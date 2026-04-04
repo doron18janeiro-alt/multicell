@@ -31,7 +31,7 @@ export const ServiceOrderThermalPrint = React.forwardRef<
     document: null,
     address: null,
     phone: null,
-    logoUrl: "/logo-wtm.png",
+    logoUrl: "/wtm-badge.png",
   });
   const [responsibleName, setResponsibleName] = useState(
     "Responsavel nao informado",
@@ -76,7 +76,7 @@ export const ServiceOrderThermalPrint = React.forwardRef<
   }, []);
 
   const resolvedDocument = config.cnpj || config.document;
-  const resolvedLogoUrl = config.logoUrl?.trim() || "/logo-wtm.png";
+  const resolvedLogoUrl = config.logoUrl?.trim() || "/wtm-badge.png";
 
   return (
     <div

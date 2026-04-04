@@ -153,7 +153,7 @@ export default function Sidebar({
   const SidebarBrand = () => (
     <div className="flex flex-col items-center text-center">
       <Image
-        src="/logo-wtm.png"
+        src="/wtm-badge.png"
         alt="World Tech Manager"
         width={220}
         height={150}
