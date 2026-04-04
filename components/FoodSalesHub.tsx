@@ -119,6 +119,9 @@ const toneClassMap = {
   emerald: "border-emerald-400/20 bg-emerald-400/10 text-emerald-100",
 };
 
+const FOOD_DASHBOARD_REFRESH_EVENT = "wtm-food-dashboard-refresh";
+const FOOD_DASHBOARD_REFRESH_STORAGE_KEY = "wtm-food-dashboard-refresh";
+
 export function FoodSalesHub() {
   const [data, setData] = useState<FoodDashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -146,7 +149,31 @@ export function FoodSalesHub() {
     loadDashboard();
 
     const interval = window.setInterval(loadDashboard, 30000);
-    return () => window.clearInterval(interval);
+    const handleRefresh = () => {
+      void loadDashboard();
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === FOOD_DASHBOARD_REFRESH_STORAGE_KEY) {
+        void loadDashboard();
+      }
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    window.addEventListener(
+      FOOD_DASHBOARD_REFRESH_EVENT,
+      handleRefresh as EventListener,
+    );
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleRefresh);
+      window.removeEventListener(
+        FOOD_DASHBOARD_REFRESH_EVENT,
+        handleRefresh as EventListener,
+      );
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   const highlightedPendingEntries = useMemo(
@@ -231,7 +258,8 @@ export function FoodSalesHub() {
             <div>
               <h2 className="text-xl font-bold text-white">Mapa de Mesas</h2>
               <p className="text-sm text-slate-400">
-                Verde significa liberada; vermelho indica mesa em consumo.
+                Verde significa liberada; vermelho indica mesa em consumo ou com
+                saldo ainda em aberto.
               </p>
             </div>
             <Link
@@ -256,15 +284,7 @@ export function FoodSalesHub() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {data.tables.map((table) => {
                 const currentOrder = table.currentOrder;
-                const remainingItems =
-                  currentOrder?.items
-                    .map((item) => ({
-                      ...item,
-                      remainingQuantity:
-                        Number(item.quantity || 0) -
-                        Number(item.settledQuantity || 0),
-                    }))
-                    .filter((item) => item.remainingQuantity > 0) || [];
+                const orderItems = currentOrder?.items || [];
 
                 return (
                   <article
@@ -341,24 +361,22 @@ export function FoodSalesHub() {
                     </div>
 
                     <div className="space-y-4 p-5">
-                      {remainingItems.length > 0 ? (
+                      {orderItems.length > 0 ? (
                         <div className="rounded-2xl border border-white/10 bg-black/10 p-4">
                           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                            Consumo em Aberto
+                            Consumo Lancado
                           </p>
                           <div className="mt-3 space-y-2 text-sm text-slate-200">
-                            {remainingItems.slice(0, 4).map((item) => (
+                            {orderItems.slice(-4).reverse().map((item) => (
                               <div
                                 key={item.id}
                                 className="flex items-center justify-between gap-3"
                               >
                                 <span className="line-clamp-1">
-                                  {item.remainingQuantity}x {item.description}
+                                  {item.quantity}x {item.description}
                                 </span>
                                 <span className="font-semibold text-[#FFD700]">
-                                  {formatCurrency(
-                                    item.remainingQuantity * item.unitPrice,
-                                  )}
+                                  {formatCurrency(item.quantity * item.unitPrice)}
                                 </span>
                               </div>
                             ))}
@@ -371,7 +389,11 @@ export function FoodSalesHub() {
                       )}
 
                       <Link
-                        href={`/vendas/novo?mesa=${encodeURIComponent(table.number)}`}
+                        href={
+                          table.status === "OCUPADO"
+                            ? `/vendas/novo?mesa=${encodeURIComponent(table.number)}&pagamento=1`
+                            : `/vendas/novo?mesa=${encodeURIComponent(table.number)}`
+                        }
                         className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-bold transition-colors ${
                           table.status === "OCUPADO"
                             ? "bg-red-500/15 text-red-100 hover:bg-red-500/25"
@@ -379,7 +401,9 @@ export function FoodSalesHub() {
                         }`}
                       >
                         {table.status === "OCUPADO"
-                          ? "Gerenciar Mesa"
+                          ? `Mesa Encerramento (${formatCurrency(
+                              currentOrder?.balanceDue || 0,
+                            )})`
                           : "Ocupar / Lançar Consumo"}
                       </Link>
                     </div>

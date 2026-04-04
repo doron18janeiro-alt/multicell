@@ -17,7 +17,6 @@ export type FoodPaymentMethod = (typeof FOOD_PAYMENT_METHODS)[number];
 
 export type FoodOrderFinancialItem = {
   quantity: number;
-  settledQuantity?: number | null;
   unitPrice: number;
 };
 
@@ -78,22 +77,26 @@ export const resolvePaymentMethodLabel = (paymentMethod: string | null | undefin
   return paymentMethod || "Não informado";
 };
 
-export const calculateFoodOrderFinancials = (items: FoodOrderFinancialItem[]) => {
-  const totals = items.reduce(
-    (acc, item) => {
+export const calculateFoodOrderFinancials = ({
+  items,
+  paidAmount = 0,
+  pendingTransferredAmount = 0,
+}: {
+  items: FoodOrderFinancialItem[];
+  paidAmount?: number;
+  pendingTransferredAmount?: number;
+}) => {
+  const total = roundCurrency(
+    items.reduce((acc, item) => {
       const quantity = Number(item.quantity || 0);
-      const settledQuantity = Number(item.settledQuantity || 0);
       const unitPrice = Number(item.unitPrice || 0);
 
-      acc.total += quantity * unitPrice;
-      acc.resolved += settledQuantity * unitPrice;
-      return acc;
-    },
-    { total: 0, resolved: 0 },
+      return acc + quantity * unitPrice;
+    }, 0),
   );
-
-  const total = roundCurrency(totals.total);
-  const resolved = roundCurrency(totals.resolved);
+  const resolved = roundCurrency(
+    Number(paidAmount || 0) + Number(pendingTransferredAmount || 0),
+  );
   const balanceDue = roundCurrency(Math.max(total - resolved, 0));
 
   let status: FoodOrderStatus = "ABERTA";

@@ -229,7 +229,13 @@ export async function POST(request: Request) {
           orderId: foodOrder.id,
         },
       });
-      const financials = calculateFoodOrderFinancials(refreshedItems);
+      const financials = calculateFoodOrderFinancials({
+        items: refreshedItems,
+        paidAmount: Number(foodOrder.paidAmount || 0),
+        pendingTransferredAmount: Number(
+          foodOrder.pendingTransferredAmount || 0,
+        ),
+      });
 
       const updatedOrder = await tx.foodOrder.update({
         where: {

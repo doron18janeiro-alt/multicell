@@ -7,7 +7,9 @@ import {
   isFoodPaymentMethod,
   normalizeOptionalDate,
   normalizeOptionalText,
+  roundCurrency,
   resolvePendingStatus,
+  type PendingItemsSnapshot,
 } from "@/lib/food";
 import {
   buildPendingItemsSnapshot,
@@ -31,6 +33,26 @@ const orderInclude = {
   },
 };
 
+const buildManualPaymentSnapshot = ({
+  amount,
+  tableNumber,
+  paymentMethod,
+}: {
+  amount: number;
+  tableNumber?: string | null;
+  paymentMethod: string;
+}): PendingItemsSnapshot => [
+  {
+    description:
+      paymentMethod === FOOD_PENDING_PAYMENT_METHOD
+        ? `Saldo transferido para pendente da mesa ${tableNumber || "Balcao"}`
+        : `Pagamento da mesa ${tableNumber || "Balcao"}`,
+    quantity: 1,
+    unitPrice: amount,
+    consumedAt: new Date().toISOString(),
+  },
+];
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -46,6 +68,7 @@ export async function POST(
     const body = await request.json();
     const paymentMethod = String(body.paymentMethod || "").toUpperCase();
     const selections = normalizeCheckoutSelections(body.selections || []);
+    const requestedAmount = roundCurrency(Number(body.amount || 0));
     const providedCustomerId = normalizeOptionalText(body.customerId);
     const receiptDocument = normalizeOptionalText(body.receiptDocument);
     const dueDate = normalizeOptionalDate(body.dueDate);
@@ -58,9 +81,12 @@ export async function POST(
       );
     }
 
-    if (selections.length === 0) {
+    if (selections.length === 0 && requestedAmount <= 0) {
       return NextResponse.json(
-        { error: "Selecione ao menos um item da mesa para fechar." },
+        {
+          error:
+            "Informe um valor para pagamento ou selecione itens da mesa para fechar.",
+        },
         { status: 400 },
       );
     }
@@ -103,43 +129,64 @@ export async function POST(
       }
 
       const itemsMap = new Map(order.items.map((item) => [item.id, item]));
-
-      for (const selection of selections) {
-        const item = itemsMap.get(selection.itemId);
-
-        if (!item) {
-          throw new Error("Há itens selecionados que não pertencem a esta mesa.");
-        }
-
-        const remainingQuantity =
-          Number(item.quantity || 0) - Number(item.settledQuantity || 0);
-
-        if (selection.quantity > remainingQuantity) {
-          throw new Error(
-            `A quantidade selecionada para ${item.description} excede o saldo disponível da mesa.`,
-          );
-        }
-      }
-
-      const selectedAmount = calculateSelectedItemsAmount({
-        orderItems: order.items,
-        selections,
+      const financialsBeforePayment = calculateFoodOrderFinancials({
+        items: order.items,
+        paidAmount: Number(order.paidAmount || 0),
+        pendingTransferredAmount: Number(order.pendingTransferredAmount || 0),
       });
 
-      if (selectedAmount <= 0) {
-        throw new Error("Não foi possível calcular o valor do fechamento parcial.");
+      if (financialsBeforePayment.balanceDue <= 0) {
+        throw new Error("Esta mesa ja esta totalmente quitada.");
       }
 
-      const itemsSnapshot = buildPendingItemsSnapshot({
-        orderItems: order.items,
-        selections,
+      let paymentAmount = requestedAmount;
+      let itemsSnapshot: PendingItemsSnapshot = buildManualPaymentSnapshot({
+        amount: requestedAmount,
+        tableNumber: order.table?.number,
+        paymentMethod,
       });
+
+      if (selections.length > 0) {
+        for (const selection of selections) {
+          const item = itemsMap.get(selection.itemId);
+
+          if (!item) {
+            throw new Error("Há itens selecionados que não pertencem a esta mesa.");
+          }
+
+          const remainingQuantity =
+            Number(item.quantity || 0) - Number(item.settledQuantity || 0);
+
+          if (selection.quantity > remainingQuantity) {
+            throw new Error(
+              `A quantidade selecionada para ${item.description} excede o saldo disponível da mesa.`,
+            );
+          }
+        }
+
+        paymentAmount = calculateSelectedItemsAmount({
+          orderItems: order.items,
+          selections,
+        });
+        itemsSnapshot = buildPendingItemsSnapshot({
+          orderItems: order.items,
+          selections,
+        });
+      }
+
+      if (paymentAmount <= 0) {
+        throw new Error("Nao foi possivel calcular o valor do fechamento.");
+      }
+
+      if (paymentAmount - financialsBeforePayment.balanceDue > 0.009) {
+        throw new Error("O valor informado excede o saldo restante da mesa.");
+      }
 
       const payment = await tx.foodOrderPayment.create({
         data: {
           orderId: order.id,
           customerId: resolvedCustomerId,
-          amount: selectedAmount,
+          amount: paymentAmount,
           paymentMethod,
           notes,
           dueDate: paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? dueDate : null,
@@ -159,12 +206,12 @@ export async function POST(
             customerId: resolvedCustomerId!,
             orderId: order.id,
             paymentId: payment.id,
-            amount: selectedAmount,
+            amount: paymentAmount,
             dueDate,
             status: pendingStatus,
             description:
               notes ||
-              `Mesa ${order.table?.number || "Balcão"} - ${itemsSnapshot.length} item(ns) pendente(s)`,
+              `Mesa ${order.table?.number || "Balcao"} - saldo pendente registrado`,
             itemsSnapshot,
           },
           include: {
@@ -183,7 +230,7 @@ export async function POST(
           },
           data: {
             pendingBalance: {
-              increment: selectedAmount,
+              increment: paymentAmount,
             },
           },
         });
@@ -199,7 +246,7 @@ export async function POST(
         });
         const paymentData = resolveSalePaymentData({
           paymentMethod,
-          total: selectedAmount,
+          total: paymentAmount,
           config,
         });
 
@@ -207,7 +254,7 @@ export async function POST(
           data: {
             companyId,
             foodOrderId: order.id,
-            total: selectedAmount,
+            total: paymentAmount,
             paymentMethod: paymentData.paymentMethod,
             cardType: paymentData.cardType,
             feeAmount: paymentData.feeAmount,
@@ -244,19 +291,21 @@ export async function POST(
         });
       }
 
-      for (const selection of selections) {
-        const item = itemsMap.get(selection.itemId)!;
+      if (selections.length > 0) {
+        for (const selection of selections) {
+          const item = itemsMap.get(selection.itemId)!;
 
-        await tx.foodOrderItem.update({
-          where: {
-            id: item.id,
-          },
-          data: {
-            settledQuantity: {
-              increment: selection.quantity,
+          await tx.foodOrderItem.update({
+            where: {
+              id: item.id,
             },
-          },
-        });
+            data: {
+              settledQuantity: {
+                increment: selection.quantity,
+              },
+            },
+          });
+        }
       }
 
       const refreshedItems = await tx.foodOrderItem.findMany({
@@ -264,11 +313,19 @@ export async function POST(
           orderId: order.id,
         },
       });
-      const financials = calculateFoodOrderFinancials(refreshedItems);
-      const paidAmount = Number(order.paidAmount || 0);
-      const pendingTransferredAmount = Number(
-        order.pendingTransferredAmount || 0,
+      const paidAmount = roundCurrency(
+        Number(order.paidAmount || 0) +
+          (paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? 0 : paymentAmount),
       );
+      const pendingTransferredAmount = roundCurrency(
+        Number(order.pendingTransferredAmount || 0) +
+          (paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? paymentAmount : 0),
+      );
+      const financials = calculateFoodOrderFinancials({
+        items: refreshedItems,
+        paidAmount,
+        pendingTransferredAmount,
+      });
 
       const updatedOrder = await tx.foodOrder.update({
         where: {
@@ -276,14 +333,8 @@ export async function POST(
         },
         data: {
           customerId: resolvedCustomerId,
-          paidAmount:
-            paymentMethod === FOOD_PENDING_PAYMENT_METHOD
-              ? paidAmount
-              : paidAmount + selectedAmount,
-          pendingTransferredAmount:
-            paymentMethod === FOOD_PENDING_PAYMENT_METHOD
-              ? pendingTransferredAmount + selectedAmount
-              : pendingTransferredAmount,
+          paidAmount,
+          pendingTransferredAmount,
           total: financials.total,
           balanceDue: financials.balanceDue,
           status: financials.status,
@@ -310,7 +361,7 @@ export async function POST(
         pendingEntry,
         payment: {
           id: payment.id,
-          amount: selectedAmount,
+          amount: paymentAmount,
           paymentMethod,
           dueDate: payment.dueDate?.toISOString() ?? null,
           receiptDocument: payment.receiptDocument,

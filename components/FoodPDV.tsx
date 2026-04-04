@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import {
   ArrowLeft,
@@ -15,8 +15,12 @@ import {
   Trash2,
   User,
   UtensilsCrossed,
+  Wallet,
+  X,
 } from "lucide-react";
+import { CurrencyInput } from "@/components/CurrencyInput";
 import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
+import { formatCurrencyBRL, parseBRLCurrencyInput } from "@/lib/currency";
 import {
   FOOD_PENDING_PAYMENT_METHOD,
   formatCurrency,
@@ -97,10 +101,57 @@ const buildDefaultDueDate = () => {
   return date.toISOString().slice(0, 10);
 };
 
+const FOOD_DASHBOARD_REFRESH_EVENT = "wtm-food-dashboard-refresh";
+const FOOD_DASHBOARD_REFRESH_STORAGE_KEY = "wtm-food-dashboard-refresh";
+
+const notifyFoodDashboardRefresh = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const stamp = String(Date.now());
+  window.dispatchEvent(new Event(FOOD_DASHBOARD_REFRESH_EVENT));
+  window.localStorage.setItem(FOOD_DASHBOARD_REFRESH_STORAGE_KEY, stamp);
+};
+
+const paymentMethodOptions = [
+  {
+    id: "DINHEIRO",
+    label: "Dinheiro",
+    icon: DollarSign,
+    activeClass: "border-emerald-400 bg-emerald-500 text-white",
+  },
+  {
+    id: "PIX",
+    label: "Pix",
+    icon: QrCode,
+    activeClass: "border-cyan-400 bg-cyan-500 text-white",
+  },
+  {
+    id: "DEBITO",
+    label: "Cartao Debito",
+    icon: CreditCard,
+    activeClass: "border-blue-400 bg-blue-500 text-white",
+  },
+  {
+    id: "CREDITO",
+    label: "Cartao Credito",
+    icon: CreditCard,
+    activeClass: "border-fuchsia-400 bg-fuchsia-500 text-white",
+  },
+  {
+    id: FOOD_PENDING_PAYMENT_METHOD,
+    label: "Pendente",
+    icon: NotebookPen,
+    activeClass: "border-amber-300 bg-amber-400 text-[#0B1120]",
+  },
+] as const;
+
 export function FoodPDV() {
   const searchParams = useSearchParams();
   const mesaParam = searchParams.get("mesa");
   const clienteIdParam = searchParams.get("clienteId");
+  const openPaymentParam = searchParams.get("pagamento") === "1";
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [dashboard, setDashboard] = useState<FoodDashboard | null>(null);
@@ -121,10 +172,11 @@ export function FoodPDV() {
   const [paymentMethod, setPaymentMethod] = useState("DINHEIRO");
   const [receiptDocument, setReceiptDocument] = useState("");
   const [dueDate, setDueDate] = useState(buildDefaultDueDate());
-  const [notes, setNotes] = useState("");
-  const [checkoutSelections, setCheckoutSelections] = useState<Record<string, number>>(
-    {},
-  );
+  const [orderNotes, setOrderNotes] = useState("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentQueryHandled, setPaymentQueryHandled] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
   const [closingOrder, setClosingOrder] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -237,6 +289,10 @@ export function FoodPDV() {
     }
   }, [clienteIdParam]);
 
+  useEffect(() => {
+    setPaymentQueryHandled(false);
+  }, [mesaParam, openPaymentParam]);
+
   const currentTable = useMemo(
     () =>
       dashboard?.tables.find(
@@ -246,8 +302,12 @@ export function FoodPDV() {
   );
 
   const currentOrder = currentTable?.currentOrder || null;
+  const currentBalanceDue = Number(currentOrder?.balanceDue || 0);
+  const paymentAmountValue = parseBRLCurrencyInput(paymentAmount);
   const selectedCustomer =
     customers.find((customer) => customer.id === selectedCustomerId) || null;
+  const orderItems = currentOrder?.items || [];
+  const paymentHistory = currentOrder?.payments || [];
 
   useEffect(() => {
     if (currentOrder?.customer?.id) {
@@ -264,6 +324,43 @@ export function FoodPDV() {
     setReceiptDocument((previous) => previous || selectedCustomer.document || "");
   }, [selectedCustomer]);
 
+  const openPaymentModal = useCallback(() => {
+    if (!currentOrder) {
+      alert("Nenhuma comanda carregada para esta mesa.");
+      return;
+    }
+
+    if (Number(currentOrder.balanceDue || 0) <= 0) {
+      alert("Esta mesa nao possui saldo em aberto.");
+      return;
+    }
+
+    setPaymentMethod("DINHEIRO");
+    setPaymentNotes("");
+    setDueDate(buildDefaultDueDate());
+    setPaymentAmount(formatCurrencyBRL(Number(currentOrder.balanceDue || 0)));
+
+    if (!receiptDocument && currentOrder.customer?.document) {
+      setReceiptDocument(currentOrder.customer.document);
+    }
+
+    setPaymentModalOpen(true);
+  }, [currentOrder, receiptDocument]);
+
+  useEffect(() => {
+    if (!openPaymentParam || paymentQueryHandled || !currentOrder) {
+      return;
+    }
+
+    if (Number(currentOrder.balanceDue || 0) <= 0) {
+      setPaymentQueryHandled(true);
+      return;
+    }
+
+    openPaymentModal();
+    setPaymentQueryHandled(true);
+  }, [currentOrder, openPaymentParam, openPaymentModal, paymentQueryHandled]);
+
   const filteredProducts = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -278,34 +375,6 @@ export function FoodPDV() {
     );
   }, [products, searchTerm]);
 
-  const openItems = useMemo(
-    () =>
-      (currentOrder?.items || [])
-        .map((item) => ({
-          ...item,
-          remainingQuantity:
-            Number(item.quantity || 0) - Number(item.settledQuantity || 0),
-        }))
-        .filter((item) => item.remainingQuantity > 0),
-    [currentOrder],
-  );
-
-  const selectedCheckoutItems = useMemo(
-    () =>
-      openItems.filter((item) => Number(checkoutSelections[item.id] || 0) > 0),
-    [checkoutSelections, openItems],
-  );
-
-  const selectedCheckoutTotal = useMemo(
-    () =>
-      selectedCheckoutItems.reduce(
-        (total, item) =>
-          total + Number(checkoutSelections[item.id] || 0) * Number(item.unitPrice || 0),
-        0,
-      ),
-    [checkoutSelections, selectedCheckoutItems],
-  );
-
   const cartTotal = useMemo(
     () =>
       cart.reduce(
@@ -313,6 +382,11 @@ export function FoodPDV() {
         0,
       ),
     [cart],
+  );
+
+  const projectedRemainingBalance = Math.max(
+    currentBalanceDue - paymentAmountValue,
+    0,
   );
 
   const addToCart = (product: Product) => {
@@ -345,20 +419,11 @@ export function FoodPDV() {
     setCart((previous) => previous.filter((item) => item.id !== productId));
   };
 
-  const handleSelectAllOpenItems = () => {
-    const allSelections = openItems.reduce<Record<string, number>>((acc, item) => {
-      acc[item.id] = item.remainingQuantity;
-      return acc;
-    }, {});
-
-    setCheckoutSelections(allSelections);
-  };
-
   const handleRegisterConsumption = async () => {
     const normalized = normalizeTableNumber(tableNumber);
 
     if (!normalized) {
-      alert("Informe o número da mesa antes de lançar consumo.");
+      alert("Informe o numero da mesa antes de lancar consumo.");
       return;
     }
 
@@ -379,7 +444,7 @@ export function FoodPDV() {
           orderId: currentOrder?.id || null,
           customerId: selectedCustomerId || null,
           tableNumber: normalized,
-          notes,
+          notes: orderNotes,
           items: cart.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -394,9 +459,9 @@ export function FoodPDV() {
 
       setCart([]);
       setSearchTerm("");
-      setNotes("");
-      setCheckoutSelections({});
+      setOrderNotes("");
       await Promise.all([loadProducts(), loadDashboard()]);
+      notifyFoodDashboardRefresh();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Erro ao registrar consumo.");
     } finally {
@@ -404,19 +469,24 @@ export function FoodPDV() {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleProcessTablePayment = async () => {
     if (!currentOrder) {
       alert("Nenhuma comanda carregada para esta mesa.");
       return;
     }
 
-    if (selectedCheckoutItems.length === 0) {
-      alert("Selecione ao menos um item da mesa para fechar.");
+    if (paymentAmountValue <= 0) {
+      alert("Informe um valor para registrar o pagamento.");
+      return;
+    }
+
+    if (paymentAmountValue - currentBalanceDue > 0.009) {
+      alert("O valor informado excede o saldo restante da mesa.");
       return;
     }
 
     if (paymentMethod === FOOD_PENDING_PAYMENT_METHOD && !selectedCustomerId) {
-      alert("Selecione um cliente antes de deixar pendente.");
+      alert("Selecione um cliente antes de transferir saldo para pendente.");
       return;
     }
 
@@ -433,35 +503,44 @@ export function FoodPDV() {
           paymentMethod,
           receiptDocument,
           dueDate: paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? dueDate : null,
-          notes,
-          selections: selectedCheckoutItems.map((item) => ({
-            itemId: item.id,
-            quantity: Number(checkoutSelections[item.id] || 0),
-          })),
+          notes: paymentNotes,
+          amount: paymentAmountValue,
         }),
       });
       const payload = await response.json();
 
       if (!response.ok) {
-        throw new Error(payload?.error || "Erro ao fechar itens da mesa.");
+        throw new Error(payload?.error || "Erro ao processar pagamento da mesa.");
       }
 
-      setCheckoutSelections({});
-      setNotes("");
+      const nextBalance = Number(payload?.order?.balanceDue || 0);
+
+      setPaymentNotes("");
+      setPaymentAmount(nextBalance > 0 ? formatCurrencyBRL(nextBalance) : "");
 
       if (payload?.sale) {
         setLastSale(payload.sale);
-        if (window.confirm("Parcela registrada. Deseja imprimir o recibo?")) {
+        const printMessage =
+          nextBalance > 0
+            ? "Pagamento registrado. Deseja imprimir o recibo desta parcela?"
+            : "Conta encerrada. Deseja imprimir o recibo?";
+
+        if (window.confirm(printMessage)) {
           window.setTimeout(() => handlePrint(), 350);
         }
       } else {
-        alert("Parcela transferida para pendente com sucesso.");
+        alert("Saldo transferido para pendente com sucesso.");
+      }
+
+      if (nextBalance <= 0) {
+        setPaymentModalOpen(false);
       }
 
       await Promise.all([loadDashboard(), loadProducts(), loadCustomers()]);
+      notifyFoodDashboardRefresh();
     } catch (error) {
       alert(
-        error instanceof Error ? error.message : "Erro ao concluir fechamento parcial.",
+        error instanceof Error ? error.message : "Erro ao concluir pagamento da mesa.",
       );
     } finally {
       setClosingOrder(false);
@@ -479,7 +558,8 @@ export function FoodPDV() {
                 PDV de Mesas
               </h1>
               <p className="mt-2 text-sm text-slate-400">
-                Abra a comanda, lance consumo e feche somente a parte escolhida.
+                Abra a comanda, lance consumo e encerre a mesa com pagamento total
+                ou parcial.
               </p>
             </div>
             <Link
@@ -500,7 +580,7 @@ export function FoodPDV() {
                 <div>
                   <h2 className="text-lg font-bold text-white">Mesa e Cliente</h2>
                   <p className="text-sm text-slate-400">
-                    Mesa obrigatória para manter a comanda rastreável.
+                    Mesa obrigatoria para manter o consumo rastreavel.
                   </p>
                 </div>
               </div>
@@ -508,7 +588,7 @@ export function FoodPDV() {
               <div className="grid gap-4 md:grid-cols-[180px_1fr]">
                 <label className="space-y-2">
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Número da Mesa
+                    Numero da Mesa
                   </span>
                   <input
                     value={tableNumber}
@@ -539,12 +619,12 @@ export function FoodPDV() {
 
               <label className="mt-4 block space-y-2">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Observações
+                  Observacoes da Comanda
                 </span>
                 <textarea
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  placeholder="Ex.: mesa pediu para separar a sobremesa no final"
+                  value={orderNotes}
+                  onChange={(event) => setOrderNotes(event.target.value)}
+                  placeholder="Ex.: sobremesa fica para o final"
                   className="min-h-[88px] w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
                 />
               </label>
@@ -553,13 +633,13 @@ export function FoodPDV() {
             <section className="rounded-3xl border border-slate-800 bg-[#112240] p-5 shadow-[0_24px_50px_rgba(15,23,42,0.18)]">
               <div className="mb-4 flex items-center gap-3">
                 <div className="rounded-2xl border border-white/10 bg-white/10 p-3 text-[#FFD700]">
-                  <NotebookPen className="h-5 w-5" />
+                  <Wallet className="h-5 w-5" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-white">Comanda Atual</h2>
                   <p className="text-sm text-slate-400">
                     {currentOrder
-                      ? `Total ${formatCurrency(currentOrder.total)} • Saldo ${formatCurrency(
+                      ? `Total ${formatCurrency(currentOrder.total)} • Restante ${formatCurrency(
                           currentOrder.balanceDue,
                         )}`
                       : "Abra ou carregue uma mesa para acompanhar o consumo."}
@@ -578,9 +658,9 @@ export function FoodPDV() {
                         ? `Mesa ${currentTable.number} ${
                             currentTable.status === "OCUPADO"
                               ? "ocupada"
-                              : "disponível"
+                              : "disponivel"
                           }`
-                        : "Mesa ainda não registrada"}
+                        : "Mesa ainda nao registrada"}
                     </p>
                     {currentOrder ? (
                       <p className="mt-2 text-sm text-slate-400">
@@ -599,10 +679,50 @@ export function FoodPDV() {
                           : "bg-emerald-500/20 text-emerald-200"
                       }`}
                     >
-                      {currentTable.status}
+                      {currentTable.status === "OCUPADO" ? "OCUPADA" : "DISPONIVEL"}
                     </span>
                   ) : null}
                 </div>
+
+                {currentOrder ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Total
+                      </p>
+                      <p className="mt-2 text-xl font-black text-white">
+                        {formatCurrency(currentOrder.total)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Pago
+                      </p>
+                      <p className="mt-2 text-xl font-black text-emerald-300">
+                        {formatCurrency(currentOrder.paidAmount)}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Restante
+                      </p>
+                      <p className="mt-2 text-xl font-black text-[#FFD700]">
+                        {formatCurrency(currentOrder.balanceDue)}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {currentOrder ? (
+                  <button
+                    type="button"
+                    onClick={openPaymentModal}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-5 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Mesa Encerramento ({formatCurrency(currentOrder.balanceDue)})
+                  </button>
+                ) : null}
               </div>
             </section>
           </div>
@@ -735,124 +855,230 @@ export function FoodPDV() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-bold text-white">
-                        Fechamento Parcial
+                        Recebimentos da Mesa
                       </h2>
                       <p className="text-sm text-slate-400">
-                        Selecione itens específicos da comanda para gerar a parcela.
+                        Veja o consumo, os pagamentos lancados e o saldo que ainda
+                        falta receber.
                       </p>
                     </div>
-                    {openItems.length > 0 ? (
+                    {currentOrder ? (
                       <button
                         type="button"
-                        onClick={handleSelectAllOpenItems}
-                        className="text-xs font-semibold uppercase tracking-[0.18em] text-[#FFD700] hover:text-yellow-300"
+                        onClick={openPaymentModal}
+                        className="rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-amber-100 transition-colors hover:bg-amber-400/20"
                       >
-                        Selecionar tudo
+                        Encerrar
                       </button>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="space-y-3 p-5">
-                  {openItems.length === 0 ? (
+                  {!currentOrder ? (
                     <div className="rounded-2xl border border-dashed border-slate-700 bg-[#0B1120] p-6 text-center text-slate-400">
-                      Nenhum item aberto nesta comanda.
+                      Carregue uma mesa para acompanhar consumo e pagamentos.
                     </div>
                   ) : (
-                    openItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-white">
-                              {item.description}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              Em aberto: {item.remainingQuantity} x{" "}
-                              {formatCurrency(item.unitPrice)}
-                            </p>
-                          </div>
-                          <input
-                            type="number"
-                            min={0}
-                            max={item.remainingQuantity}
-                            value={checkoutSelections[item.id] || 0}
-                            onChange={(event) =>
-                              setCheckoutSelections((previous) => ({
-                                ...previous,
-                                [item.id]: Math.min(
-                                  item.remainingQuantity,
-                                  Math.max(0, Number(event.target.value || 0)),
-                                ),
-                              }))
-                            }
-                            className="w-20 rounded-xl border border-slate-700 bg-[#112240] px-3 py-2 text-center text-white outline-none transition-colors focus:border-[#FFD700]"
-                          />
+                    <>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                            Total
+                          </p>
+                          <p className="mt-2 text-xl font-black text-white">
+                            {formatCurrency(currentOrder.total)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                            Pago
+                          </p>
+                          <p className="mt-2 text-xl font-black text-emerald-300">
+                            {formatCurrency(currentOrder.paidAmount)}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                          <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                            Restante
+                          </p>
+                          <p className="mt-2 text-xl font-black text-[#FFD700]">
+                            {formatCurrency(currentOrder.balanceDue)}
+                          </p>
                         </div>
                       </div>
-                    ))
-                  )}
 
-                  <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Consumo Lancado
+                          </p>
+                          <span className="text-xs text-slate-500">
+                            {orderItems.length} item(ns)
+                          </span>
+                        </div>
+                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                          {orderItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div>
+                                <p className="font-medium text-white">
+                                  {item.quantity}x {item.description}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                  {new Date(item.createdAt).toLocaleString("pt-BR")}
+                                </p>
+                              </div>
+                              <span className="font-semibold text-[#FFD700]">
+                                {formatCurrency(item.quantity * item.unitPrice)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                            Pagamentos Ja Feitos
+                          </p>
+                          <span className="text-xs text-slate-500">
+                            {paymentHistory.length} registro(s)
+                          </span>
+                        </div>
+
+                        {paymentHistory.length === 0 ? (
+                          <div className="rounded-2xl border border-dashed border-slate-700 bg-[#112240] p-4 text-center text-sm text-slate-400">
+                            Nenhum pagamento registrado ainda.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {paymentHistory.map((payment) => (
+                              <div
+                                key={payment.id}
+                                className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                              >
+                                <div>
+                                  <p className="font-medium text-white">
+                                    {resolvePaymentMethodLabel(payment.paymentMethod)}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-400">
+                                    {new Date(payment.createdAt).toLocaleString("pt-BR")}
+                                  </p>
+                                  {payment.dueDate ? (
+                                    <p className="mt-1 text-[11px] text-amber-200">
+                                      Vencimento{" "}
+                                      {new Date(payment.dueDate).toLocaleDateString(
+                                        "pt-BR",
+                                      )}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <span className="font-semibold text-[#FFD700]">
+                                  {formatCurrency(payment.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {paymentModalOpen && currentOrder ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl overflow-hidden rounded-[32px] border border-amber-400/20 bg-[#08111F] shadow-[0_30px_90px_rgba(2,6,23,0.65)]">
+            <div className="border-b border-white/10 bg-linear-to-r from-[#112240] via-[#0B1120] to-[#08111F] px-6 py-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200/80">
+                    Encerramento de Mesa
+                  </p>
+                  <h2 className="mt-2 text-3xl font-black text-white">
+                    Mesa {currentTable?.number || tableNumber || "--"}
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-400">
+                    Total {formatCurrency(currentOrder.total)} • Pago{" "}
+                    {formatCurrency(currentOrder.paidAmount)} • Restante{" "}
+                    {formatCurrency(currentOrder.balanceDue)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="space-y-5 border-b border-white/10 p-6 lg:border-b-0 lg:border-r">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-3xl border border-amber-300/15 bg-amber-400/10 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-amber-100/80">
+                      Total da Conta
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {formatCurrency(currentOrder.total)}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-emerald-400/15 bg-emerald-500/10 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-emerald-100/80">
+                      Ja Pago
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {formatCurrency(currentOrder.paidAmount)}
+                    </p>
+                  </div>
+                  <div className="rounded-3xl border border-cyan-400/15 bg-cyan-500/10 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">
+                      Restante
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-white">
+                      {formatCurrency(currentOrder.balanceDue)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-[#0B1120] p-5">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <label className="space-y-2">
                       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        CPF/CNPJ no recibo
+                        Valor a Receber
+                      </span>
+                      <CurrencyInput
+                        value={paymentAmount}
+                        onChange={setPaymentAmount}
+                        className="w-full rounded-2xl border border-slate-700 bg-[#08111F] px-4 py-3 text-lg font-bold text-white outline-none transition-colors focus:border-[#FFD700]"
+                      />
+                    </label>
+
+                    <label className="space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        CPF/CNPJ no Recibo
                       </span>
                       <input
                         value={receiptDocument}
                         onChange={(event) => setReceiptDocument(event.target.value)}
                         placeholder="Opcional"
-                        className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                        className="w-full rounded-2xl border border-slate-700 bg-[#08111F] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
                       />
                     </label>
-                    {paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? (
-                      <label className="space-y-2">
-                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Vencimento
-                        </span>
-                        <input
-                          type="date"
-                          value={dueDate}
-                          onChange={(event) => setDueDate(event.target.value)}
-                          className="w-full rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
-                        />
-                      </label>
-                    ) : (
-                      <div className="rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 text-sm text-slate-400">
-                        Recibo parcial simples com campo de CPF/CNPJ incluso.
-                      </div>
-                    )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      {
-                        id: "DINHEIRO",
-                        label: "Dinheiro",
-                        icon: DollarSign,
-                        activeClass: "border-emerald-400 bg-emerald-500 text-white",
-                      },
-                      {
-                        id: "PIX",
-                        label: "Pix",
-                        icon: QrCode,
-                        activeClass: "border-cyan-400 bg-cyan-500 text-white",
-                      },
-                      {
-                        id: "DEBITO",
-                        label: "Débito",
-                        icon: CreditCard,
-                        activeClass: "border-blue-400 bg-blue-500 text-white",
-                      },
-                      {
-                        id: "CREDITO",
-                        label: "Crédito",
-                        icon: CreditCard,
-                        activeClass: "border-fuchsia-400 bg-fuchsia-500 text-white",
-                      },
-                    ].map((method) => (
+                  <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-3">
+                    {paymentMethodOptions.map((method) => (
                       <button
                         key={method.id}
                         type="button"
@@ -860,7 +1086,7 @@ export function FoodPDV() {
                         className={`rounded-2xl border p-3 text-sm font-bold transition-colors ${
                           paymentMethod === method.id
                             ? method.activeClass
-                            : "border-slate-700 bg-[#0B1120] text-slate-300"
+                            : "border-slate-700 bg-[#08111F] text-slate-300"
                         }`}
                       >
                         <method.icon className="mx-auto mb-1 h-4 w-4" />
@@ -869,59 +1095,140 @@ export function FoodPDV() {
                     ))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod(FOOD_PENDING_PAYMENT_METHOD)}
-                    className={`w-full rounded-2xl border p-3 text-sm font-bold transition-colors ${
-                      paymentMethod === FOOD_PENDING_PAYMENT_METHOD
-                        ? "border-amber-300 bg-amber-400 text-[#0B1120]"
-                        : "border-slate-700 bg-[#0B1120] text-amber-200"
-                    }`}
-                  >
-                    <NotebookPen className="mx-auto mb-1 h-4 w-4" />
-                    Pendente (Conta do Cliente)
-                  </button>
+                  {paymentMethod === FOOD_PENDING_PAYMENT_METHOD ? (
+                    <label className="mt-4 block space-y-2">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Vencimento do Pendente
+                      </span>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(event) => setDueDate(event.target.value)}
+                        className="w-full rounded-2xl border border-slate-700 bg-[#08111F] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                      />
+                    </label>
+                  ) : null}
 
-                  <div className="rounded-2xl border border-slate-700 bg-[#0B1120] p-4 text-sm">
+                  <label className="mt-4 block space-y-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Observacoes do Pagamento
+                    </span>
+                    <textarea
+                      value={paymentNotes}
+                      onChange={(event) => setPaymentNotes(event.target.value)}
+                      placeholder="Ex.: cliente dividiu com outro cartao"
+                      className="min-h-[96px] w-full rounded-2xl border border-slate-700 bg-[#08111F] px-4 py-3 text-white outline-none transition-colors focus:border-[#FFD700]"
+                    />
+                  </label>
+
+                  <div className="mt-4 rounded-3xl border border-white/10 bg-white/5 p-4 text-sm">
                     <div className="flex items-center justify-between text-slate-400">
-                      <span>Forma atual</span>
+                      <span>Forma selecionada</span>
                       <span className="font-semibold text-white">
                         {resolvePaymentMethodLabel(paymentMethod)}
                       </span>
                     </div>
                     <div className="mt-3 flex items-center justify-between text-slate-400">
-                      <span>Valor selecionado</span>
+                      <span>Valor informado</span>
                       <span className="text-lg font-black text-white">
-                        {formatCurrency(selectedCheckoutTotal)}
+                        {paymentAmountValue > 0
+                          ? formatCurrency(paymentAmountValue)
+                          : "R$ 0,00"}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-slate-400">
-                      <span>Saldo restante na mesa</span>
+                      <span>Saldo projetado</span>
                       <span className="font-bold text-[#FFD700]">
-                        {formatCurrency(
-                          Math.max(
-                            Number(currentOrder?.balanceDue || 0) - selectedCheckoutTotal,
-                            0,
-                          ),
-                        )}
+                        {formatCurrency(projectedRemainingBalance)}
                       </span>
                     </div>
+                    {paymentAmountValue - currentBalanceDue > 0.009 ? (
+                      <p className="mt-3 text-xs font-semibold text-red-300">
+                        O valor digitado ultrapassa o saldo atual da mesa.
+                      </p>
+                    ) : null}
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleCheckout}
-                    disabled={closingOrder || selectedCheckoutTotal <= 0}
-                    className="w-full rounded-2xl bg-green-600 px-4 py-4 font-bold text-white transition-colors hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {closingOrder ? "Processando..." : "Fechar Itens Selecionados"}
-                  </button>
                 </div>
-              </section>
+              </div>
+
+              <div className="flex flex-col bg-[#09111E]">
+                <div className="border-b border-white/10 px-6 py-5">
+                  <h3 className="text-lg font-bold text-white">
+                    Historico de Pagamentos
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Cada lancamento fica registrado com metodo, valor e horario.
+                  </p>
+                </div>
+
+                <div className="flex-1 space-y-3 overflow-y-auto px-6 py-5">
+                  {paymentHistory.length === 0 ? (
+                    <div className="rounded-3xl border border-dashed border-slate-700 bg-[#0B1120] p-6 text-center text-slate-400">
+                      Nenhum pagamento registrado ate agora.
+                    </div>
+                  ) : (
+                    paymentHistory.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="rounded-3xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {resolvePaymentMethodLabel(payment.paymentMethod)}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {new Date(payment.createdAt).toLocaleString("pt-BR")}
+                            </p>
+                            {payment.dueDate ? (
+                              <p className="mt-2 text-xs text-amber-200">
+                                Vencimento{" "}
+                                {new Date(payment.dueDate).toLocaleDateString("pt-BR")}
+                              </p>
+                            ) : null}
+                          </div>
+                          <span className="text-lg font-black text-[#FFD700]">
+                            {formatCurrency(payment.amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="border-t border-white/10 px-6 py-5">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentModalOpen(false)}
+                      className="inline-flex flex-1 items-center justify-center rounded-2xl border border-slate-700 bg-[#0B1120] px-4 py-3 font-semibold text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleProcessTablePayment}
+                      disabled={
+                        closingOrder ||
+                        paymentAmountValue <= 0 ||
+                        paymentAmountValue - currentBalanceDue > 0.009
+                      }
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#FACC15] px-4 py-3 font-bold text-[#0B1120] transition-colors hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Wallet className="h-4 w-4" />
+                      {closingOrder
+                        ? "Processando..."
+                        : paymentMethod === FOOD_PENDING_PAYMENT_METHOD
+                          ? "Transferir Saldo"
+                          : "Adicionar Pagamento"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </main>
+      ) : null}
 
       <div className="hidden">
         <SaleReceiptThermal
