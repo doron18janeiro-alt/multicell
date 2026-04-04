@@ -4,7 +4,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useState, useEffect } from "react";
 import { DateRangePickerGlass } from "@/components/DateRangePickerGlass";
+import { FoodSalesHub } from "@/components/FoodSalesHub";
 import { RelatorioFechamentoTerminal } from "@/components/RelatorioFechamentoTerminal";
+import { useSegment } from "@/hooks/useSegment";
 import {
   Search,
   Trash2,
@@ -23,7 +25,7 @@ interface Sale {
   createdAt: string;
 }
 
-export default function SalesMetrics() {
+function SalesMetricsDefault() {
   const getTodayString = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -693,4 +695,22 @@ export default function SalesMetrics() {
       </main>
     </div>
   );
+}
+
+export default function SalesMetricsPage() {
+  const { isReady, segment } = useSegment();
+
+  if (!isReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0B1120] text-white">
+        Carregando vendas...
+      </div>
+    );
+  }
+
+  if (segment === "FOOD") {
+    return <FoodSalesHub />;
+  }
+
+  return <SalesMetricsDefault />;
 }

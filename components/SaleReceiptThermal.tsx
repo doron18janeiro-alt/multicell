@@ -33,6 +33,8 @@ type ReceiptSale = {
   total?: number;
   paymentMethod?: string | null;
   cardType?: string | null;
+  tableNumber?: string | null;
+  customerDocument?: string | null;
   createdAt?: string | Date;
   items?: ReceiptItem[];
   customer?: ReceiptCustomer;
@@ -380,12 +382,17 @@ export const SaleReceiptThermal = React.forwardRef<
   const customerName = sale?.customer?.name || "";
   const customerPhone = sale?.customer?.phone || "";
   const customerAddress = sale?.customer?.address || "";
+  const customerDocument = sale?.customerDocument || sale?.customer?.document || "";
+  const tableNumber = sale?.tableNumber || "";
   const paymentLabel = getPaymentLabel(sale?.paymentMethod, sale?.cardType);
   const paymentBreakdown = getPaymentBreakdown(sale);
   const saleDate = formatDateTime(sale?.createdAt);
   const totalAmount = Number(sale?.total || 0);
   const hasCustomerDetails =
-    hasText(customerName) || hasText(customerPhone) || hasText(customerAddress);
+    hasText(customerName) ||
+    hasText(customerPhone) ||
+    hasText(customerAddress) ||
+    hasText(customerDocument);
 
   return (
     <div
@@ -476,9 +483,15 @@ export const SaleReceiptThermal = React.forwardRef<
                           {customerAddress}
                         </p>
                       ) : null}
+                      <p className="mt-[0.8mm] text-slate-600">
+                        CPF/CNPJ: {normalizeText(customerDocument)}
+                      </p>
                     </>
                   ) : (
-                    <p className="mt-[1.2mm] text-slate-600">Consumidor final</p>
+                    <div className="mt-[1.2mm] space-y-[0.8mm] text-slate-600">
+                      <p>Consumidor final</p>
+                      <p>CPF/CNPJ: Não informado</p>
+                    </div>
                   )}
                 </div>
                 <div className="text-right">
@@ -487,6 +500,9 @@ export const SaleReceiptThermal = React.forwardRef<
                   </p>
                   <p className="mt-[1.2mm] max-w-[28mm] text-[10px] font-semibold leading-[1.4] text-slate-950">
                     {resolvedResponsibleName}
+                  </p>
+                  <p className="mt-[0.8mm] text-[10px] text-slate-600">
+                    Mesa: {tableNumber || "Não informada"}
                   </p>
                 </div>
               </div>

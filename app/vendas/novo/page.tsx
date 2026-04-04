@@ -27,8 +27,10 @@ import {
   X,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
+import { FoodPDV } from "@/components/FoodPDV";
 import { NfeWalletAlertBanner } from "@/components/NfeWalletAlertBanner";
 import { SaleReceiptThermal } from "@/components/SaleReceiptThermal";
+import { useSegment } from "@/hooks/useSegment";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
 import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 import {
@@ -68,7 +70,7 @@ interface CompanyConfig {
   nfeBalance: number;
 }
 
-function PDVContent() {
+function StandardPDVContent() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -852,6 +854,24 @@ function PDVContent() {
   );
 }
 
+function PDVSegmentRouter() {
+  const { isReady, segment } = useSegment();
+
+  if (!isReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#0B1120] text-white">
+        Carregando PDV...
+      </div>
+    );
+  }
+
+  if (segment === "FOOD") {
+    return <FoodPDV />;
+  }
+
+  return <StandardPDVContent />;
+}
+
 export default function PDV() {
   return (
     <Suspense
@@ -861,7 +881,7 @@ export default function PDV() {
         </div>
       }
     >
-      <PDVContent />
+      <PDVSegmentRouter />
     </Suspense>
   );
 }

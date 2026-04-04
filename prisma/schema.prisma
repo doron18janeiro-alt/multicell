@@ -16,7 +16,11 @@ model Customer {
   companyId     String         @default("multicell-oficial") @map("company_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   birthDate     DateTime?      @map("birth_date") @db.Date
+  pendingBalance Float         @default(0) @map("pending_balance")
   serviceOrders ServiceOrder[]
+  foodOrders    FoodOrder[]
+  foodOrderPayments FoodOrderPayment[]
+  pendingEntries CustomerPendingEntry[]
   sales         Sale[]
 
   @@unique([document, companyId])
@@ -58,6 +62,7 @@ model Product {
   vehicleAdditionalInfo   String?        @map("vehicle_additional_info")
   batches                 ProductBatch[]
   company                 Company        @relation(fields: [companyId], references: [id])
+  foodOrderItems          FoodOrderItem[]
   supplier                Supplier?      @relation(fields: [supplierId], references: [id])
   sales                   SaleItem[]
 
@@ -128,19 +133,23 @@ model Supplier {
 model Sale {
   id             Int        @id @default(autoincrement())
   companyId      String     @map("company_id")
+  foodOrderId    String?    @map("food_order_id")
   total          Float
   discount       Float?     @default(0)
   feeAmount      Float?     @default(0) @map("fee_amount")
   netAmount      Float?     @map("net_amount")
   paymentMethod  String     @map("payment_method")
   cardType       String?    @map("card_type")
+  tableNumber    String?    @map("table_number")
   serviceOrderId Int?       @map("service_order_id")
   status         SaleStatus @default(COMPLETED)
   returnReason   String?    @map("return_reason")
   customerId     String?    @map("customer_id")
+  customerDocument String?  @map("customer_document")
   sellerId       String?    @map("seller_id")
   createdAt      DateTime   @default(now()) @map("created_at")
   company        Company    @relation(fields: [companyId], references: [id])
+  foodOrder      FoodOrder? @relation(fields: [foodOrderId], references: [id], onDelete: SetNull)
   items          SaleItem[]
   customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   nfeLogs        NfeLog[]
@@ -148,6 +157,7 @@ model Sale {
 
   @@index([companyId], map: "idx_sales_company_id")
   @@index([companyId, createdAt], map: "idx_sales_company_created_at")
+  @@index([foodOrderId], map: "idx_sales_food_order_id")
   @@map("sales")
 }
 
@@ -162,6 +172,109 @@ model SaleItem {
   sale        Sale     @relation(fields: [saleId], references: [id])
 
   @@map("sale_items")
+}
+
+model Table {
+  id             String      @id @default(cuid())
+  companyId      String      @map("company_id")
+  number         String
+  status         TableStatus @default(DISPONIVEL)
+  currentOrderId String?     @unique @map("current_order_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  company        Company     @relation(fields: [companyId], references: [id])
+  currentOrder   FoodOrder?  @relation("CurrentTableOrder", fields: [currentOrderId], references: [id], onDelete: SetNull)
+  orders         FoodOrder[] @relation("TableOrders")
+
+  @@unique([companyId, number])
+  @@index([companyId, status], map: "idx_tables_company_status")
+  @@map("tables")
+}
+
+model FoodOrder {
+  id                      String               @id @default(cuid())
+  companyId               String               @map("company_id")
+  customerId              String?              @map("customer_id")
+  tableId                 String?              @map("table_id")
+  status                  FoodOrderStatus      @default(ABERTA)
+  notes                   String?
+  total                   Float                @default(0)
+  paidAmount              Float                @default(0) @map("paid_amount")
+  pendingTransferredAmount Float               @default(0) @map("pending_transferred_amount")
+  balanceDue              Float                @default(0) @map("balance_due")
+  openedAt                DateTime             @default(now()) @map("opened_at")
+  updatedAt               DateTime             @updatedAt @map("updated_at")
+  closedAt                DateTime?            @map("closed_at")
+  company                 Company              @relation(fields: [companyId], references: [id])
+  customer                Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  table                   Table?               @relation("TableOrders", fields: [tableId], references: [id], onDelete: SetNull)
+  currentForTable         Table?               @relation("CurrentTableOrder")
+  items                   FoodOrderItem[]
+  payments                FoodOrderPayment[]
+  pendingEntries          CustomerPendingEntry[]
+  sales                   Sale[]
+
+  @@index([companyId, status], map: "idx_food_orders_company_status")
+  @@index([customerId], map: "idx_food_orders_customer_id")
+  @@map("food_orders")
+}
+
+model FoodOrderItem {
+  id              String    @id @default(cuid())
+  orderId         String    @map("order_id")
+  productId       String?   @map("product_id")
+  description     String
+  quantity        Int
+  settledQuantity Int       @default(0) @map("settled_quantity")
+  unitPrice       Float     @map("unit_price")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  order           FoodOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([orderId], map: "idx_food_order_items_order_id")
+  @@map("food_order_items")
+}
+
+model FoodOrderPayment {
+  id              String                @id @default(cuid())
+  orderId         String                @map("order_id")
+  customerId      String?               @map("customer_id")
+  amount          Float
+  paymentMethod   String                @map("payment_method")
+  notes           String?
+  dueDate         DateTime?             @map("due_date") @db.Date
+  receiptDocument String?               @map("receipt_document")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  order           FoodOrder             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer        Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  pendingEntry    CustomerPendingEntry?
+
+  @@index([orderId, createdAt], map: "idx_food_order_payments_order_created_at")
+  @@map("food_order_payments")
+}
+
+model CustomerPendingEntry {
+  id           String               @id @default(cuid())
+  companyId    String               @map("company_id")
+  customerId   String               @map("customer_id")
+  orderId      String?              @map("order_id")
+  paymentId    String?              @unique @map("payment_id")
+  amount       Float
+  dueDate      DateTime?            @map("due_date") @db.Date
+  status       PendingAccountStatus @default(ABERTO)
+  description  String?
+  itemsSnapshot Json?               @map("items_snapshot")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  settledAt    DateTime?            @map("settled_at")
+  company      Company              @relation(fields: [companyId], references: [id])
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order        FoodOrder?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payment      FoodOrderPayment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status, dueDate], map: "idx_pending_entries_company_status_due_date")
+  @@index([customerId, createdAt], map: "idx_pending_entries_customer_created_at")
+  @@map("customer_pending_entries")
 }
 
 model CompanyConfig {
@@ -203,12 +316,15 @@ model Company {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
   config             CompanyConfig?
+  foodOrders         FoodOrder[]
+  pendingEntries     CustomerPendingEntry[]
   expenses           Expense[]
   nfeLogs            NfeLog[]
   nfeWalletRecharges NfeWalletRecharge[]
   products           Product[]
   sales              Sale[]
   serviceOrders      ServiceOrder[]
+  tables             Table[]
   users              User[]
 
   @@map("companies")
@@ -339,6 +455,23 @@ enum VehicleStatus {
   DISPONIVEL
   MANUTENCAO
   VENDIDO
+}
+
+enum TableStatus {
+  DISPONIVEL
+  OCUPADO
+}
+
+enum FoodOrderStatus {
+  ABERTA
+  PARCIAL
+  FECHADA
+}
+
+enum PendingAccountStatus {
+  ABERTO
+  PAGO
+  VENCIDO
 }
 
 enum OSStatus {

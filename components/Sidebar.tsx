@@ -22,6 +22,7 @@ import {
   X,
   Zap,
   UtensilsCrossed,
+  NotebookPen,
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
@@ -40,6 +41,7 @@ export default function Sidebar({
   const router = useRouter();
   const [alertCount, setAlertCount] = useState(0);
   const [hasLowNfeBalance, setHasLowNfeBalance] = useState(false);
+  const [pendingAlertCount, setPendingAlertCount] = useState(0);
   const { hasInventoryGrade, labels, fullName, role, segment } = useSegment();
   const supportsServiceOrders = segment === "TECH" || segment === "AUTO";
   const DashboardIcon =
@@ -104,6 +106,37 @@ export default function Sidebar({
   }, []);
 
   useEffect(() => {
+    if (segment !== "FOOD") {
+      setPendingAlertCount(0);
+      return;
+    }
+
+    const checkPendingAlerts = () => {
+      fetch("/api/food/pending", { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) {
+            setPendingAlertCount(0);
+            return null;
+          }
+
+          return response.json();
+        })
+        .then((payload) => {
+          if (!payload) {
+            return;
+          }
+
+          setPendingAlertCount(Number(payload?.summary?.overdueCount || 0));
+        })
+        .catch((error) => console.error(error));
+    };
+
+    checkPendingAlerts();
+    const interval = setInterval(checkPendingAlerts, 30000);
+    return () => clearInterval(interval);
+  }, [segment]);
+
+  useEffect(() => {
     fetch("/api/config", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) {
@@ -143,6 +176,9 @@ export default function Sidebar({
       ? [{ name: labels.action, icon: ServiceIcon, path: "/os/novo" }]
       : []),
     { name: "Clientes", icon: Users, path: "/clientes" },
+    ...(segment === "FOOD"
+      ? [{ name: "Pendentes", icon: NotebookPen, path: "/pendentes" }]
+      : []),
     ...(supportsServiceOrders
       ? [{ name: "Consulta Garantia", icon: Search, path: "/consulta" }]
       : []),
@@ -265,6 +301,12 @@ export default function Sidebar({
                 {item.path === "/configuracoes/empresa" && hasLowNfeBalance && (
                   <span className="z-10 ml-auto rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-bold text-amber-200">
                     saldo baixo
+                  </span>
+                )}
+
+                {item.path === "/pendentes" && pendingAlertCount > 0 && (
+                  <span className="z-10 ml-auto rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
+                    {pendingAlertCount}
                   </span>
                 )}
 
