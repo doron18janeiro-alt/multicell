@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdminUser } from "@/lib/auth";
 import { normalizeBarcode } from "@/lib/barcode";
+import {
+  buildVehicleDuplicateWhere,
+  buildVehicleProductData,
+  normalizeVehicleProfileInput,
+  validateVehicleProfile,
+} from "@/lib/vehicle-product";
 
 export async function PUT(
   request: Request,
@@ -32,6 +38,12 @@ export async function PUT(
     } = body;
     const parsedMinQuantity = parseInt(String(minQuantity) || "2") || 2;
     const normalizedBarcode = normalizeBarcode(barcode);
+    const vehicleProfile = normalizeVehicleProfileInput(body);
+    const vehicleValidationError = validateVehicleProfile(category, vehicleProfile);
+
+    if (vehicleValidationError) {
+      return NextResponse.json({ error: vehicleValidationError }, { status: 400 });
+    }
 
     const existingProduct = await prisma.product.findFirst({
       where: {
@@ -68,6 +80,29 @@ export async function PUT(
       }
     }
 
+    const duplicateVehicleWhere = buildVehicleDuplicateWhere(
+      currentUser.companyId,
+      vehicleProfile,
+      existingProduct.id,
+    );
+
+    if (duplicateVehicleWhere) {
+      const duplicateVehicle = await prisma.product.findFirst({
+        where: duplicateVehicleWhere,
+        select: { id: true },
+      });
+
+      if (duplicateVehicle) {
+        return NextResponse.json(
+          {
+            error:
+              "Já existe um veículo cadastrado com a mesma placa, chassi ou renavam.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     const product = await prisma.product.update({
       where: { id: existingProduct.id },
       data: {
@@ -80,6 +115,7 @@ export async function PUT(
         minStock: parsedMinQuantity,
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
+        ...buildVehicleProductData(category, vehicleProfile),
       },
     });
 

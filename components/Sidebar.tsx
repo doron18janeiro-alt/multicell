@@ -7,7 +7,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   CarFront,
-  ClipboardCheck,
+  Cpu,
+  Fuel,
   Search,
   LayoutDashboard,
   ShoppingCart,
@@ -20,6 +21,8 @@ import {
   BarChart3,
   Wallet,
   X,
+  Zap,
+  UtensilsCrossed,
 } from "lucide-react";
 import { resetSegmentSessionCache, useSegment } from "@/hooks/useSegment";
 import { LOW_BALANCE_THRESHOLD } from "@/lib/nfe-wallet";
@@ -40,8 +43,39 @@ export default function Sidebar({
   const [hasLowNfeBalance, setHasLowNfeBalance] = useState(false);
   const { hasInventoryGrade, labels, fullName, role, segment } = useSegment();
   const supportsServiceOrders = segment === "TECH" || segment === "AUTO";
-  const ServiceIcon = segment === "AUTO" ? ClipboardCheck : Wrench;
-  const StockIcon = segment === "AUTO" ? CarFront : Package;
+  const DashboardIcon =
+    segment === "AUTO"
+      ? CarFront
+      : segment === "TECH"
+        ? Cpu
+        : segment === "FOOD"
+          ? UtensilsCrossed
+          : LayoutDashboard;
+  const SalesIcon =
+    segment === "AUTO"
+      ? Fuel
+      : segment === "TECH"
+        ? Zap
+        : segment === "FOOD"
+          ? UtensilsCrossed
+          : ShoppingCart;
+  const ServiceIcon = segment === "AUTO" ? Wrench : segment === "TECH" ? Zap : Wrench;
+  const StockIcon =
+    segment === "AUTO"
+      ? CarFront
+      : segment === "TECH"
+        ? Smartphone
+        : segment === "FOOD"
+          ? UtensilsCrossed
+          : Package;
+  const ProfileIcon =
+    segment === "AUTO"
+      ? CarFront
+      : segment === "TECH"
+        ? Smartphone
+        : segment === "FOOD"
+          ? UtensilsCrossed
+          : Smartphone;
 
   useEffect(() => {
     onCloseMobileMenu();
@@ -104,8 +138,8 @@ export default function Sidebar({
   };
 
   const menuItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-    { name: "Vendas / PDV", icon: ShoppingCart, path: "/vendas" },
+    { name: "Dashboard", icon: DashboardIcon, path: "/dashboard" },
+    { name: "Vendas / PDV", icon: SalesIcon, path: "/vendas" },
     ...(supportsServiceOrders
       ? [{ name: labels.action, icon: ServiceIcon, path: "/os/novo" }]
       : []),
@@ -259,7 +293,7 @@ export default function Sidebar({
         <div className="border-t border-[#1E293B]/50 bg-[#0F172A]/30 p-4">
           <div className="group flex items-center gap-3 rounded-xl border border-[#1E293B] bg-[#0F172A]/50 p-3 transition-colors hover:border-[#D4AF37]/30">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D4AF37]/20 bg-[#D4AF37]/10 text-[#D4AF37]">
-              <Smartphone size={18} strokeWidth={1.5} />
+              <ProfileIcon size={18} strokeWidth={1.5} />
             </div>
               <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-bold text-white transition-colors group-hover:text-[#D4AF37]">

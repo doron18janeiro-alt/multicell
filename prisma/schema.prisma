@@ -25,28 +25,46 @@ model Customer {
 }
 
 model Product {
-  id          String         @id @default(cuid())
-  name        String
-  barcode     String?        @map("barcode")
-  stock       Int            @default(0)
-  minStock    Int            @default(5) @map("min_stock")
-  category    String
-  companyId   String         @map("company_id")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  costPrice   Float          @default(0) @map("cost_price")
-  description String?
-  minQuantity Int            @default(2) @map("min_quantity")
-  salePrice   Float          @map("sale_price")
-  supplierId  String?        @map("supplier_id")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  batches     ProductBatch[]
-  company     Company        @relation(fields: [companyId], references: [id])
-  supplier    Supplier?      @relation(fields: [supplierId], references: [id])
-  sales       SaleItem[]
+  id                      String         @id @default(cuid())
+  name                    String
+  barcode                 String?        @map("barcode")
+  stock                   Int            @default(0)
+  minStock                Int            @default(5) @map("min_stock")
+  category                String
+  companyId               String         @map("company_id")
+  createdAt               DateTime       @default(now()) @map("created_at")
+  costPrice               Float          @default(0) @map("cost_price")
+  description             String?
+  minQuantity             Int            @default(2) @map("min_quantity")
+  salePrice               Float          @map("sale_price")
+  supplierId              String?        @map("supplier_id")
+  updatedAt               DateTime       @updatedAt @map("updated_at")
+  vehicleBrand            String?        @map("vehicle_brand")
+  vehicleModel            String?        @map("vehicle_model")
+  vehiclePlate            String?        @map("vehicle_plate")
+  vehicleChassis          String?        @map("vehicle_chassis")
+  vehicleRenavam          String?        @map("vehicle_renavam")
+  vehicleManufactureYear  Int?           @map("vehicle_manufacture_year")
+  vehicleModelYear        Int?           @map("vehicle_model_year")
+  vehicleEngine           String?        @map("vehicle_engine")
+  vehicleFuel             String?        @map("vehicle_fuel")
+  vehicleAirConditioning  Boolean?       @map("vehicle_air_conditioning")
+  vehicleAirbag           Boolean?       @map("vehicle_airbag")
+  vehicleSteering         String?        @map("vehicle_steering")
+  vehiclePowerWindows     Boolean?       @map("vehicle_power_windows")
+  vehicleAlarm            Boolean?       @map("vehicle_alarm")
+  vehicleMultimedia       Boolean?       @map("vehicle_multimedia")
+  vehicleAdditionalInfo   String?        @map("vehicle_additional_info")
+  batches                 ProductBatch[]
+  company                 Company        @relation(fields: [companyId], references: [id])
+  supplier                Supplier?      @relation(fields: [supplierId], references: [id])
+  sales                   SaleItem[]
 
   @@unique([companyId, barcode])
   @@index([companyId], map: "idx_products_company_id")
   @@index([stock, costPrice, salePrice], map: "idx_products_stock_prices")
+  @@index([companyId, vehiclePlate], map: "idx_products_company_vehicle_plate")
+  @@index([companyId, vehicleChassis], map: "idx_products_company_vehicle_chassis")
   @@map("products")
 }
 

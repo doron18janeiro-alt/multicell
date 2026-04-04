@@ -2,8 +2,11 @@ import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  CarFront,
   CalendarClock,
   CreditCard,
+  Fuel,
+  Gauge,
   Package,
   ShieldCheck,
   Smartphone,
@@ -162,6 +165,25 @@ const LEGAL_NOTICE = {
   ],
 } as const;
 
+const AUTO_LEGAL_NOTICE = {
+  intakeHighlightTitle: "Recepção Automotiva",
+  intakeHighlightText:
+    "O cliente autoriza o registro técnico do veículo, das condições visuais de entrada e dos dados necessários para atendimento e orçamento.",
+  intakeClauses: [
+    "O cliente autoriza o tratamento de dados para fins de gestão, contato, histórico de atendimento e execução dos testes mecânicos, elétricos e eletrônicos necessários ao diagnóstico do veículo.",
+    "O check-in registra nível de combustível, quilometragem, avarias aparentes e acessórios embarcados informados no ato da recepção.",
+    "Veículos não retirados em até 90 dias após a notificação de prontidão poderão gerar cobrança de estadia, armazenamento e demais despesas operacionais, conforme legislação aplicável.",
+  ],
+  warrantyHighlightTitle: "Garantia de Serviço",
+  warrantyHighlightText:
+    "Garantia legal sobre o serviço executado, sem cobertura para mau uso, acidentes, colisões ou intervenções de terceiros após a entrega.",
+  warrantyClauses: [
+    "A garantia cobre exclusivamente o serviço executado e as peças efetivamente aplicadas na ordem de serviço.",
+    "A cobertura não se aplica a danos causados por mau uso, colisões, sobrecarga, combustível inadequado, desgaste natural ou intervenção de terceiros após a entrega.",
+    "Para análise de garantia, este documento deve acompanhar o veículo e o atendimento será vinculado ao responsável registrado nesta emissão.",
+  ],
+} as const;
+
 function SectionCard({
   title,
   icon: Icon,
@@ -224,6 +246,15 @@ export function ServiceOrderDocument({
     responsibleName,
     "Responsavel nao informado",
   );
+  const autoChecklist = data.checklist?.auto;
+  const autoSnapshot = autoChecklist?.vehicleSnapshot || {};
+  const isVehicleOrder = Boolean(
+    autoChecklist?.plate ||
+      autoSnapshot?.plate ||
+      autoSnapshot?.chassis,
+  );
+  const trackedAssetLabel = isVehicleOrder ? "Veículo" : "Aparelho";
+  const activeLegalNotice = isVehicleOrder ? AUTO_LEGAL_NOTICE : LEGAL_NOTICE;
   const clientAddress = data.customer?.address || null;
   const clientFields = [
     {
@@ -253,41 +284,77 @@ export function ServiceOrderDocument({
     {
       label: "Marca / Modelo",
       value: normalizeText(
-        `${data.deviceBrand || ""} ${data.deviceModel || ""}`.trim(),
-        "Aparelho não informado",
+        `${data.deviceBrand || autoSnapshot?.brand || ""} ${data.deviceModel || autoSnapshot?.model || ""}`.trim(),
+        `${trackedAssetLabel} não informado`,
       ),
     },
-    {
-      label: "IMEI / Serial",
-      value: normalizeText(data.serialNumber || data.imei),
-    },
-    !isWarrantyMode
+    isVehicleOrder
+      ? {
+          label: "Placa",
+          value: normalizeText(
+            autoChecklist?.plate || autoSnapshot?.plate || data.serialNumber,
+          ),
+        }
+      : {
+          label: "IMEI / Serial",
+          value: normalizeText(data.serialNumber || data.imei),
+        },
+    isVehicleOrder
       ? {
           label: "Cor",
-          value: normalizeText(data.deviceColor, "Não informada"),
+          value: normalizeText(
+            autoChecklist?.color || data.deviceColor,
+            "Não informada",
+          ),
         }
       : null,
-    !isWarrantyMode
+    isVehicleOrder
       ? {
-          label: "Senha",
-          value: normalizeText(data.devicePassword, "Sem senha"),
+          label: "Combustível",
+          value: normalizeText(autoSnapshot?.fuel, "Não informado"),
+        }
+      : !isWarrantyMode
+        ? {
+            label: "Senha",
+            value: normalizeText(data.devicePassword, "Sem senha"),
+          }
+        : null,
+    isVehicleOrder
+      ? {
+          label: "KM Atual",
+          value: normalizeText(autoChecklist?.mileage, "Não informado"),
         }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: ReactNode }>;
-  const checklistItems = [
-    {
-      label: "Liga",
-      value: data.checklist?.tests?.liga,
-    },
-    {
-      label: "Tela / Touch",
-      value: data.checklist?.tests?.touch,
-    },
-    {
-      label: "Carcaça",
-      value: data.checklist?.physical?.carcacaStatus,
-    },
-  ].filter((item) => Boolean(item.value));
+  const checklistItems = isVehicleOrder
+    ? [
+        {
+          label: "Combustível",
+          value: autoChecklist?.fuelLevel,
+        },
+        {
+          label: "KM Atual",
+          value: autoChecklist?.mileage,
+        },
+        {
+          label: "Avarias",
+          value: autoChecklist?.externalDamage,
+        },
+      ].filter((item) => Boolean(item.value))
+    : [
+        {
+          label: "Liga",
+          value: data.checklist?.tests?.liga,
+        },
+        {
+          label: "Tela / Touch",
+          value: data.checklist?.tests?.touch,
+        },
+        {
+          label: "Carcaça",
+          value: data.checklist?.physical?.carcacaStatus,
+        },
+      ].filter((item) => Boolean(item.value));
 
   return (
     <article
@@ -369,7 +436,10 @@ export function ServiceOrderDocument({
           </div>
         </SectionCard>
 
-        <SectionCard title="Detalhes do Equipamento" icon={Smartphone}>
+        <SectionCard
+          title={isVehicleOrder ? "Detalhes do Veículo" : "Detalhes do Equipamento"}
+          icon={isVehicleOrder ? CarFront : Smartphone}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             {deviceFields.map((field) => (
               <InfoField
@@ -383,7 +453,7 @@ export function ServiceOrderDocument({
           {checklistItems.length > 0 && !isWarrantyMode ? (
             <div className="mt-4 border-t border-slate-200 pt-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                Check-in do aparelho
+                {isVehicleOrder ? "Check-in do veículo" : "Check-in do aparelho"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {checklistItems.map((item) => (
@@ -419,7 +489,7 @@ export function ServiceOrderDocument({
               data.observations,
               isWarrantyMode
                 ? "Serviço concluído sem laudo complementar registrado."
-                : "Laudo técnico pendente. O diagnóstico detalhado será anexado após a análise do equipamento.",
+                : `Laudo técnico pendente. O diagnóstico detalhado será anexado após a análise do ${isVehicleOrder ? "veículo" : "equipamento"}.`,
             )}
           </p>
         </SectionCard>
@@ -521,13 +591,13 @@ export function ServiceOrderDocument({
       <div className="mt-4 rounded-[24px] border border-[#FACC15] bg-[#FFFDE7] px-5 py-4 text-sm leading-6 text-slate-800">
         <p className="font-semibold uppercase tracking-[0.18em] text-[#B45309]">
           {isWarrantyMode
-            ? LEGAL_NOTICE.warrantyHighlightTitle
-            : LEGAL_NOTICE.intakeHighlightTitle}
+            ? activeLegalNotice.warrantyHighlightTitle
+            : activeLegalNotice.intakeHighlightTitle}
         </p>
         <p className="mt-2">
           {isWarrantyMode
-            ? LEGAL_NOTICE.warrantyHighlightText
-            : LEGAL_NOTICE.intakeHighlightText}
+            ? activeLegalNotice.warrantyHighlightText
+            : activeLegalNotice.intakeHighlightText}
         </p>
       </div>
 
@@ -537,8 +607,8 @@ export function ServiceOrderDocument({
         </p>
         <div className="mt-3 space-y-2">
           {(isWarrantyMode
-            ? LEGAL_NOTICE.warrantyClauses
-            : LEGAL_NOTICE.intakeClauses
+            ? activeLegalNotice.warrantyClauses
+            : activeLegalNotice.intakeClauses
           ).map((clause) => (
             <p key={clause}>{clause}</p>
           ))}

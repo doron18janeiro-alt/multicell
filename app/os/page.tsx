@@ -69,6 +69,7 @@ export default function ServiceOrders() {
       os.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       os.id?.toString().includes(searchTerm) ||
       os.deviceModel?.toLowerCase().includes(searchTerm) ||
+      (os.checklist?.auto?.plate || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (os.clientCpf || "").replace(/\D/g, "").includes(searchTerm.replace(/\D/g, "")),
   );
 
@@ -95,7 +96,7 @@ export default function ServiceOrders() {
             <Search className="absolute left-3 top-3 text-amber-300 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar por nome, CPF ou protocolo..."
+              placeholder="Buscar por nome, CPF, placa ou protocolo..."
               className="w-full bg-[#0B1120] border border-amber-400/40 rounded-lg py-2 pl-10 pr-4 text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -110,7 +111,7 @@ export default function ServiceOrders() {
               <tr>
                 <th className="p-4">O.S #</th>
                 <th className="p-4">Cliente</th>
-                <th className="p-4">Aparelho</th>
+                <th className="p-4">Veículo / Equipamento</th>
                 <th className="p-4">Defeito</th>
                 <th className="p-4">Status</th>
                 <th className="p-4">Valor</th>
@@ -146,7 +147,16 @@ export default function ServiceOrders() {
                       </div>
                     </td>
                     <td className="p-4 text-slate-300">
-                      {os.deviceBrand} {os.deviceModel}
+                      <div className="space-y-1">
+                        <p>
+                          {os.deviceBrand} {os.deviceModel}
+                        </p>
+                        {os.checklist?.auto?.plate ? (
+                          <p className="text-xs text-slate-500">
+                            Placa: {os.checklist.auto.plate}
+                          </p>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="p-4 text-slate-400 max-w-50 truncate">
                       {os.problem}

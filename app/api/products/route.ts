@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, isAdminUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { normalizeBarcode } from "@/lib/barcode";
+import {
+  buildVehicleDuplicateWhere,
+  buildVehicleProductData,
+  normalizeVehicleProfileInput,
+  validateVehicleProfile,
+} from "@/lib/vehicle-product";
+import { normalizeVehiclePlate } from "@/lib/segment-specialization";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category");
   const search = searchParams.get("search");
   const barcode = normalizeBarcode(searchParams.get("barcode"));
+  const plate = normalizeVehiclePlate(searchParams.get("plate"));
 
   try {
     const currentUser = await getCurrentUser();
@@ -25,13 +33,21 @@ export async function GET(request: Request) {
 
     if (barcode) {
       where.barcode = barcode;
+    } else if (plate) {
+      where.vehiclePlate = plate;
     } else if (search) {
       const normalizedSearch = normalizeBarcode(search);
+      const normalizedPlate = normalizeVehiclePlate(search);
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { id: { contains: search } },
         { barcode: { contains: search, mode: "insensitive" } },
+        { vehicleBrand: { contains: search, mode: "insensitive" } },
+        { vehicleModel: { contains: search, mode: "insensitive" } },
+        { vehiclePlate: { contains: search, mode: "insensitive" } },
+        { vehicleChassis: { contains: search, mode: "insensitive" } },
         ...(normalizedSearch ? [{ barcode: normalizedSearch }] : []),
+        ...(normalizedPlate ? [{ vehiclePlate: normalizedPlate }] : []),
       ];
     }
 
@@ -88,8 +104,14 @@ export async function POST(request: Request) {
       barcode,
     } = body;
     const parsedMinQuantity = parseInt(minQuantity?.toString() || "2") || 2;
+    const vehicleProfile = normalizeVehicleProfileInput(body);
 
     const normalizedBarcode = normalizeBarcode(barcode);
+    const vehicleValidationError = validateVehicleProfile(category, vehicleProfile);
+
+    if (vehicleValidationError) {
+      return NextResponse.json({ error: vehicleValidationError }, { status: 400 });
+    }
 
     if (normalizedBarcode) {
       const existingBarcode = await prisma.product.findFirst({
@@ -108,6 +130,33 @@ export async function POST(request: Request) {
       }
     }
 
+    const duplicateVehicleWhere = buildVehicleDuplicateWhere(
+      currentUser.companyId,
+      vehicleProfile,
+    );
+
+    if (duplicateVehicleWhere) {
+      const duplicateVehicle = await prisma.product.findFirst({
+        where: duplicateVehicleWhere,
+        select: {
+          id: true,
+          vehiclePlate: true,
+          vehicleChassis: true,
+          vehicleRenavam: true,
+        },
+      });
+
+      if (duplicateVehicle) {
+        return NextResponse.json(
+          {
+            error:
+              "Já existe um veículo cadastrado com a mesma placa, chassi ou renavam.",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     const product = await prisma.product.create({
       data: {
         name,
@@ -120,6 +169,7 @@ export async function POST(request: Request) {
         supplierId: supplierId || null,
         barcode: normalizedBarcode || null,
         companyId: currentUser.companyId,
+        ...buildVehicleProductData(category, vehicleProfile),
       },
     });
 

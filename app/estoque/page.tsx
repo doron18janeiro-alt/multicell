@@ -13,6 +13,7 @@ import {
   Trash2,
   ScanBarcode,
   MessageCircle,
+  CarFront,
 } from "lucide-react";
 import { BarcodeScannerModal } from "@/components/BarcodeScannerModal";
 import { useBarcodeListener } from "@/hooks/useBarcodeListener";
@@ -21,6 +22,18 @@ import { barcodeMatches, normalizeBarcode } from "@/lib/barcode";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { formatWhatsAppLink } from "@/lib/whatsapp";
 import { isProductLowStock, resolveProductMinStock } from "@/lib/stock-alerts";
+import {
+  formatVehiclePlate,
+  getDefaultProductCategory,
+  getProductCategoryLabel,
+  getSegmentProductCategories,
+  getVehicleFuelLabel,
+  getVehicleSteeringLabel,
+  isVehicleCategory,
+  normalizeVehiclePlate,
+  VEHICLE_FUEL_OPTIONS,
+  VEHICLE_STEERING_OPTIONS,
+} from "@/lib/segment-specialization";
 
 interface Product {
   id: string;
@@ -33,6 +46,22 @@ interface Product {
   minQuantity: number;
   category: string;
   supplierId?: string;
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehiclePlate?: string | null;
+  vehicleChassis?: string | null;
+  vehicleRenavam?: string | null;
+  vehicleManufactureYear?: number | null;
+  vehicleModelYear?: number | null;
+  vehicleEngine?: string | null;
+  vehicleFuel?: string | null;
+  vehicleAirConditioning?: boolean | null;
+  vehicleAirbag?: boolean | null;
+  vehicleSteering?: string | null;
+  vehiclePowerWindows?: boolean | null;
+  vehicleAlarm?: boolean | null;
+  vehicleMultimedia?: boolean | null;
+  vehicleAdditionalInfo?: string | null;
   supplier?: {
     id: string;
     name: string;
@@ -55,15 +84,61 @@ type RestockRequestState = {
   quantity: string;
 } | null;
 
-const createEmptyProductForm = (barcode = "") => ({
+type ProductFormState = {
+  name: string;
+  barcode: string;
+  price: string;
+  costPrice: string;
+  stockQuantity: string;
+  minQuantity: string;
+  category: string;
+  supplierId: string;
+  vehicleBrand: string;
+  vehicleModel: string;
+  vehiclePlate: string;
+  vehicleChassis: string;
+  vehicleRenavam: string;
+  vehicleManufactureYear: string;
+  vehicleModelYear: string;
+  vehicleEngine: string;
+  vehicleFuel: string;
+  vehicleAirConditioning: boolean;
+  vehicleAirbag: boolean;
+  vehicleSteering: string;
+  vehiclePowerWindows: boolean;
+  vehicleAlarm: boolean;
+  vehicleMultimedia: boolean;
+  vehicleAdditionalInfo: string;
+};
+
+const createEmptyProductForm = (
+  defaultCategory: string,
+  barcode = "",
+): ProductFormState => ({
   name: "",
   barcode,
   price: "",
   costPrice: "",
   stockQuantity: "",
   minQuantity: "2",
-  category: "PECA",
+  category: defaultCategory,
   supplierId: "",
+  vehicleBrand: "",
+  vehicleModel: "",
+  vehiclePlate: "",
+  vehicleChassis: "",
+  vehicleRenavam: "",
+  vehicleManufactureYear: "",
+  vehicleModelYear: "",
+  vehicleEngine: "",
+  vehicleFuel: "",
+  vehicleAirConditioning: false,
+  vehicleAirbag: false,
+  vehicleSteering: "",
+  vehiclePowerWindows: false,
+  vehicleAlarm: false,
+  vehicleMultimedia: false,
+  vehicleAdditionalInfo: "",
 });
 
 export default function Estoque() {
@@ -74,7 +149,9 @@ export default function Estoque() {
   const [categoryFilter, setCategoryFilter] = useState("TODOS");
   const [activeTab, setActiveTab] = useState<"ALL" | "BUY">("ALL");
   const [loading, setLoading] = useState(true);
-  const { role: userRole } = useSegment();
+  const { role: userRole, segment } = useSegment();
+  const categoryOptions = getSegmentProductCategories(segment);
+  const defaultCategory = getDefaultProductCategory(segment);
   const [scannerOpen, setScannerOpen] = useState(false);
   const productsRefreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -83,7 +160,9 @@ export default function Estoque() {
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
-  const [formData, setFormData] = useState(createEmptyProductForm);
+  const [formData, setFormData] = useState<ProductFormState>(() =>
+    createEmptyProductForm(defaultCategory),
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [supplierData, setSupplierData] = useState({
     name: "",
@@ -106,6 +185,23 @@ export default function Estoque() {
   const handledQueryBarcodeRef = useRef("");
   const [restockRequest, setRestockRequest] =
     useState<RestockRequestState>(null);
+  const isVehicleForm = isVehicleCategory(formData.category);
+  const availableCategoryFilters = Array.from(
+    new Map(
+      [
+        ...categoryOptions,
+        ...products.map((product) => ({
+          value: product.category,
+          label: getProductCategoryLabel(product.category),
+        })),
+      ].map((option) => [option.value, option]),
+    ).values(),
+  );
+
+  const resetForm = useCallback(
+    (barcode = "") => createEmptyProductForm(defaultCategory, barcode),
+    [defaultCategory],
+  );
 
   useEffect(() => {
     fetchProducts();
@@ -165,9 +261,9 @@ export default function Estoque() {
 
   const handleOpenNewProductForm = useCallback((barcode = "") => {
     setEditingId(null);
-    setFormData(createEmptyProductForm(barcode));
+    setFormData(resetForm(barcode));
     setShowForm(true);
-  }, []);
+  }, [resetForm]);
 
   const handleBarcodePrefill = useCallback(
     (barcode: string) => {
@@ -258,6 +354,22 @@ export default function Estoque() {
       minQuantity: product.minQuantity.toString(),
       category: product.category,
       supplierId: product.supplierId || "",
+      vehicleBrand: product.vehicleBrand || "",
+      vehicleModel: product.vehicleModel || "",
+      vehiclePlate: product.vehiclePlate || "",
+      vehicleChassis: product.vehicleChassis || "",
+      vehicleRenavam: product.vehicleRenavam || "",
+      vehicleManufactureYear: product.vehicleManufactureYear?.toString() || "",
+      vehicleModelYear: product.vehicleModelYear?.toString() || "",
+      vehicleEngine: product.vehicleEngine || "",
+      vehicleFuel: product.vehicleFuel || "",
+      vehicleAirConditioning: Boolean(product.vehicleAirConditioning),
+      vehicleAirbag: Boolean(product.vehicleAirbag),
+      vehicleSteering: product.vehicleSteering || "",
+      vehiclePowerWindows: Boolean(product.vehiclePowerWindows),
+      vehicleAlarm: Boolean(product.vehicleAlarm),
+      vehicleMultimedia: Boolean(product.vehicleMultimedia),
+      vehicleAdditionalInfo: product.vehicleAdditionalInfo || "",
     });
     setShowForm(true);
   };
@@ -291,6 +403,7 @@ export default function Estoque() {
       const payload = {
         ...formData,
         barcode: normalizeBarcode(formData.barcode),
+        vehiclePlate: normalizeVehiclePlate(formData.vehiclePlate),
         price: formData.price.replace(",", "."),
         costPrice: formData.costPrice.replace(",", "."),
       };
@@ -306,7 +419,7 @@ export default function Estoque() {
           editingId ? "Produto atualizado!" : "Produto cadastrado com sucesso!",
         );
         setEditingId(null);
-        setFormData(createEmptyProductForm());
+        setFormData(resetForm());
         setShowForm(false);
         fetchProducts();
       } else {
@@ -316,6 +429,38 @@ export default function Estoque() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setFormData((current) => {
+      if (isVehicleCategory(category)) {
+        return {
+          ...current,
+          category,
+        };
+      }
+
+      return {
+        ...current,
+        category,
+        vehicleBrand: "",
+        vehicleModel: "",
+        vehiclePlate: "",
+        vehicleChassis: "",
+        vehicleRenavam: "",
+        vehicleManufactureYear: "",
+        vehicleModelYear: "",
+        vehicleEngine: "",
+        vehicleFuel: "",
+        vehicleAirConditioning: false,
+        vehicleAirbag: false,
+        vehicleSteering: "",
+        vehiclePowerWindows: false,
+        vehicleAlarm: false,
+        vehicleMultimedia: false,
+        vehicleAdditionalInfo: "",
+      };
+    });
   };
 
   const handleCreateSupplier = async (e: React.FormEvent) => {
@@ -348,6 +493,7 @@ export default function Estoque() {
       "Nome",
       "Código de Barras",
       "Categoria",
+      "Placa",
       "Preço Venda",
       "Preço Custo",
       "Estoque",
@@ -360,7 +506,8 @@ export default function Estoque() {
       return [
         `"${p.name}"`,
         `"${p.barcode || ""}"`,
-        p.category,
+        getProductCategoryLabel(p.category),
+        `"${formatVehiclePlate(p.vehiclePlate) || ""}"`,
         p.salePrice,
         p.costPrice,
         p.stock,
@@ -469,11 +616,20 @@ export default function Estoque() {
   const filteredProducts = (Array.isArray(products) ? products : []).filter(
     (p) => {
       const normalizedSearch = normalizeBarcode(searchTerm);
+      const normalizedPlate = normalizeVehiclePlate(searchTerm);
       const lowercaseSearch = searchTerm.toLowerCase();
       const matchesSearch =
         p.name.toLowerCase().includes(lowercaseSearch) ||
         String(p.barcode || "").toLowerCase().includes(lowercaseSearch) ||
-        barcodeMatches(p.barcode, normalizedSearch);
+        String(p.vehicleBrand || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleModel || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleChassis || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehicleRenavam || "").toLowerCase().includes(lowercaseSearch) ||
+        String(p.vehiclePlate || "").toLowerCase().includes(lowercaseSearch) ||
+        barcodeMatches(p.barcode, normalizedSearch) ||
+        (normalizedPlate
+          ? normalizeVehiclePlate(p.vehiclePlate).includes(normalizedPlate)
+          : false);
       const matchesCategory =
         categoryFilter === "TODOS" || p.category === categoryFilter;
       const matchesTab =
@@ -493,6 +649,34 @@ export default function Estoque() {
 
   const getSupplierPhone = (supplier: Supplier | Product["supplier"]) =>
     supplier?.whatsapp || supplier?.contact || "";
+
+  const getProductDisplayName = (product: Product) => {
+    if (!isVehicleCategory(product.category)) {
+      return product.name;
+    }
+
+    const identity = [product.vehicleBrand, product.vehicleModel]
+      .filter(Boolean)
+      .join(" ");
+
+    return identity || product.name;
+  };
+
+  const getProductSubtitle = (product: Product) => {
+    if (!isVehicleCategory(product.category)) {
+      return product.barcode || "";
+    }
+
+    return [
+      formatVehiclePlate(product.vehiclePlate),
+      product.vehicleEngine,
+      product.vehicleManufactureYear && product.vehicleModelYear
+        ? `${product.vehicleManufactureYear}/${product.vehicleModelYear}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(" • ");
+  };
 
   const selectedRestockSupplier = restockRequest
     ? suppliers.find((supplier) => supplier.id === restockRequest.supplierId) || null
@@ -533,6 +717,25 @@ export default function Estoque() {
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     setRestockRequest(null);
   };
+
+  const hasInvalidBasePricing =
+    !formData.name ||
+    !formData.price ||
+    isNaN(parseFloat(formData.price.replace(",", "."))) ||
+    parseFloat(formData.price.replace(",", ".")) <= 0 ||
+    !formData.costPrice ||
+    isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
+    parseFloat(formData.costPrice.replace(",", ".")) < 0;
+
+  const hasInvalidVehicleProfile =
+    isVehicleForm &&
+    (
+      !formData.vehicleBrand ||
+      !formData.vehicleModel ||
+      !formData.vehiclePlate ||
+      !formData.vehicleChassis ||
+      !formData.vehicleRenavam
+    );
 
   return (
     <div className="min-h-full w-full bg-[#0B1120] text-slate-100">
@@ -618,7 +821,11 @@ export default function Estoque() {
             <Search className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Buscar produto..."
+              placeholder={
+                segment === "AUTO"
+                  ? "Buscar por nome, placa, chassi ou renavam..."
+                  : "Buscar produto..."
+              }
               className="w-full bg-[#0B1120] border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:border-[#FFD700]"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -630,9 +837,11 @@ export default function Estoque() {
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
             <option value="TODOS">Todas Categorias</option>
-            <option value="PECA">Peças</option>
-            <option value="ACESSORIO">Acessórios</option>
-            <option value="APARELHO">Aparelhos</option>
+            {availableCategoryFilters.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -655,10 +864,15 @@ export default function Estoque() {
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-lg font-semibold text-white">
-                          {product.name}
+                          {getProductDisplayName(product)}
                         </p>
                         <p className="mt-1 text-sm text-slate-400">
-                          {product.category} • {product.barcode || "Sem código"}
+                          {getProductCategoryLabel(product.category)}
+                          {getProductSubtitle(product)
+                            ? ` • ${getProductSubtitle(product)}`
+                            : product.barcode
+                              ? ` • ${product.barcode}`
+                              : ""}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                           <span className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-red-100">
@@ -734,17 +948,21 @@ export default function Estoque() {
                       >
                         <td className="p-4 font-medium text-white">
                           <div className="space-y-1">
-                            <p>{product.name}</p>
-                            {product.barcode && (
+                            <p>{getProductDisplayName(product)}</p>
+                            {getProductSubtitle(product) ? (
+                              <p className="text-xs text-slate-500">
+                                {getProductSubtitle(product)}
+                              </p>
+                            ) : product.barcode ? (
                               <p className="text-xs text-slate-500">
                                 {product.barcode}
                               </p>
-                            )}
+                            ) : null}
                           </div>
                         </td>
                         <td className="p-4 text-slate-300">
                           <span className="px-2 py-1 rounded bg-slate-800 text-xs">
-                            {product.category}
+                            {getProductCategoryLabel(product.category)}
                           </span>
                         </td>
                         <td className="p-4 text-slate-400">
@@ -946,51 +1164,87 @@ export default function Estoque() {
         {/* Modal Create Product */}
         {showForm && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-            <div className="bg-[#112240] p-8 rounded-xl border border-slate-700 w-full max-w-md">
+            <div
+              className={`bg-[#112240] p-8 rounded-xl border border-slate-700 w-full ${
+                isVehicleForm ? "max-w-5xl" : "max-w-md"
+              }`}
+            >
               <h2 className="text-2xl font-bold text-white mb-6">
-                {editingId ? "Editar Produto" : "Novo Produto"}
+                {editingId
+                  ? isVehicleForm
+                    ? "Editar Veículo"
+                    : "Editar Produto"
+                  : isVehicleForm
+                    ? "Novo Veículo"
+                    : "Novo Produto"}
               </h2>
-              <form onSubmit={handleCreateProduct} className="space-y-4">
-                <div>
-                  <label className="block text-slate-400 mb-1">Nome</label>
-                  <input
-                    required
-                    type="text"
-                    className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">
-                    Código de Barras
-                  </label>
-                  <div className="flex gap-2">
+              <form onSubmit={handleCreateProduct} className="space-y-5">
+                <div className={isVehicleForm ? "grid grid-cols-1 lg:grid-cols-2 gap-4" : "space-y-4"}>
+                  <div className={isVehicleForm ? "lg:col-span-2" : ""}>
+                    <label className="block text-slate-400 mb-1">
+                      {isVehicleForm ? "Nome do anúncio / título" : "Nome"}
+                    </label>
                     <input
+                      required
                       type="text"
                       className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.barcode}
+                      value={formData.name}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          barcode: e.target.value,
-                        })
+                        setFormData({ ...formData, name: e.target.value })
                       }
-                      placeholder="Bipe o leitor ou use a câmera"
+                      placeholder={
+                        isVehicleForm
+                          ? "Ex: Volkswagen Gol 1.6 Highline"
+                          : ""
+                      }
                     />
-                    <button
-                      type="button"
-                      onClick={() => setScannerOpen(true)}
-                      className="inline-flex items-center justify-center rounded border border-sky-400/40 bg-sky-500/10 px-3 text-sky-200 transition-colors hover:bg-sky-500/20"
-                      title="Escanear código de barras"
-                    >
-                      <ScanBarcode className="h-5 w-5" />
-                    </button>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+
+                  <div>
+                    <label className="block text-slate-400 mb-1">
+                      Código de Barras
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                        value={formData.barcode}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            barcode: e.target.value,
+                          })
+                        }
+                        placeholder="Bipe o leitor ou use a câmera"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setScannerOpen(true)}
+                        className="inline-flex items-center justify-center rounded border border-sky-400/40 bg-sky-500/10 px-3 text-sky-200 transition-colors hover:bg-sky-500/20"
+                        title="Escanear código de barras"
+                      >
+                        <ScanBarcode className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1">
+                      Categoria
+                    </label>
+                    <select
+                      className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
+                      value={formData.category}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                    >
+                      {categoryOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-slate-400 mb-1">
                       Preço Custo
@@ -1023,6 +1277,7 @@ export default function Estoque() {
                         </p>
                       )}
                   </div>
+
                   <div>
                     <label className="block text-slate-400 mb-1">
                       Preço Venda
@@ -1049,8 +1304,7 @@ export default function Estoque() {
                       </p>
                     )}
                   </div>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
+
                   <div>
                     <label className="block text-slate-400 mb-1">Estoque</label>
                     <input
@@ -1066,6 +1320,7 @@ export default function Estoque() {
                       }
                     />
                   </div>
+
                   <div>
                     <label className="block text-slate-400 mb-1">Mínimo</label>
                     <input
@@ -1081,69 +1336,316 @@ export default function Estoque() {
                       }
                     />
                   </div>
-                  <div>
+
+                  <div className={isVehicleForm ? "lg:col-span-2" : ""}>
                     <label className="block text-slate-400 mb-1">
-                      Categoria
+                      Fornecedor
                     </label>
                     <select
                       className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                      value={formData.category}
+                      value={formData.supplierId}
                       onChange={(e) =>
-                        setFormData({ ...formData, category: e.target.value })
+                        setFormData({ ...formData, supplierId: e.target.value })
                       }
                     >
-                      <option value="PECA">Peça</option>
-                      <option value="ACESSORIO">Acessório</option>
-                      <option value="APARELHO">Aparelho Telefônico</option>
+                      <option value="">Sem Fornecedor</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-slate-400 mb-1">
-                    Fornecedor
-                  </label>
-                  <select
-                    className="w-full bg-[#0B1120] border border-slate-700 rounded p-2 text-white"
-                    value={formData.supplierId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, supplierId: e.target.value })
-                    }
-                  >
-                    <option value="">Sem Fornecedor</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+
+                {isVehicleForm && (
+                  <div className="rounded-2xl border border-amber-400/20 bg-[#0B1120] p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="rounded-full bg-amber-400/10 p-2 text-amber-300">
+                        <CarFront className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-300">
+                          Ficha Técnica Veicular
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          Cadastro completo para estoque e O.S. automotiva.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-slate-400 mb-1">Marca</label>
+                        <input
+                          required={isVehicleForm}
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleBrand}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleBrand: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Modelo</label>
+                        <input
+                          required={isVehicleForm}
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleModel}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleModel: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Placa</label>
+                        <input
+                          required={isVehicleForm}
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white uppercase"
+                          value={formData.vehiclePlate}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehiclePlate: normalizeVehiclePlate(e.target.value),
+                            })
+                          }
+                          placeholder="ABC1D23"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Chassi</label>
+                        <input
+                          required={isVehicleForm}
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white uppercase"
+                          value={formData.vehicleChassis}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleChassis: e.target.value.toUpperCase(),
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">Renavam</label>
+                        <input
+                          required={isVehicleForm}
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleRenavam}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleRenavam: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Motorização
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleEngine}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleEngine: e.target.value,
+                            })
+                          }
+                          placeholder="1.0, 1.6, 2.0 Turbo..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Ano Fabricação
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleManufactureYear}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleManufactureYear: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Ano Modelo
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleModelYear}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleModelYear: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Combustível
+                        </label>
+                        <select
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleFuel}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleFuel: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          {VEHICLE_FUEL_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-slate-400 mb-1">
+                          Direção
+                        </label>
+                        <select
+                          className="w-full bg-[#112240] border border-slate-700 rounded p-2 text-white"
+                          value={formData.vehicleSteering}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              vehicleSteering: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="">Selecione</option>
+                          {VEHICLE_STEERING_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <p className="mb-3 text-sm font-semibold text-white">
+                        Acessórios e itens embarcados
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {[
+                          {
+                            key: "vehicleAirConditioning",
+                            label: "Ar Condicionado",
+                          },
+                          { key: "vehicleAirbag", label: "Airbag" },
+                          {
+                            key: "vehiclePowerWindows",
+                            label: "Vidro Elétrico",
+                          },
+                          { key: "vehicleAlarm", label: "Alarme" },
+                          {
+                            key: "vehicleMultimedia",
+                            label: "Som / Multimídia",
+                          },
+                        ].map((item) => (
+                          <label
+                            key={item.key}
+                            className="flex items-center gap-3 rounded-xl border border-slate-700 bg-[#112240] px-4 py-3 text-sm text-slate-200"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={Boolean(
+                                formData[item.key as keyof ProductFormState],
+                              )}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  [item.key]: e.target.checked,
+                                })
+                              }
+                            />
+                            {item.label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <label className="block text-slate-400 mb-1">
+                        Informações adicionais / histórico
+                      </label>
+                      <textarea
+                        className="w-full min-h-28 bg-[#112240] border border-slate-700 rounded p-3 text-white resize-none"
+                        value={formData.vehicleAdditionalInfo}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            vehicleAdditionalInfo: e.target.value,
+                          })
+                        }
+                        placeholder="Observações sobre procedência, histórico de manutenção, acessórios, laudos e detalhes comerciais."
+                      />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 md:grid-cols-3 gap-3 text-xs text-slate-300">
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
+                        Combustível:{" "}
+                        <span className="font-semibold text-white">
+                          {getVehicleFuelLabel(formData.vehicleFuel)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3">
+                        Direção:{" "}
+                        <span className="font-semibold text-white">
+                          {getVehicleSteeringLabel(formData.vehicleSteering)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-700 bg-[#112240] px-4 py-3 col-span-2 md:col-span-1">
+                        Placa formatada:{" "}
+                        <span className="font-semibold text-white">
+                          {formatVehiclePlate(formData.vehiclePlate) || "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingId(null);
+                      setFormData(resetForm());
+                    }}
                     className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded font-bold"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    disabled={
-                      !formData.name ||
-                      !formData.price ||
-                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
-                      parseFloat(formData.price.replace(",", ".")) <= 0 ||
-                      !formData.costPrice ||
-                      isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
-                      parseFloat(formData.costPrice.replace(",", ".")) < 0
-                    }
+                    disabled={hasInvalidBasePricing || hasInvalidVehicleProfile}
                     className={`flex-1 py-2 rounded font-bold transition-colors ${
-                      !formData.name ||
-                      !formData.price ||
-                      isNaN(parseFloat(formData.price.replace(",", "."))) ||
-                      parseFloat(formData.price.replace(",", ".")) <= 0 ||
-                      !formData.costPrice ||
-                      isNaN(parseFloat(formData.costPrice.replace(",", "."))) ||
-                      parseFloat(formData.costPrice.replace(",", ".")) < 0
+                      hasInvalidBasePricing || hasInvalidVehicleProfile
                         ? "bg-slate-600 text-slate-400 cursor-not-allowed"
                         : "bg-[#FFD700] hover:bg-[#E5C100] text-black"
                     }`}

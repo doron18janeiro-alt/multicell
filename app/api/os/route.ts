@@ -48,7 +48,9 @@ export async function POST(request: Request) {
       deviceModel,
       imei,
       passcode,
+      color,
       clientReport,
+      technicalObservations,
       checklist,
       totalPrice,
     } = body;
@@ -92,7 +94,9 @@ export async function POST(request: Request) {
         deviceModel,
         serialNumber: imei, // Mapeando imei para serialNumber
         devicePassword: passcode, // Mapeando passcode para devicePassword
+        deviceColor: color || checklist?.auto?.color || null,
         problem: clientReport || "Não informado", // Mapeando clientReport para problem
+        observations: technicalObservations || null,
         checklist: checklist || {},
         totalPrice: totalPrice ? parseFloat(totalPrice) : 0,
         customerId: customerId,

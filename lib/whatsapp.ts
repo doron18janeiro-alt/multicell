@@ -1,7 +1,13 @@
 export type WhatsAppChecklistSummary = {
+  assetType?: "vehicle";
   liga?: string;
   tela?: string;
   carcaca?: string;
+  plate?: string;
+  fuelLevel?: string;
+  mileage?: string;
+  color?: string;
+  externalDamage?: string;
 };
 
 export type WhatsAppMessageKind = "entry" | "ready" | "sale";
@@ -90,6 +96,22 @@ function formatDevice(deviceBrand?: string, deviceModel?: string) {
   return [deviceBrand, deviceModel].filter(Boolean).join(" ").trim() || "Equipamento não informado";
 }
 
+function formatTrackedAsset(
+  deviceBrand?: string,
+  deviceModel?: string,
+  checklist?: WhatsAppChecklistSummary,
+) {
+  if (checklist?.assetType === "vehicle") {
+    const vehicleLabel =
+      [deviceBrand, deviceModel].filter(Boolean).join(" ").trim() ||
+      "Veículo não informado";
+
+    return `${vehicleLabel}${checklist.plate ? ` (${checklist.plate})` : ""}`;
+  }
+
+  return formatDevice(deviceBrand, deviceModel);
+}
+
 function formatMoney(value?: number | string | null) {
   const numericValue = Number(value || 0);
   return currencyFormatter.format(Number.isFinite(numericValue) ? numericValue : 0);
@@ -107,12 +129,33 @@ function buildEntryMessage({
   osId,
   checklist,
 }: WhatsAppMessagePayload) {
+  if (checklist?.assetType === "vehicle") {
+    return [
+      `Olá, *${clientName}*! 👋`,
+      ``,
+      `Sua *Ordem de Serviço ${formatOrderId(osId)}* foi registrada com sucesso na *World Tech Manager*.`,
+      ``,
+      `🚗 *Veículo:* ${formatTrackedAsset(deviceBrand, deviceModel, checklist)}`,
+      `🔧 *Serviço solicitado:* ${problem || "Aguardando detalhamento técnico"}`,
+      ``,
+      `📋 *Check-in de entrada:*`,
+      `• *Combustível:* ${checklist.fuelLevel || "Não informado"}`,
+      `• *KM Atual:* ${checklist.mileage || "Não informado"}`,
+      `• *Cor:* ${checklist.color || "Não informada"}`,
+      `• *Avarias:* ${checklist.externalDamage || "Sem observações"}`,
+      ``,
+      `Seguiremos com a análise e novas atualizações serão enviadas por este canal.`,
+      ``,
+      `*Equipe World Tech Manager*`,
+    ].join("\n");
+  }
+
   return [
     `Olá, *${clientName}*! 👋`,
     ``,
     `Sua *Ordem de Serviço ${formatOrderId(osId)}* foi registrada com sucesso na *World Tech Manager*.`,
     ``,
-    `📱 *Equipamento:* ${formatDevice(deviceBrand, deviceModel)}`,
+    `📱 *Equipamento:* ${formatTrackedAsset(deviceBrand, deviceModel, checklist)}`,
     `🛠️ *Defeito informado:* ${problem || "Aguardando detalhamento técnico"}`,
     ``,
     `🔎 *Checklist de entrada:*`,
@@ -132,13 +175,29 @@ function buildReadyMessage({
   deviceModel,
   osId,
   totalPrice,
+  checklist,
 }: WhatsAppMessagePayload) {
+  if (checklist?.assetType === "vehicle") {
+    return [
+      `Olá, *${clientName}*! ✅`,
+      ``,
+      `Sua *Ordem de Serviço ${formatOrderId(osId)}* está *PRONTA* para retirada.`,
+      ``,
+      `🚗 *Veículo:* ${formatTrackedAsset(deviceBrand, deviceModel, checklist)}`,
+      `💰 *Valor final:* ${formatMoney(totalPrice)}`,
+      ``,
+      `Se precisar, responda esta mensagem para alinhar retirada ou dúvidas finais.`,
+      ``,
+      `*Equipe World Tech Manager*`,
+    ].join("\n");
+  }
+
   return [
     `Olá, *${clientName}*! ✅`,
     ``,
     `Sua *Ordem de Serviço ${formatOrderId(osId)}* está *PRONTA* para retirada.`,
     ``,
-    `📱 *Equipamento:* ${formatDevice(deviceBrand, deviceModel)}`,
+    `📱 *Equipamento:* ${formatTrackedAsset(deviceBrand, deviceModel, checklist)}`,
     `💰 *Valor final:* ${formatMoney(totalPrice)}`,
     ``,
     `Se precisar, responda esta mensagem para alinhar retirada ou dúvidas finais.`,

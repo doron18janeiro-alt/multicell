@@ -7,9 +7,11 @@ interface ServiceOrderData {
   deviceModel: string;
   deviceBrand: string;
   serialNumber?: string;
+  deviceColor?: string | null;
   problem: string;
   totalPrice?: number;
   createdAt?: string | Date;
+  checklist?: any;
 }
 
 interface CompanyConfig {
@@ -77,6 +79,10 @@ export const ServiceOrderThermalPrint = React.forwardRef<
 
   const resolvedDocument = config.cnpj || config.document;
   const resolvedLogoUrl = config.logoUrl?.trim() || "/wtm-badge.png";
+  const autoChecklist = data.checklist?.auto;
+  const isVehicleOrder = Boolean(autoChecklist?.plate);
+  const assetLabel = isVehicleOrder ? "Veículo" : "Aparelho";
+  const identifierLabel = isVehicleOrder ? "Placa" : "Serial/IMEI";
 
   return (
     <div
@@ -116,13 +122,25 @@ export const ServiceOrderThermalPrint = React.forwardRef<
 
       <div className="mb-2 space-y-1">
         <p>
-          <span className="font-bold">Aparelho:</span> {data.deviceBrand}{" "}
+          <span className="font-bold">{assetLabel}:</span> {data.deviceBrand}{" "}
           {data.deviceModel}
         </p>
         <p>
-          <span className="font-bold">Serial/IMEI:</span>{" "}
-          {data.serialNumber || "-"}
+          <span className="font-bold">{identifierLabel}:</span>{" "}
+          {autoChecklist?.plate || data.serialNumber || "-"}
         </p>
+        {isVehicleOrder ? (
+          <>
+            <p>
+              <span className="font-bold">Combustível:</span>{" "}
+              {autoChecklist?.fuelLevel || "Não informado"}
+            </p>
+            <p>
+              <span className="font-bold">KM Atual:</span>{" "}
+              {autoChecklist?.mileage || "Não informado"}
+            </p>
+          </>
+        ) : null}
         <p>
           <span className="font-bold">Problema Relatado:</span>
         </p>
@@ -145,9 +163,9 @@ export const ServiceOrderThermalPrint = React.forwardRef<
       <div className="text-center mt-4 text-[10px]">
         <p className="font-bold mb-1">TERMO DE GARANTIA</p>
         <p className="text-[9px] text-justify leading-tight mb-2">
-          Garantia de 90 dias para o serviço executado. A garantia será ANULADA
-          em caso de mau uso, quedas, contato com líquidos, oxidação ou selos de
-          segurança rompidos por terceiros.
+          {isVehicleOrder
+            ? "Garantia legal sobre o serviço executado. A cobertura não inclui mau uso, colisões, acidentes ou intervenções de terceiros."
+            : "Garantia de 90 dias para o serviço executado. A garantia será ANULADA em caso de mau uso, quedas, contato com líquidos, oxidação ou selos de segurança rompidos por terceiros."}
         </p>
         <p>
           Data de Entrada:{" "}
